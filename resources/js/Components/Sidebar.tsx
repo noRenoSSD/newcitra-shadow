@@ -44,11 +44,11 @@ const menuItems: MenuItem[] = [
         icon: <Database className="w-5 h-5" />,
         subMenus: [
             { label: "Data Supplier", path: "/supplier" },
-            { label: "Data Mitra", path: "/master/mitra" },
+            { label: "Data Mitra", path: "/mitra" },
             { label: "Data Karyawan", path: "/master/karyawan" },
             { label: "Data Bahan Baku", path: "/bahan-baku" },
             { label: "Data Bahan Penolong", path: "/bahan-penolong" },
-            { label: "Data Produk Jadi", path: "/master/produk-jadi" },
+            { label: "Data Produk Jadi", path: "/produk" },
             {
                 label: "Data Kebutuhan Material",
                 path: "/master/kebutuhan-material",
@@ -112,7 +112,7 @@ const menuItems: MenuItem[] = [
         label: "Penjualan",
         icon: <DollarSign className="w-5 h-5" />,
         subMenus: [
-            { label: "Pesanan Penjualan", path: "/penjualan/sales-order" },
+            { label: "Pesanan Penjualan", path: "/pesanan" },
             { label: "Penjualan", path: "/penjualan/invoice" },
             { label: "Surat Jalan", path: "/penjualan/surat-jalan" },
             { label: "Retur Penjualan", path: "/penjualan/retur" },

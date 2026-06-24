@@ -1,6 +1,7 @@
 <?php
 use App\Http\Controllers\BahanController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\MitraController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -16,6 +17,7 @@ Route::put('/bahan/{id}', [BahanController::class, 'update']);
 Route::delete('/bahan/{id}', [BahanController::class, 'destroy']);
 
 Route::resource('supplier', SupplierController::class);
+Route::resource('mitra', MitraController::class);
 Route::get('/', function () {
     return redirect('/login');
 });
@@ -35,10 +37,15 @@ require __DIR__.'/auth.php';
 use App\Http\Controllers\ProdukController;
 
 // Rute Master Produk Jadi
-Route::get('/produk-jadi', [ProdukController::class, 'index'])->name('produk.index');
-Route::post('/produk-jadi', [ProdukController::class, 'store']);
-Route::put('/produk-jadi/{id_produk}', [ProdukController::class, 'update']);
-Route::delete('/produk-jadi/{id_produk}', [ProdukController::class, 'destroy']);
+Route::get('/produk', [ProdukController::class, 'index'])->name('produk.index');
+// Route::post('/produk', [ProdukController::class, 'store']);
+// Route::put('/produk/{id_produk}', [ProdukController::class, 'update']);
+// Route::delete('/produk/{id_produk}', [ProdukController::class, 'destroy']);
+
+use App\Http\Controllers\HargaProdukController;
+
+Route::post('/harga-produk', [HargaProdukController::class, 'store']);
+Route::delete('/harga-produk/{id}', [HargaProdukController::class, 'destroy']);
 
 use App\Http\Controllers\PengeluaranController;
 
@@ -47,3 +54,10 @@ Route::get('/jenis-pengeluaran', [PengeluaranController::class, 'index'])->name(
 Route::post('/jenis-pengeluaran', [PengeluaranController::class, 'store']);
 Route::put('/jenis-pengeluaran/{id_pengeluaran}', [PengeluaranController::class, 'update']);
 Route::delete('/jenis-pengeluaran/{id_pengeluaran}', [PengeluaranController::class, 'destroy']);
+
+use App\Http\Controllers\PesananController;
+
+Route::get('/pesanan', [PesananController::class, 'index'])
+    ->name('pesanan.index');
+// Route::post('pesanan', [PesananController::class, 'store'])
+//     ->name('pesanan.store');
