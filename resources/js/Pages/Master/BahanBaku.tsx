@@ -24,6 +24,7 @@ export default function BahanBaku({ bahans }: Props) {
 
     const { data, setData, post, put, processing, reset } = useForm({
         jenis_bahan: "baku",
+        kode_bahan: "",
         nama_bahan: "",
         satuan_bahan: "",
         stok_min: "",
@@ -39,6 +40,7 @@ export default function BahanBaku({ bahans }: Props) {
     const handleEdit = (bahan: Bahan) => {
         setData({
             jenis_bahan: "baku",
+            kode_bahan: bahan.kode_bahan,
             nama_bahan: bahan.nama_bahan,
             satuan_bahan: bahan.satuan_bahan,
             stok_min: bahan.stok_min.toString(),
@@ -105,19 +107,21 @@ export default function BahanBaku({ bahans }: Props) {
 
                     <form onSubmit={handleSubmit}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {editMode && selectedBahan && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Kode Bahan
-                                    </label>
-                                    <input
-                                        type="text"
-                                        disabled
-                                        value={selectedBahan.kode_bahan}
-                                        className="w-full px-4 py-2 border border-gray-300 bg-gray-100 rounded-lg cursor-not-allowed"
-                                    />
-                                </div>
-                            )}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Kode Bahan Baku
+                                </label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={data.kode_bahan}
+                                    onChange={(e) =>
+                                        setData("kode_bahan", e.target.value)
+                                    }
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                                    placeholder="Contoh: BHN-01"
+                                />
+                            </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Nama Bahan Baku{" "}
