@@ -1,3 +1,51 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@theme inline {
+    /* ... (kode bawaan dari figmamu yang atas biarkan saja) ... */
+    --color-sidebar-ring: var(--sidebar-ring);
+
+    /* TAMBAHKAN INI BIAR BISA DIPAKAI DI CLASS TAILWIND */
+    --color-brand-red-50: var(--brand-red-50);
+    --color-brand-red-100: var(--brand-red-100);
+    --color-brand-red-500: var(--brand-red-500);
+    --color-brand-red-600: var(--brand-red-600);
+    --color-brand-red-800: var(--brand-red-800);
+    --color-brand-red-900: var(--brand-red-900);
+
+    --color-brand-gold-500: var(--brand-gold-500);
+    --color-brand-gold-600: var(--brand-gold-600);
+}
+
+@layer components {
+    /* Tombol Utama (Pakai warna Deep Red Figma) */
+    .btn-primary {
+        @apply flex items-center justify-center gap-2 px-4 py-2 font-medium text-white rounded-lg transition-colors disabled:opacity-50;
+        background-color: var(--brand-red-800);
+    }
+    .btn-primary:hover {
+        background-color: var(--brand-red-600);
+    }
+
+    /* Tombol Edit / Warning (Pakai warna Gold Figma) */
+    .btn-warning {
+        @apply flex items-center justify-center gap-2 px-4 py-2 font-medium text-white rounded-lg transition-colors;
+        background-color: var(--brand-gold-500);
+    }
+    .btn-warning:hover {
+        background-color: var(--brand-gold-600);
+    }
+
+    /* Tombol Batal / Putih */
+    .btn-secondary {
+        @apply px-4 py-2 font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors;
+    }
+
+    /* Standard Input Text */
+    .input-form {
+        @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent;
+        /* Outline fokus pakai red-900 dari figma */
+        --tw-ring-color: var(--brand-red-800);
+    }
+}

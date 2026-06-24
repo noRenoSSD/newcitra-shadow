@@ -43,11 +43,11 @@ const menuItems: MenuItem[] = [
         label: "Data Master",
         icon: <Database className="w-5 h-5" />,
         subMenus: [
-            { label: "Data Supplier", path: "/master/supplier" },
+            { label: "Data Supplier", path: "/supplier" },
             { label: "Data Mitra", path: "/master/mitra" },
             { label: "Data Karyawan", path: "/master/karyawan" },
-            { label: "Data Bahan Baku", path: "/master/bahan-baku" },
-            { label: "Data Bahan Penolong", path: "/master/bahan-penolong" },
+            { label: "Data Bahan Baku", path: "/bahan-baku" },
+            { label: "Data Bahan Penolong", path: "/bahan-penolong" },
             { label: "Data Produk Jadi", path: "/master/produk-jadi" },
             {
                 label: "Data Kebutuhan Material",
@@ -56,7 +56,7 @@ const menuItems: MenuItem[] = [
             { label: "Data Overhead", path: "/master/overhead" },
             {
                 label: "Data Jenis Pengeluaran",
-                path: "/master/jenis-pengeluaran",
+                path: "/jenis-pengeluaran",
             },
             { label: "Data Aset Tetap", path: "/master/aset-tetap" },
             { label: "Data Akun", path: "/master/akun" },
