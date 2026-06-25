@@ -2,40 +2,21 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use App\Models\Aset;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
-class DatabaseSeeder extends Seeder
+class AsetSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // 1. Seed Admin User
-        User::updateOrCreate(
-            ['email' => 'admin@gmail.com'],
-            [
-                'name' => 'Admin',
-                'password' => Hash::make('12345678'),
-            ]
-        );
-
-        // 2. Seed Data Aset (Contoh data)
-        $dataAset = [
+        $data = [
             ['kode_aset' => 'AST-001', 'nama_aset' => 'Mesin Presto 200 kg', 'tipe_aset' => 'mesin', 'tanggal_beli' => '2024-01-01', 'harga_perolehan' => 20000000, 'umur_ekonomis' => 5, 'nilai_sisa' => 5000000],
             ['kode_aset' => 'AST-002', 'nama_aset' => 'Mesin Vakum', 'tipe_aset' => 'mesin', 'tanggal_beli' => '2023-07-25', 'harga_perolehan' => 15000000, 'umur_ekonomis' => 5, 'nilai_sisa' => 5000000],
             ['kode_aset' => 'AST-003', 'nama_aset' => 'Mobil', 'tipe_aset' => 'kendaraan', 'tanggal_beli' => '2024-12-25', 'harga_perolehan' => 200000000, 'umur_ekonomis' => 10, 'nilai_sisa' => 10000000],
         ];
 
-        foreach ($dataAset as $item) {
-            // Kita gunakan updateOrCreate supaya kalau dijalankan berkali-kali tidak error duplikat
-            Aset::updateOrCreate(['kode_aset' => $item['kode_aset']], $item);
+        foreach ($data as $item) {
+            Aset::create($item);
         }
     }
 }
