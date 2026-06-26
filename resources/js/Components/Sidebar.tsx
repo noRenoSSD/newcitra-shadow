@@ -135,7 +135,7 @@ const menuItems: MenuItem[] = [
     {
         label: "Pengeluaran lain-lain",
         icon: <Wallet className="w-5 h-5" />,
-        path: "/pengeluaran-lain",
+        path: "/transaksi-pengeluaran",
     },
     {
         label: "Keuangan",

@@ -13,11 +13,19 @@ use App\Http\Controllers\ProdukController;
 use App\Http\Controllers\HargaProdukController;
 use App\Http\Controllers\PengeluaranController;
 use App\Http\Controllers\PesananController;
-use App\Http\Controllers\AsetController; 
+use App\Http\Controllers\AsetController;
 use App\Http\Controllers\KaryawanController;
 use App\Http\Controllers\OverheadController;
 use App\Http\Controllers\AkunController;
+use App\Http\Controllers\TransaksiPengeluaranController;
 
+// ... (rute lainnya)
+
+// Menampilkan halaman transaksi
+Route::get('/transaksi-pengeluaran', [TransaksiPengeluaranController::class, 'index'])->name('transaksi-pengeluaran.index');
+
+// Menyimpan data transaksi baru
+Route::post('/transaksi-pengeluaran', [TransaksiPengeluaranController::class, 'store'])->name('transaksi-pengeluaran.store');
 // Rute untuk menampilkan halaman (dipisah)
 Route::get('/bahan-baku', [BahanController::class, 'indexBaku']);
 Route::get('/bahan-penolong', [BahanController::class, 'indexPenolong']);
@@ -46,9 +54,12 @@ Route::post('/jenis-pengeluaran', [PengeluaranController::class, 'store']);
 Route::put('/jenis-pengeluaran/{id_pengeluaran}', [PengeluaranController::class, 'update']);
 Route::delete('/jenis-pengeluaran/{id_pengeluaran}', [PengeluaranController::class, 'destroy']);
 
+// Rute transaksi pengeluaran
+Route::get('/transaksi-pengeluaran', [TransaksiPengeluaranController::class, 'index'])->name('transaksi-pengeluaran.index');
+Route::post('/transaksi-pengeluaran', [TransaksiPengeluaranController::class, 'store'])->name('transaksi-pengeluaran.store');
 // Rute Pesanan
 Route::get('/pesanan', [PesananController::class, 'index'])->name('pesanan.index');
-// Route::post('pesanan', [PesananController::class, 'store'])->name('pesanan.store');
+Route::post('pesanan', [PesananController::class, 'store'])->name('pesanan.store');
 
 // --- RUTE ASET TETAP ---
 Route::get('/aset', [AsetController::class, 'index'])->name('aset.index');

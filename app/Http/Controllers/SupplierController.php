@@ -11,29 +11,31 @@ class SupplierController extends Controller
     // Menampilkan halaman utama
     public function index()
     {
+        // 1. Ambil data supplier terbaru
+        $suppliers = Supplier::orderBy('id', 'desc')->get();
+
+        // 2. Panggil fungsi generator kode otomatis dari Model Supplier
+        $kodeOtomatis = Supplier::generateKode();
+
         return Inertia::render('Master/Supplier', [
-            // Mengambil data supplier terbaru
-            'suppliers' => Supplier::orderBy('id', 'desc')->get(),
+            'suppliers' => $suppliers,
+            'kode_otomatis' => $kodeOtomatis // <-- Mengirim format SPL-0001, dst ke React
         ]);
     }
 
-    public function create()
-    {
-        return redirect()->route('supplier.index');
-    }
-
-    // MENYIMPAN DATA (Input manual dari frontend)
+    // MENYIMPAN DATA
     public function store(Request $request)
     {
         $request->validate([
-            'kode_supplier'   => 'required|max:50|unique:suppliers,kode_supplier', // Wajib diisi & unik
+            // PENTING: Target tabel validasi diganti ke 't_supplier' agar tidak SQLSTATE Error lagi!
+            'kode_supplier'   => 'required|max:50|unique:t_supplier,kode_supplier',
             'nama_supplier'   => 'required|max:50',
             'kontak_supplier' => 'required|max:50',
             'alamat_supplier' => 'required|max:100',
         ]);
 
         Supplier::create([
-            'kode_supplier'   => $request->kode_supplier, // Menangkap input teks manual
+            'kode_supplier'   => $request->kode_supplier,
             'nama_supplier'   => $request->nama_supplier,
             'kontak_supplier' => $request->kontak_supplier,
             'alamat_supplier' => $request->alamat_supplier,
@@ -42,25 +44,24 @@ class SupplierController extends Controller
         return redirect()->route('supplier.index')->with('success', 'Supplier berhasil ditambah!');
     }
 
-    // UPDATE DATA (Kode supplier bisa ikut diedit)
+    // UPDATE DATA
     public function update(Request $request, int $id)
     {
         $request->validate([
-            // Validasi unik, abaikan ID milik supplier ini sendiri agar tidak bentrok saat di-save
-            'kode_supplier'   => 'required|max:50|unique:suppliers,kode_supplier,' . $id . ',id_supplier',
+            // PENTING: Target tabel validasi diganti ke 't_supplier'
+            'kode_supplier'   => 'required|max:50|unique:t_supplier,kode_supplier,' . $id . ',id',
             'nama_supplier'   => 'required|max:50',
             'kontak_supplier' => 'required|max:50',
             'alamat_supplier' => 'required|max:100',
         ]);
 
         $supplier = Supplier::findOrFail($id);
-
-        // Update semua field termasuk kode_supplier yang diedit manual
         $supplier->update($request->only(['kode_supplier', 'nama_supplier', 'kontak_supplier', 'alamat_supplier']));
 
         return redirect()->route('supplier.index')->with('success', 'Supplier berhasil diubah!');
     }
 
+    // HAPUS DATA
     public function destroy(int $id)
     {
         $supplier = Supplier::findOrFail($id);

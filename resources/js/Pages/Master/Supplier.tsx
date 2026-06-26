@@ -11,10 +11,11 @@ interface Supplier {
 }
 
 interface Props {
-    suppliers: Supplier[];
+    suppliers: any[];
+    kode_otomatis: string; // Menangkap kode otomatis dari Laravel
 }
 
-export default function Supplier({ suppliers = [] }: Props) {
+export default function MasterSupplier({ suppliers, kode_otomatis }: Props) {
     const [showForm, setShowForm] = useState(false);
     const [showDetail, setShowDetail] = useState(false);
     const [editMode, setEditMode] = useState(false);
@@ -32,7 +33,7 @@ export default function Supplier({ suppliers = [] }: Props) {
 
     const handleAdd = () => {
         setFormData({
-            kode_supplier: "",
+            kode_supplier: kode_otomatis, // <-- Langsung set nilai input dengan kode otomatis dari props
             nama_supplier: "",
             kontak_supplier: "",
             alamat_supplier: "",
@@ -122,19 +123,24 @@ export default function Supplier({ suppliers = [] }: Props) {
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Kode Supplier *
                                 </label>
-                                {/* INPUT KODE AKTIF (BISA DIKETIK / DIUBAH MANUAL) */}
+                                {/* INPUT KODE DIKUNCI JIKA TAMBAH BARU (AGAR AUTOMATIC), BISA DIUBAH HANYA JIKA EDIT */}
                                 <input
                                     type="text"
                                     required
                                     value={formData.kode_supplier}
+                                    disabled={!editMode} // <-- Mengunci input jika mode "Tambah", terbuka jika mode "Edit"
                                     onChange={(e) =>
                                         setFormData({
                                             ...formData,
                                             kode_supplier: e.target.value,
                                         })
                                     }
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-900 focus:border-transparent"
-                                    placeholder="Contoh: SUP-01"
+                                    // className di bawah disesuaikan agar teks kode otomatis (S-001) terlihat kontras & jelas
+                                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-900 focus:border-transparent ${
+                                        !editMode
+                                            ? "bg-gray-100 border-gray-300 text-gray-800 font-bold cursor-not-allowed"
+                                            : "border-gray-300 text-gray-950"
+                                    }`}
                                 />
                             </div>
                             <div>
