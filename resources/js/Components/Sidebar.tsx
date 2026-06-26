@@ -45,14 +45,11 @@ const menuItems: MenuItem[] = [
         subMenus: [
             { label: "Data Supplier", path: "/supplier" },
             { label: "Data Mitra", path: "/mitra" },
-            { label: "Data Karyawan", path: "/karyawan" },
+            { label: "Data Divisi", path: "/divisi" },
             { label: "Data Bahan Baku", path: "/bahan-baku" },
             { label: "Data Bahan Penolong", path: "/bahan-penolong" },
             { label: "Data Produk Jadi", path: "/produk" },
-            {
-                label: "Data Kebutuhan Material",
-                path: "/master/kebutuhan-material",
-            },
+            { label: "Data Kebutuhan Material", path: "/kebutuhan-material" },
             { label: "Data Overhead", path: "/overhead" },
             {
                 label: "Data Jenis Pengeluaran",
@@ -67,11 +64,9 @@ const menuItems: MenuItem[] = [
         label: "Produksi",
         icon: <Factory className="w-5 h-5" />,
         subMenus: [
-            { label: "Jadwal Produksi", path: "/produksi/jadwal" },
-            {
-                label: "Persetujuan Jadwal Produksi",
-                path: "/produksi/persetujuan-jadwal",
-            },
+            // UBAH BARIS INI
+            { label: "Jadwal Produksi", path: "/jadwal-produksi" }, 
+            { label: "Persetujuan Jadwal Produksi", path: "/produksi/persetujuan-jadwal"},
             { label: "Harga Pokok Produksi", path: "/produksi/hpp" },
         ],
     },

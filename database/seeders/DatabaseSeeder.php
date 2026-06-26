@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use App\Models\Aset;
+use App\Models\Overhead; // <--- 1. Pastikan model Overhead di-import
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -12,9 +13,6 @@ class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
         // 1. Seed Admin User
@@ -26,16 +24,35 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // 2. Seed Data Aset (Contoh data)
-        $dataAset = [
-            ['kode_aset' => 'AST-001', 'nama_aset' => 'Mesin Presto 200 kg', 'tipe_aset' => 'mesin', 'tanggal_beli' => '2024-01-01', 'harga_perolehan' => 20000000, 'umur_ekonomis' => 5, 'nilai_sisa' => 5000000],
-            ['kode_aset' => 'AST-002', 'nama_aset' => 'Mesin Vakum', 'tipe_aset' => 'mesin', 'tanggal_beli' => '2023-07-25', 'harga_perolehan' => 15000000, 'umur_ekonomis' => 5, 'nilai_sisa' => 5000000],
-            ['kode_aset' => 'AST-003', 'nama_aset' => 'Mobil', 'tipe_aset' => 'kendaraan', 'tanggal_beli' => '2024-12-25', 'harga_perolehan' => 200000000, 'umur_ekonomis' => 10, 'nilai_sisa' => 10000000],
-        ];
+        // 2. Panggil Seed Data Aset
+        $this->call([
+        AsetSeeder::class, 
+        ]);
 
-        foreach ($dataAset as $item) {
-            // Kita gunakan updateOrCreate supaya kalau dijalankan berkali-kali tidak error duplikat
-            Aset::updateOrCreate(['kode_aset' => $item['kode_aset']], $item);
-        }
+        // 3. Panggil OverheadSeeder
+        $this->call([
+            OverheadSeeder::class,
+        ]);
+
+        // 4. Panggil AkunSeeder
+        $this->call([
+            AkunSeeder::class,
+        ]);
+
+        // 5. Panggil ProdukSeeder
+        $this->call([
+            ProdukSeeder::class,
+        ]);
+
+        // 6. Panggil BahanSeeder
+        $this->call([
+            BahanSeeder::class,
+        ]);
+
+        // 7. Panggil BomSeeder
+        $this->call([
+            BomSeeder::class,
+        ]);
+        
     }
 }

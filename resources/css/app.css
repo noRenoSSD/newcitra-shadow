@@ -2,50 +2,250 @@
 @tailwind components;
 @tailwind utilities;
 
-@theme inline {
-    /* ... (kode bawaan dari figmamu yang atas biarkan saja) ... */
-    --color-sidebar-ring: var(--sidebar-ring);
+@custom-variant dark (&:is(.dark *));
 
-    /* TAMBAHKAN INI BIAR BISA DIPAKAI DI CLASS TAILWIND */
-    --color-brand-red-50: var(--brand-red-50);
-    --color-brand-red-100: var(--brand-red-100);
-    --color-brand-red-500: var(--brand-red-500);
-    --color-brand-red-600: var(--brand-red-600);
-    --color-brand-red-800: var(--brand-red-800);
-    --color-brand-red-900: var(--brand-red-900);
+/* ─── 1. VARIABEL ASLI FIGMA (BENSIN) ────────────────────────────────────── */
+:root {
+  --font-size: 16px;
+  --background: #ffffff;
+  --foreground: oklch(0.145 0 0);
+  --card: #ffffff;
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: #030213;
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.95 0.0058 264.53);
+  --secondary-foreground: #030213;
+  --muted: #ececf0;
+  --muted-foreground: #717182;
+  --accent: #e9ebef;
+  --accent-foreground: #030213;
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: rgba(0, 0, 0, 0.1);
+  --input: transparent;
+  --input-background: #f3f3f5;
+  --switch-background: #cbced4;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: #030213;
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
 
-    --color-brand-gold-500: var(--brand-gold-500);
-    --color-brand-gold-600: var(--brand-gold-600);
+  /* CV New Citra Deep Red Theme */
+  --brand-red-50: #FEF2F2;
+  --brand-red-100: #FEE2E2;
+  --brand-red-200: #FECACA;
+  --brand-red-300: #FCA5A5;
+  --brand-red-400: #F87171;
+  --brand-red-500: #EF4444;
+  --brand-red-600: #DC2626;
+  --brand-red-700: #B91C1C;
+  --brand-red-800: #991B1B;
+  --brand-red-900: #7F1D1D;
+  --brand-red-950: #450A0A;
+
+  --brand-gold-50: #FFFBEB;
+  --brand-gold-100: #FEF3C7;
+  --brand-gold-200: #FDE68A;
+  --brand-gold-300: #FCD34D;
+  --brand-gold-400: #FBBF24;
+  --brand-gold-500: #F59E0B;
+  --brand-gold-600: #D97706;
+  --brand-gold-700: #B45309;
+  --brand-gold-800: #92400E;
+  --brand-gold-900: #78350F;
 }
 
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.439 0 0);
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
+}
+
+/* ─── 2. PEMETAAN TAILWIND V4 (MESIN) ────────────────────────────────────── */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Mapping Warna Custom Figma ke Class Tailwind */
+  --color-brand-red-50: var(--brand-red-50);
+  --color-brand-red-100: var(--brand-red-100);
+  --color-brand-red-500: var(--brand-red-500);
+  --color-brand-red-600: var(--brand-red-600);
+  --color-brand-red-800: var(--brand-red-800);
+  --color-brand-red-900: var(--brand-red-900);
+  --color-brand-gold-500: var(--brand-gold-500);
+  --color-brand-gold-600: var(--brand-gold-600);
+}
+
+/* ─── 3. TIPOGRAFI STANDAR FIGMA ─────────────────────────────────────────── */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+  
+  html {
+    font-size: var(--font-size);
+  }
+
+  h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h4 {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  label {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  button {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  input {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
+}
+
+/* ─── 4. KOMPONEN KUSTOM MILIKMU ─────────────────────────────────────────── */
 @layer components {
-    /* Tombol Utama (Pakai warna Deep Red Figma) */
-    .btn-primary {
-        @apply flex items-center justify-center gap-2 px-4 py-2 font-medium text-white rounded-lg transition-colors disabled:opacity-50;
-        background-color: var(--brand-red-800);
-    }
-    .btn-primary:hover {
-        background-color: var(--brand-red-600);
-    }
+  /* Tombol Utama (Pakai warna Deep Red Figma) */
+  .btn-primary {
+    @apply flex items-center justify-center gap-2 px-4 py-2 font-medium text-white rounded-lg transition-colors disabled:opacity-50;
+    background-color: var(--brand-red-800);
+  }
+  .btn-primary:hover {
+    background-color: var(--brand-red-600);
+  }
 
-    /* Tombol Edit / Warning (Pakai warna Gold Figma) */
-    .btn-warning {
-        @apply flex items-center justify-center gap-2 px-4 py-2 font-medium text-white rounded-lg transition-colors;
-        background-color: var(--brand-gold-500);
-    }
-    .btn-warning:hover {
-        background-color: var(--brand-gold-600);
-    }
+  /* Tombol Edit / Warning (Pakai warna Gold Figma) */
+  .btn-warning {
+    @apply flex items-center justify-center gap-2 px-4 py-2 font-medium text-white rounded-lg transition-colors;
+    background-color: var(--brand-gold-500);
+  }
+  .btn-warning:hover {
+    background-color: var(--brand-gold-600);
+  }
 
-    /* Tombol Batal / Putih */
-    .btn-secondary {
-        @apply px-4 py-2 font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors;
-    }
+  /* Tombol Batal / Putih */
+  .btn-secondary {
+    @apply px-4 py-2 font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors;
+  }
 
-    /* Standard Input Text */
-    .input-form {
-        @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent;
-        /* Outline fokus pakai red-900 dari figma */
-        --tw-ring-color: var(--brand-red-800);
-    }
+  /* Standard Input Text */
+  .input-form {
+    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent;
+    /* Outline fokus pakai red-900 dari figma */
+    --tw-ring-color: var(--brand-red-800);
+  }
 }

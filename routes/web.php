@@ -14,10 +14,13 @@ use App\Http\Controllers\HargaProdukController;
 use App\Http\Controllers\PengeluaranController;
 use App\Http\Controllers\PesananController;
 use App\Http\Controllers\AsetController;
-use App\Http\Controllers\KaryawanController;
+use App\Http\Controllers\DivisiController;
 use App\Http\Controllers\OverheadController;
 use App\Http\Controllers\AkunController;
 use App\Http\Controllers\TransaksiPengeluaranController;
+use App\Http\Controllers\BomController;
+use App\Http\Controllers\JadwalProduksiController;
+
 
 // ... (rute lainnya)
 
@@ -67,11 +70,11 @@ Route::post('/aset', [AsetController::class, 'store']);
 Route::put('/aset/{id}', [AsetController::class, 'update']);
 Route::delete('/aset/{id}', [AsetController::class, 'destroy']);
 
-// --- RUTE KARYAWAN ---
-Route::get('/karyawan', [KaryawanController::class, 'index']);
-Route::post('/karyawan', [KaryawanController::class, 'store']);
-Route::put('/karyawan/{id}', [KaryawanController::class, 'update']);
-Route::delete('/karyawan/{id}', [KaryawanController::class, 'destroy']);
+// --- RUTE DIVISI ---
+Route::get('/divisi', [DivisiController::class, 'index']);
+Route::post('/divisi', [DivisiController::class, 'store']);
+Route::put('/divisi/{id}', [DivisiController::class, 'update']);
+Route::delete('/divisi/{id}', [DivisiController::class, 'destroy']);
 
 // --- RUTE OVERHEAD ---
 Route::get('/overhead', [OverheadController::class, 'index']);
@@ -84,6 +87,18 @@ Route::get('/akun', [AkunController::class, 'index']);
 Route::post('/akun', [AkunController::class, 'store']);
 Route::put('/akun/{id}', [AkunController::class, 'update']);
 Route::delete('/akun/{id}', [AkunController::class, 'destroy']);
+
+// --- RUTE KEBUTUHAN MATERIAL (BOM) ---
+Route::get('/kebutuhan-material', [BomController::class, 'index']);
+Route::post('/kebutuhan-material', [BomController::class, 'store']);
+Route::put('/kebutuhan-material/{id}', [BomController::class, 'update']);
+Route::delete('/kebutuhan-material/{id}', [BomController::class, 'destroy']);
+
+// --- RUTE JADWAL PRODUKSI ---
+Route::get('/jadwal-produksi', [JadwalProduksiController::class, 'index']);
+Route::post('/jadwal-produksi', [JadwalProduksiController::class, 'store']);
+Route::put('/jadwal-produksi/{id}', [JadwalProduksiController::class, 'update']);
+Route::delete('/jadwal-produksi/{id}', [JadwalProduksiController::class, 'destroy']);
 
 // --- RUTE AUTH & DASHBOARD ---
 Route::get('/', function () {
