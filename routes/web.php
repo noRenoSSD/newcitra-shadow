@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 // Kumpulan Import Controller (Dirapikan ke atas semua)
+use App\Http\Controllers\StockOpnameController;
 use App\Http\Controllers\BahanController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\MitraController;
@@ -21,6 +22,13 @@ use App\Http\Controllers\TransaksiPengeluaranController;
 use App\Http\Controllers\BomController;
 use App\Http\Controllers\JadwalProduksiController;
 
+// stock opname
+Route::prefix('persediaan/stok-opname')->name('stock-opname.')->group(function () {
+    Route::get('/',        [StockOpnameController::class, 'index'])->name('index');
+    Route::post('/',       [StockOpnameController::class, 'store'])->name('store');
+    Route::get('/{id}',    [StockOpnameController::class, 'show'])->name('show');
+    Route::delete('/{id}', [StockOpnameController::class, 'destroy'])->name('destroy');
+});
 
 // ... (rute lainnya)
 
