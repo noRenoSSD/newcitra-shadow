@@ -66,7 +66,7 @@ const menuItems: MenuItem[] = [
         subMenus: [
             // UBAH BARIS INI
             { label: "Jadwal Produksi", path: "/jadwal-produksi" }, 
-            { label: "Persetujuan Jadwal Produksi", path: "/produksi/persetujuan-jadwal"},
+            { label: "Persetujuan Jadwal Produksi", path: "/persetujuan-jadwal"},
             { label: "Harga Pokok Produksi", path: "/produksi/hpp" },
         ],
     },

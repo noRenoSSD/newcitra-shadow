@@ -28,4 +28,9 @@ class DetailJadwalProduksi extends Model
     {
         return $this->hasMany(KebutuhanBahan::class, 'id_produksi', 'id_produksi');
     }
+    
+    public function jadwalProduksi()
+    {
+        return $this->belongsTo(JadwalProduksi::class, 'id_jadwal', 'id_jadwal');
+    }
 }

@@ -54,5 +54,10 @@ class DatabaseSeeder extends Seeder
             BomSeeder::class,
         ]);
         
+        // 8. Panggil JadwalProduksiSeeder
+        $this->call([
+            JadwalProduksiSeeder::class,
+        ]); 
+        
     }
 }

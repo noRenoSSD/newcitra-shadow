@@ -16,7 +16,10 @@ class AsetSeeder extends Seeder
         ];
 
         foreach ($data as $item) {
-            Aset::create($item);
+            Aset::updateOrCreate(
+                ['kode_aset' => $item['kode_aset']],
+                $item
+            );
         }
     }
 }

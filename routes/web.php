@@ -21,6 +21,9 @@ use App\Http\Controllers\AkunController;
 use App\Http\Controllers\TransaksiPengeluaranController;
 use App\Http\Controllers\BomController;
 use App\Http\Controllers\JadwalProduksiController;
+use App\Http\Controllers\PersetujuanJadwalController;
+use App\Http\Controllers\KebutuhanBahanController;
+
 
 // stock opname
 Route::prefix('persediaan/stok-opname')->name('stock-opname.')->group(function () {
@@ -51,9 +54,9 @@ Route::resource('mitra', MitraController::class);
 
 // Rute Master Produk Jadi
 Route::get('/produk', [ProdukController::class, 'index'])->name('produk.index');
-// Route::post('/produk', [ProdukController::class, 'store']);
-// Route::put('/produk/{id_produk}', [ProdukController::class, 'update']);
-// Route::delete('/produk/{id_produk}', [ProdukController::class, 'destroy']);
+Route::post('/produk', [ProdukController::class, 'store']);
+Route::put('/produk/{id_produk}', [ProdukController::class, 'update']);
+Route::delete('/produk/{id_produk}', [ProdukController::class, 'destroy']);
 
 // Rute Harga Produk
 Route::post('/harga-produk', [HargaProdukController::class, 'store']);
@@ -107,6 +110,13 @@ Route::get('/jadwal-produksi', [JadwalProduksiController::class, 'index']);
 Route::post('/jadwal-produksi', [JadwalProduksiController::class, 'store']);
 Route::put('/jadwal-produksi/{id}', [JadwalProduksiController::class, 'update']);
 Route::delete('/jadwal-produksi/{id}', [JadwalProduksiController::class, 'destroy']);
+
+// --- RUTE PERSETUJUAN JADWAL PRODUKSI ---
+Route::get('/persetujuan-jadwal', [PersetujuanJadwalController::class, 'index'])->name('persetujuan-jadwal.index');
+Route::put('/persetujuan-jadwal/{id}', [PersetujuanJadwalController::class, 'updateStatus'])->name('persetujuan-jadwal.updateStatus');
+
+// --- RUTE KEBUTUHAN BAHAN ---
+Route::post('/kebutuhan-bahan', [KebutuhanBahanController::class, 'store']);
 
 // --- RUTE AUTH & DASHBOARD ---
 Route::get('/', function () {
