@@ -7,8 +7,8 @@ interface Bahan {
     id_bahan: number;
     kode_bahan: string;
     nama_bahan: string;
-    satuan: string;
-    stok_minimal: number;
+    satuan_bahan: string;
+    stok_min: number;
 }
 
 interface Props {
@@ -25,16 +25,16 @@ export default function BahanPenolong({ bahans }: Props) {
     const [formData, setFormData] = useState({
         kode_bahan: "",
         nama_bahan: "",
-        satuan: "",
-        stok_minimal: 0,
+        satuan_bahan: "",
+        stok_min: 0,
     });
 
     const handleAdd = () => {
         setFormData({
             kode_bahan: "",
             nama_bahan: "",
-            satuan: "",
-            stok_minimal: 0,
+            satuan_bahan: "",
+            stok_min: 0,
         });
         setEditMode(false);
         setShowForm(true);
@@ -44,8 +44,8 @@ export default function BahanPenolong({ bahans }: Props) {
         setFormData({
             kode_bahan: bahan.kode_bahan,
             nama_bahan: bahan.nama_bahan,
-            satuan: bahan.satuan,
-            stok_minimal: bahan.stok_minimal,
+            satuan_bahan: bahan.satuan_bahan,
+            stok_min: bahan.stok_min,
         });
         setSelectedBahan(bahan);
         setEditMode(true);
@@ -68,17 +68,26 @@ export default function BahanPenolong({ bahans }: Props) {
         }
     };
 
-    // Logika Submit ke Backend
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (editMode && selectedBahan) {
-            router.put(`/bahan-penolong/${selectedBahan.id_bahan}`, formData, {
-                onSuccess: () => handleCancel(),
-            });
-        } else {
-            router.post("/bahan-penolong", formData, {
-                onSuccess: () => handleCancel(),
-            });
+            router.put(
+                `/bahan/${selectedBahan.id_bahan}`,
+                {
+                    kode_bahan: formData.kode_bahan,
+                    nama_bahan: formData.nama_bahan,
+                    satuan_bahan: formData.satuan_bahan, // SINKRONKAN: Laravel butuh 'satuan_bahan'
+                    stok_min: formData.stok_min, // SINKRONKAN: Laravel butuh 'stok_min'
+                    jenis_bahan: "penolong", // Memastikan jenis bahan tidak berubah
+                },
+                {
+                    onSuccess: () => {
+                        setShowForm(false);
+                        setSelectedBahan(null);
+                        alert("Data berhasil diperbarui!");
+                    },
+                },
+            );
         }
     };
 
@@ -166,11 +175,11 @@ export default function BahanPenolong({ bahans }: Props) {
                                     <input
                                         type="text"
                                         required
-                                        value={formData.satuan}
+                                        value={formData.satuan_bahan}
                                         onChange={(e) =>
                                             setFormData({
                                                 ...formData,
-                                                satuan: e.target.value,
+                                                satuan_bahan: e.target.value,
                                             })
                                         }
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-900 focus:border-transparent"
@@ -187,11 +196,11 @@ export default function BahanPenolong({ bahans }: Props) {
                                         type="number"
                                         required
                                         min="0"
-                                        value={formData.stok_minimal}
+                                        value={formData.stok_min}
                                         onChange={(e) =>
                                             setFormData({
                                                 ...formData,
-                                                stok_minimal: Number(
+                                                stok_min: Number(
                                                     e.target.value,
                                                 ),
                                             })
@@ -269,7 +278,7 @@ export default function BahanPenolong({ bahans }: Props) {
                                     Satuan
                                 </label>
                                 <p className="font-medium text-gray-800">
-                                    {selectedBahan.satuan}
+                                    {selectedBahan.satuan_bahan}
                                 </p>
                             </div>
                             <div>
@@ -277,7 +286,7 @@ export default function BahanPenolong({ bahans }: Props) {
                                     Stok Minimal
                                 </label>
                                 <p className="font-medium text-gray-800">
-                                    {selectedBahan.stok_minimal}
+                                    {selectedBahan.stok_min}
                                 </p>
                             </div>
                         </div>
@@ -383,10 +392,10 @@ export default function BahanPenolong({ bahans }: Props) {
                                                 {bahan.nama_bahan}
                                             </td>
                                             <td className="px-6 py-4">
-                                                {bahan.satuan}
+                                                {bahan.satuan_bahan}
                                             </td>
                                             <td className="px-6 py-4">
-                                                {bahan.stok_minimal}
+                                                {bahan.stok_min}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-center gap-2">

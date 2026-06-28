@@ -65,8 +65,11 @@ const menuItems: MenuItem[] = [
         icon: <Factory className="w-5 h-5" />,
         subMenus: [
             // UBAH BARIS INI
-            { label: "Jadwal Produksi", path: "/jadwal-produksi" }, 
-            { label: "Persetujuan Jadwal Produksi", path: "/persetujuan-jadwal"},
+            { label: "Jadwal Produksi", path: "/jadwal-produksi" },
+            {
+                label: "Persetujuan Jadwal Produksi",
+                path: "/persetujuan-jadwal",
+            },
             { label: "Harga Pokok Produksi", path: "/produksi/hpp" },
         ],
     },

@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 // Kumpulan Import Controller (Dirapikan ke atas semua)
+use App\Http\Controllers\PermintaanPembelianController;
 use App\Http\Controllers\StockOpnameController;
 use App\Http\Controllers\BahanController;
 use App\Http\Controllers\SupplierController;
@@ -32,8 +33,6 @@ Route::prefix('persediaan/stok-opname')->name('stock-opname.')->group(function (
     Route::get('/{id}',    [StockOpnameController::class, 'show'])->name('show');
     Route::delete('/{id}', [StockOpnameController::class, 'destroy'])->name('destroy');
 });
-
-// ... (rute lainnya)
 
 // Menampilkan halaman transaksi
 Route::get('/transaksi-pengeluaran', [TransaksiPengeluaranController::class, 'index'])->name('transaksi-pengeluaran.index');
@@ -131,6 +130,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // --- RUTE PERMINTAAN PEMBELIAN ---
+    Route::prefix('pembelian/permintaan')->name('pp.')->group(function () {
+        Route::get('/',        [PermintaanPembelianController::class, 'index'])->name('index');
+        Route::post('/',       [PermintaanPembelianController::class, 'store'])->name('store');
+        Route::delete('/{id}', [PermintaanPembelianController::class, 'destroy'])->name('destroy');
+    });
 });
 
 require __DIR__.'/auth.php';
