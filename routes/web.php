@@ -15,6 +15,7 @@ use App\Http\Controllers\ProdukController;
 use App\Http\Controllers\HargaProdukController;
 use App\Http\Controllers\PengeluaranController;
 use App\Http\Controllers\PesananController;
+use App\Http\Controllers\PenjualanController;
 use App\Http\Controllers\AsetController;
 use App\Http\Controllers\DivisiController;
 use App\Http\Controllers\OverheadController;
@@ -71,9 +72,17 @@ Route::delete('/jenis-pengeluaran/{id_pengeluaran}', [PengeluaranController::cla
 // Rute transaksi pengeluaran
 Route::get('/transaksi-pengeluaran', [TransaksiPengeluaranController::class, 'index'])->name('transaksi-pengeluaran.index');
 Route::post('/transaksi-pengeluaran', [TransaksiPengeluaranController::class, 'store'])->name('transaksi-pengeluaran.store');
+
 // Rute Pesanan
-Route::get('/pesanan', [PesananController::class, 'index'])->name('pesanan.index');
-Route::post('pesanan', [PesananController::class, 'store'])->name('pesanan.store');
+Route::resource('pesanan', PesananController::class);
+
+// Rute untuk menampilkan FORM input (Ini yang dipanggil saat tombol diklik)
+Route::get('/invoice/create', [PesananController::class, 'createInvoice'])->name('invoice.create');
+Route::get('/surat-jalan/create', [PesananController::class, 'createSuratJalan'])->name('surat-jalan.create');
+
+// Rute untuk memproses SUBMIT/POST dari form tersebut
+Route::post('/transaksi-penjualan', [PesananController::class, 'storeInvoice']);
+Route::post('/transaksi-surat-jalan', [PesananController::class, 'storeSuratJalan']);
 
 // --- RUTE ASET TETAP ---
 Route::get('/aset', [AsetController::class, 'index'])->name('aset.index');
@@ -117,6 +126,11 @@ Route::put('/persetujuan-jadwal/{id}', [PersetujuanJadwalController::class, 'upd
 
 // --- RUTE KEBUTUHAN BAHAN ---
 Route::post('/kebutuhan-bahan', [KebutuhanBahanController::class, 'store']);
+
+// Rute penjualan
+Route::get('/transaksi-penjualan', [PenjualanController::class, 'index'])->name('transaksi-penjualan.index');
+Route::post('/transaksi-penjualan', [PenjualanController::class, 'storeInvoice'])->name('transaksi-penjualan.store');
+Route::get('/transaksi-penjualan/{id}', [PenjualanController::class, 'show'])->name('transaksi-penjualan.show');
 
 // --- RUTE AUTH & DASHBOARD ---
 Route::get('/', function () {

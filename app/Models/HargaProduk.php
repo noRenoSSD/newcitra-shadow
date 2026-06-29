@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Produk;
-use App\Models\Mitra;
+use App\Models\PesananDetail;
 
 class HargaProduk extends Model
 {

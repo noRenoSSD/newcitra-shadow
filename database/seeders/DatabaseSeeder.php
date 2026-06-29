@@ -59,5 +59,23 @@ class DatabaseSeeder extends Seeder
             JadwalProduksiSeeder::class,
         ]); 
         
+        // 9. Panggil HargaProdukSeeder
+        $this->call([
+            ProdukSeeder::class,
+            HargaProdukSeeder::class,
+        ]);
+
+        // 10. Panggil MitraSeeder
+        $this->call([
+            MitraSeeder::class,
+        ]); 
+
+        // 11. Panggil PesananSeeder
+        $this->call([
+            MitraSeeder::class,
+            ProdukSeeder::class,
+            PesananSeeder::class,
+        ]);
+
     }
 }

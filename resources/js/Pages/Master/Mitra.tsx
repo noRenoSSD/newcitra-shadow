@@ -66,16 +66,16 @@ export default function Mitra({ mitra, nextKodeMitra }: DataMitraProps) {
 
   const handleDelete = (id: number) => {
     if (window.confirm('Apakah Anda yakin ingin menghapus data mitra ini?')) {
-      router.delete(`/master/mitra/${id}`); // Sesuaikan jika url-nya adalah /mitra/${id}
+      router.delete(`/mitra/${id}`); // Sesuaikan jika url-nya adalah /mitra/${id}
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editMode && selectedMitra) {
-      put(`/master/mitra/${selectedMitra.id}`, { onSuccess: () => handleCancel() });
+      put(`/mitra/${selectedMitra.id}`, { onSuccess: () => handleCancel() });
     } else {
-      post('/master/mitra', { onSuccess: () => handleCancel() });
+      post('/mitra', { onSuccess: () => handleCancel() });
     }
   };
 

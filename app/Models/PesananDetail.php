@@ -3,6 +3,9 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Pesanan;
+use App\Models\Produk;
+use App\Models\HargaProduk;
 
 class PesananDetail extends Model
 {

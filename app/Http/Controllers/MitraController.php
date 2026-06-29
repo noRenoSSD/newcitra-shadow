@@ -74,7 +74,7 @@ class MitraController extends Controller
             ->with('success', 'Mitra berhasil ditambah!');
     }
 
-    public function update(Request $request, int $id)
+    public function update(Request $request, $id)
     {
         $request->validate([
             'kodeMitra'    => 'required|max:10|unique:t_mitra,kode_mitra,' . $id . ',id_mitra',
@@ -99,7 +99,7 @@ class MitraController extends Controller
         ]);
 
         return redirect()->route('mitra.index')
-            ->with('success', 'Mitra berhasil diubah!');
+            ->with('success', 'Data mitra berhasil diubah!');
     }
 
     public function destroy(int $id)

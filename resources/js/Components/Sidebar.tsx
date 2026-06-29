@@ -111,7 +111,7 @@ const menuItems: MenuItem[] = [
         icon: <DollarSign className="w-5 h-5" />,
         subMenus: [
             { label: "Pesanan Penjualan", path: "/pesanan" },
-            { label: "Penjualan", path: "/penjualan/invoice" },
+            { label: "Penjualan", path: "/transaksi-penjualan" },
             { label: "Surat Jalan", path: "/penjualan/surat-jalan" },
             { label: "Retur Penjualan", path: "/penjualan/retur" },
             { label: "Piutang", path: "/penjualan/piutang" },
