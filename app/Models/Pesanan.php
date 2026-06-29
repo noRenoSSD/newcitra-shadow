@@ -7,16 +7,16 @@ use Illuminate\Database\Eloquent\Model;
 class Pesanan extends Model
 {
     protected $table = 't_pesanan';
-    protected $primaryKey = 'id_pesanan';
 
-    public $timestamps = false;
+    protected $primaryKey = 'id_pesanan';
 
     protected $fillable = [
         'no_pesanan',
         'tgl_pesanan',
         'id_mitra',
+        'jenis_transaksi',
         'alamat',
-        'total_harga'
+        'total_harga',
     ];
 
     public function mitra()
@@ -26,10 +26,6 @@ class Pesanan extends Model
 
     public function detail()
     {
-        return $this->hasMany(
-            PesananDetail::class,
-            'id_pesanan',
-            'id_pesanan'
-        );
+        return $this->hasMany(PesananDetail::class, 'id_pesanan', 'id_pesanan');
     }
 }

@@ -9,7 +9,7 @@ class ProdukController extends Controller
 {
     public function index()
     {
-        $produk = Produk::with('hargaProduk.mitra')->get();
+        $produk = Produk::with('hargaProduk')->get();
 
         return Inertia::render('Master/Produk', [
             'produk' => $produk

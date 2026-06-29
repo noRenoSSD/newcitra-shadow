@@ -2,135 +2,78 @@ import { useState } from 'react';
 import { Plus, Search, Eye, Pencil, Trash2, X, Tag, Filter, PlusCircle, ArrowLeft } from 'lucide-react';
 
 // =======================================================
-// INTERFACES (Disamakan dengan struktur komponenmu)
+// INTERFACES (Menyesuaikan Eager Loading Laravel Anda)
 // =======================================================
-interface Produk {
-  id_produk: number; // Menggunakan number sesuai kodemu
-  kode_produk: string;
-  nama_produk: string;
-  satuan_produk: string;
-}
-
-interface Props {
-  produk: Produk[];
-}
-
 interface THargaProduk {
   id_harga: string;
   kode_harga: string;
-  id_produk: number; // Menyesuaikan ke number
-  tipe_harga: string; 
-  mitra_id: string | null;
-  nama_mitra: string | null;
-  nominal: number;    
+  id_produk: number;
+  jenis_transaksi: string; 
+  harga: number;           
 }
 
-// Mock Data Harga Awal (Menghubungkan ke id_produk tipe number)
-const mockTabelHargaProduk: THargaProduk[] = [
-  { id_harga: 'HP-1', kode_harga: 'HG-001', id_produk: 1, tipe_harga: 'Penjualan Langsung', mitra_id: null, nama_mitra: null, nominal: 45000 },
-  { id_harga: 'HP-2', kode_harga: 'HG-002', id_produk: 1, tipe_harga: 'Konsinyasi', mitra_id: 'MTR-001', nama_mitra: 'Toko Sumber Rejeki', nominal: 42000 }
-];
+interface Produk {
+  id_produk: number;
+  kode_produk: string;
+  nama_produk: string;
+  satuan_produk: string;
+  harga_produk?: THargaProduk[]; // <-- Data harga sekarang nempel di dalam objek produk
+}
 
-const mitraOptions = [
-  { mitraId: 'MTR-001', namaMitra: 'Toko Sumber Rejeki' },
-  { mitraId: 'MTR-002', namaMitra: 'Toko Maju Bersama' },
-  { mitraId: 'MTR-003', namaMitra: 'UD Berkah Jaya' },
-];
+interface Props {
+  produk: Produk[]; // Hanya menerima props produk dari Controller
+}
 
 interface ModalHargaProps {
   produkItem: Produk;
+  hargaData: THargaProduk[];
   onClose: () => void;
-  onRefreshList: () => void;
+  onRefreshList: () => void; 
 }
 
 // =======================================================
-// KOMPONEN: MODAL DETAIL MULTI HARGA
+// KOMKOMPEN: MODAL DETAIL MULTI HARGA
 // =======================================================
-function ModalDetailMultiHarga({ produkItem, onClose, onRefreshList }: ModalHargaProps) {
-  const [searchMitra, setSearchMitra] = useState('');
+function ModalDetailMultiHarga({ produkItem, hargaData, onClose, onRefreshList }: ModalHargaProps) {
   const [filterJenis, setFilterJenis] = useState<string>('');
   const [showForm, setShowForm] = useState(false);
   const [editPriceId, setEditPriceId] = useState<string | null>(null);
   
-  const [localHarga, setLocalHarga] = useState<THargaProduk[]>([...mockTabelHargaProduk]);
-  
   const [formInput, setFormInput] = useState({
     kode_harga: '',
-    tipe_harga: '',
-    mitra_id: '',
-    nominal: ''
+    jenis_transaksi: '',
+    harga: ''
   });
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
 
-  const rows = localHarga.filter((h) => {
-    if (h.id_produk !== produkItem.id_produk) return false;
-    if (filterJenis && h.tipe_harga !== filterJenis) return false;
-    if (searchMitra) {
-      const nama = h.nama_mitra ?? 'Umum';
-      if (!nama.toLowerCase().includes(searchMitra.toLowerCase())) return false;
-    }
+  // Filter harga berdasarkan jenis_transaksi jika ada filter yang dipilih
+  const rows = hargaData.filter((h) => {
+    if (filterJenis && h.jenis_transaksi !== filterJenis) return false;
     return true;
   });
 
   const handleSimpanHarga = () => {
-    if (!formInput.tipe_harga || !formInput.nominal || !formInput.kode_harga) return;
-    const mitraObj = mitraOptions.find(m => m.mitraId === formInput.mitra_id) ?? null;
+    if (!formInput.jenis_transaksi || !formInput.harga || !formInput.kode_harga) return;
 
     if (editPriceId) {
-      const updatedHarga = localHarga.map((h) => {
-        if (h.id_harga === editPriceId) {
-          return {
-            ...h,
-            kode_harga: formInput.kode_harga,
-            tipe_harga: formInput.tipe_harga,
-            mitra_id: mitraObj?.mitraId ?? null,
-            nama_mitra: mitraObj?.namaMitra ?? null,
-            nominal: Number(formInput.nominal)
-          };
-        }
-        return h;
-      });
-      setLocalHarga(updatedHarga);
-      
-      const idx = mockTabelHargaProduk.findIndex(t => t.id_harga === editPriceId);
-      if (idx !== -1) {
-        mockTabelHargaProduk[idx] = {
-          ...mockTabelHargaProduk[idx],
-          kode_harga: formInput.kode_harga,
-          tipe_harga: formInput.tipe_harga,
-          mitra_id: mitraObj?.mitraId ?? null,
-          nama_mitra: mitraObj?.namaMitra ?? null,
-          nominal: Number(formInput.nominal)
-        };
-      }
+      console.log('Kirim ke Laravel untuk Update:', { id_harga: editPriceId, ...formInput });
     } else {
-      const newEntry: THargaProduk = {
-        id_harga: `HP-NEW-${Date.now()}`,
-        kode_harga: formInput.kode_harga,
-        id_produk: produkItem.id_produk,
-        tipe_harga: formInput.tipe_harga,
-        mitra_id: mitraObj?.mitraId ?? null,
-        nama_mitra: mitraObj?.namaMitra ?? null,
-        nominal: Number(formInput.nominal)
-      };
-      setLocalHarga([...localHarga, newEntry]);
-      mockTabelHargaProduk.push(newEntry);
+      console.log('Kirim ke Laravel untuk Simpan Baru:', { id_produk: produkItem.id_produk, ...formInput });
     }
 
-    setFormInput({ kode_harga: '', tipe_harga: '', mitra_id: '', nominal: '' });
+    setFormInput({ kode_harga: '', jenis_transaksi: '', harga: '' });
     setEditPriceId(null);
     setShowForm(false);
-    onRefreshList();
+    onRefreshList(); 
   };
 
   const handleEditHarga = (hargaItem: THargaProduk) => {
     setFormInput({
       kode_harga: hargaItem.kode_harga,
-      tipe_harga: hargaItem.tipe_harga,
-      mitra_id: hargaItem.mitra_id ?? '',
-      nominal: hargaItem.nominal.toString()
+      jenis_transaksi: hargaItem.jenis_transaksi,
+      harga: hargaItem.harga.toString()
     });
     setEditPriceId(hargaItem.id_harga);
     setShowForm(true);
@@ -138,15 +81,13 @@ function ModalDetailMultiHarga({ produkItem, onClose, onRefreshList }: ModalHarg
 
   const handleHapusHarga = (id_harga: string) => {
     if (window.confirm('Apakah Anda yakin ingin menghapus varian harga ini?')) {
-      setLocalHarga(localHarga.filter(h => h.id_harga !== id_harga));
-      const idx = mockTabelHargaProduk.findIndex(t => t.id_harga === id_harga);
-      if (idx !== -1) mockTabelHargaProduk.splice(idx, 1);
+      console.log('Kirim ke Laravel untuk Hapus ID:', id_harga);
       onRefreshList();
     }
   };
 
   const handleCloseForm = () => {
-    setFormInput({ kode_harga: '', tipe_harga: '', mitra_id: '', nominal: '' });
+    setFormInput({ kode_harga: '', jenis_transaksi: '', harga: '' });
     setEditPriceId(null);
     setShowForm(false);
   };
@@ -180,13 +121,13 @@ function ModalDetailMultiHarga({ produkItem, onClose, onRefreshList }: ModalHarg
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Tipe Harga *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Tipe Transaksi *</label>
               <select
-                value={formInput.tipe_harga}
-                onChange={e => setFormInput({ ...formInput, tipe_harga: e.target.value })}
+                value={formInput.jenis_transaksi}
+                onChange={e => setFormInput({ ...formInput, jenis_transaksi: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-red-400 bg-white"
               >
-                <option value="">Pilih Tipe Harga</option>
+                <option value="">Pilih Tipe</option>
                 <option value="Penjualan Langsung">Penjualan Langsung</option>
                 <option value="Konsinyasi">Konsinyasi</option>
                 <option value="Grosir">Grosir</option>
@@ -194,25 +135,11 @@ function ModalDetailMultiHarga({ produkItem, onClose, onRefreshList }: ModalHarg
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Berlaku Untuk</label>
-              <select
-                value={formInput.mitra_id}
-                onChange={e => setFormInput({ ...formInput, mitra_id: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-red-400 bg-white"
-              >
-                <option value="">Umum / Default (semua mitra)</option>
-                {mitraOptions.map(m => (
-                  <option key={m.mitraId} value={m.mitraId}>{m.namaMitra}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Nominal Harga (Rp) *</label>
               <input
                 type="number"
-                value={formInput.nominal}
-                onChange={e => setFormInput({ ...formInput, nominal: e.target.value })}
+                value={formInput.harga}
+                onChange={e => setFormInput({ ...formInput, harga: e.target.value })}
                 placeholder="0"
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-red-400"
               />
@@ -221,7 +148,7 @@ function ModalDetailMultiHarga({ produkItem, onClose, onRefreshList }: ModalHarg
 
           <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
             <button onClick={handleCloseForm} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Batal</button>
-            <button onClick={handleSimpanHarga} disabled={!formInput.tipe_harga || !formInput.nominal || !formInput.kode_harga} className="flex-1 px-4 py-2 bg-red-800 text-white rounded-lg text-sm font-medium hover:bg-red-900 disabled:opacity-50 transition-colors">
+            <button onClick={handleSimpanHarga} disabled={!formInput.jenis_transaksi || !formInput.harga || !formInput.kode_harga} className="flex-1 px-4 py-2 bg-red-800 text-white rounded-lg text-sm font-medium hover:bg-red-900 disabled:opacity-50 transition-colors">
               {editPriceId ? 'Simpan Perubahan' : 'Simpan'}
             </button>
           </div>
@@ -235,7 +162,7 @@ function ModalDetailMultiHarga({ produkItem, onClose, onRefreshList }: ModalHarg
       <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
         <div className="flex items-start justify-between px-6 py-4 border-b border-gray-200">
           <div>
-            <h3 className="text-lg font-bold text-red-800">Detail Multi-Harga</h3>
+            <h3 className="text-lg font-bold text-red-800">Detail Multi-Harga (Per Transaksi)</h3>
             <p className="text-sm text-gray-500 mt-0.5">{produkItem.kode_produk} — {produkItem.nama_produk}</p>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
@@ -243,25 +170,15 @@ function ModalDetailMultiHarga({ produkItem, onClose, onRefreshList }: ModalHarg
           </button>
         </div>
 
-        <div className="px-6 py-3 border-b border-gray-100 flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Cari nama mitra..."
-              value={searchMitra}
-              onChange={(e) => setSearchMitra(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-red-400"
-            />
-          </div>
-          <div className="relative">
+        <div className="px-6 py-3 border-b border-gray-100 flex justify-end">
+          <div className="relative w-full sm:w-48">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <select
               value={filterJenis}
               onChange={(e) => setFilterJenis(e.target.value)}
-              className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-red-400 bg-white"
+              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-red-400 bg-white"
             >
-              <option value="">Semua Jenis</option>
+              <option value="">Semua Tipe</option>
               <option value="Penjualan Langsung">Penjualan Langsung</option>
               <option value="Konsinyasi">Konsinyasi</option>
               <option value="Grosir">Grosir</option>
@@ -273,8 +190,8 @@ function ModalDetailMultiHarga({ produkItem, onClose, onRefreshList }: ModalHarg
           <table className="w-full text-sm">
             <thead className="bg-gray-50 sticky top-0">
               <tr className="border-b border-gray-200">
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Berlaku Untuk</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Tipe Harga</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Kode Harga</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Tipe Transaksi</th>
                 <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Nominal</th>
                 <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase w-28">Aksi</th>
               </tr>
@@ -282,20 +199,21 @@ function ModalDetailMultiHarga({ produkItem, onClose, onRefreshList }: ModalHarg
             <tbody className="divide-y divide-gray-100">
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-gray-400">Tidak ada data harga</td>
+                  <td colSpan={4} className="px-6 py-8 text-center text-gray-400">Tidak ada data harga transaksi</td>
                 </tr>
               ) : (
                 rows.map((h) => (
                   <tr key={h.id_harga} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-3 font-medium text-gray-800">{h.kode_harga}</td>
                     <td className="px-6 py-3">
-                      {h.nama_mitra ? <span className="font-medium text-gray-800">{h.nama_mitra}</span> : <span className="text-gray-500 italic">Umum / Default</span>}
-                    </td>
-                    <td className="px-6 py-3">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${h.tipe_harga === 'Konsinyasi' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
-                        {h.tipe_harga}
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                        h.jenis_transaksi === 'Konsinyasi' ? 'bg-amber-100 text-amber-700' : 
+                        h.jenis_transaksi === 'Grosir' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {h.jenis_transaksi}
                       </span>
                     </td>
-                    <td className="px-6 py-3 text-right font-semibold text-gray-800">{formatCurrency(h.nominal)}</td>
+                    <td className="px-6 py-3 text-right font-semibold text-gray-800">{formatCurrency(h.harga)}</td>
                     <td className="px-6 py-3">
                       <div className="flex items-center justify-center gap-1.5">
                         <button onClick={() => handleEditHarga(h)} className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded-md transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
@@ -311,7 +229,7 @@ function ModalDetailMultiHarga({ produkItem, onClose, onRefreshList }: ModalHarg
 
         <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-between">
           <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2 bg-red-800 text-white rounded-lg text-sm font-medium hover:bg-red-900 transition-colors shadow-sm">
-            <PlusCircle className="w-4 h-4" /> Tambah Jenis Harga
+            <PlusCircle className="w-4 h-4" /> Tambah Tipe Harga
           </button>
           <button onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Tutup</button>
         </div>
@@ -321,26 +239,21 @@ function ModalDetailMultiHarga({ produkItem, onClose, onRefreshList }: ModalHarg
 }
 
 // =======================================================
-// MAIN COMPONENT (Default Export Berdasarkan Strukturmu)
+// MAIN COMPONENT
 // =======================================================
-export default function Index({ produk }: Props) {
-  // Local state diisi dengan initial data props dari parameter komponenmu
-  const [daftarProduk, setDaftarProduk] = useState<Produk[]>(produk || []);
+export default function Index({ produk = [] }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedProduk, setSelectedProduk] = useState<Produk | null>(null);
   const [modalHargaProduk, setModalHargaProduk] = useState<Produk | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [, setRefreshTrigger] = useState(0); 
 
   const [formData, setFormData] = useState({
     kode_produk: '',
     nama_produk: '',
     satuan_produk: ''
   });
-
-  const countHargaTypes = (id_produk: number) => mockTabelHargaProduk.filter(h => h.id_produk === id_produk).length;
 
   const handleAdd = () => {
     setFormData({ kode_produk: '', nama_produk: '', satuan_produk: '' });
@@ -360,23 +273,6 @@ export default function Index({ produk }: Props) {
     setShowDetail(true);
   };
 
-  const handleDelete = (id_produk: number) => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus data produk ini?')) {
-      setDaftarProduk(daftarProduk.filter(p => p.id_produk !== id_produk));
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editMode && selectedProduk) {
-      setDaftarProduk(daftarProduk.map(p => p.id_produk === selectedProduk.id_produk ? { ...p, ...formData } : p));
-    } else {
-      const newProduk: Produk = { id_produk: Date.now(), ...formData };
-      setDaftarProduk([...daftarProduk, newProduk]);
-    }
-    handleCancel();
-  };
-
   const handleCancel = () => {
     setShowForm(false);
     setShowDetail(false);
@@ -384,13 +280,12 @@ export default function Index({ produk }: Props) {
     setFormData({ kode_produk: '', nama_produk: '', satuan_produk: '' });
   };
 
-  const filteredProduk = daftarProduk.filter(p =>
+  const filteredProduk = produk.filter(p =>
     p.kode_produk?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.nama_produk?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.satuan_produk?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // VIEW 1: Form Tambah/Edit Data
   if (showForm) {
     return (
       <div className="p-6 max-w-7xl mx-auto">
@@ -400,7 +295,7 @@ export default function Index({ produk }: Props) {
         </div>
         
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <form onSubmit={handleSubmit} className="p-6">
+          <form onSubmit={(e) => e.preventDefault()} className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Kode Produk *</label>
@@ -442,7 +337,6 @@ export default function Index({ produk }: Props) {
     );
   }
 
-  // VIEW 2: Detail Data Produk
   if (showDetail && selectedProduk) {
     return (
       <div className="p-6 max-w-7xl mx-auto">
@@ -472,7 +366,7 @@ export default function Index({ produk }: Props) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-500 mb-1">Jumlah Varian Harga</label>
-              <p className="text-gray-800 font-medium">{countHargaTypes(selectedProduk.id_produk)} jenis harga</p>
+              <p className="text-gray-800 font-medium">{(selectedProduk.harga_produk || []).length} tipe transaksi</p>
             </div>
           </div>
           <div className="flex gap-3 mt-6 pt-6 border-t border-gray-200">
@@ -486,13 +380,12 @@ export default function Index({ produk }: Props) {
     );
   }
 
-  // VIEW MASTER UTAMA (Tabel Data dengan fungsionalitas kompleks)
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Data Produk</h1>
-          <p className="text-sm text-gray-500">Kelola data produk dan pengaturan multi-harga</p>
+          <p className="text-sm text-gray-500">Kelola data produk dan pengaturan harga per jenis transaksi</p>
         </div>
         <button onClick={handleAdd} className="flex items-center justify-center gap-2 px-4 py-2 bg-red-800 text-white rounded-lg text-sm font-medium hover:bg-red-900 transition-colors shadow-sm desktop-btn">
           <Plus className="w-4 h-4" /> Tambah Produk
@@ -516,7 +409,7 @@ export default function Index({ produk }: Props) {
                 <th className="px-6 py-3 text-left font-semibold text-gray-700">Kode</th>
                 <th className="px-6 py-3 text-left font-semibold text-gray-700">Nama</th>
                 <th className="px-6 py-3 text-left font-semibold text-gray-700">Satuan</th>
-                <th className="px-6 py-3 text-center font-semibold text-gray-700">Daftar Harga</th>
+                <th className="px-6 py-3 text-center font-semibold text-gray-700">Varian Harga</th>
                 <th className="px-6 py-3 text-center font-semibold text-gray-700 w-32">Aksi</th>
               </tr>
             </thead>
@@ -537,14 +430,14 @@ export default function Index({ produk }: Props) {
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 rounded-full text-xs font-semibold transition-colors"
                       >
                         <Tag className="w-3.5 h-3.5" />
-                        {countHargaTypes(item.id_produk)} Jenis Harga
+                        {(item.harga_produk || []).length} Tipe Harga
                       </button>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-1">
                         <button onClick={() => handleDetail(item)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Detail"><Eye className="w-4 h-4" /></button>
                         <button onClick={() => handleEdit(item)} className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors" title="Edit"><Pencil className="w-4 h-4" /></button>
-                        <button onClick={() => handleDelete(item.id_produk)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Hapus"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={() => { if(window.confirm('Hapus produk?')) console.log(item.id_produk) }} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Hapus"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -558,8 +451,9 @@ export default function Index({ produk }: Props) {
       {modalHargaProduk && (
         <ModalDetailMultiHarga
           produkItem={modalHargaProduk}
+          hargaData={modalHargaProduk.harga_produk || []} // Ambil langsung relasi harganya
           onClose={() => setModalHargaProduk(null)}
-          onRefreshList={() => setRefreshTrigger(prev => prev + 1)}
+          onRefreshList={() => {}}
         />
       )}
     </div>

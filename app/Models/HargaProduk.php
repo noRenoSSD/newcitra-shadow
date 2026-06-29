@@ -13,8 +13,8 @@ class HargaProduk extends Model
     protected $primaryKey = 'id_harga_produk';
 
     protected $fillable = [
+        'kode_harga',
         'id_produk',
-        'id_mitra',
         'jenis_transaksi',
         'harga'
     ];
@@ -27,13 +27,9 @@ class HargaProduk extends Model
             'id_produk'
         );
     }
-
-    public function mitra()
+    public function pesananDetail()
     {
-        return $this->belongsTo(
-            Mitra::class,
-            'id_mitra',
-            'id_mitra'
-        );
+        return $this->hasMany(PesananDetail::class, 
+        'id_harga', 'id_harga_produk');
     }
 }
