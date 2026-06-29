@@ -8,6 +8,7 @@ interface Bahan {
     nama_bahan: string;
     satuan_bahan: string;
     stok_min: number;
+    harga_beli: number; // <-- Ditambahkan field harga_beli
     jenis_bahan: "baku";
 }
 
@@ -28,7 +29,17 @@ export default function BahanBaku({ bahans }: Props) {
         nama_bahan: "",
         satuan_bahan: "",
         stok_min: "",
+        harga_beli: "", // <-- Ditambahkan state untuk harga_beli
     });
+
+    // Helper untuk memformat angka menjadi Rupiah (Rp)
+    const formatRupiah = (angka: number) => {
+        return new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
+            minimumFractionDigits: 0,
+        }).format(angka || 0);
+    };
 
     const handleAdd = () => {
         reset();
@@ -44,6 +55,7 @@ export default function BahanBaku({ bahans }: Props) {
             nama_bahan: bahan.nama_bahan,
             satuan_bahan: bahan.satuan_bahan,
             stok_min: bahan.stok_min.toString(),
+            harga_beli: bahan.harga_beli ? bahan.harga_beli.toString() : "0", // <-- Mengisi form edit
         });
         setSelectedBahan(bahan);
         setEditMode(true);
@@ -172,6 +184,24 @@ export default function BahanBaku({ bahans }: Props) {
                                     placeholder="0"
                                 />
                             </div>
+                            {/* --- INPUT BARU: HARGA BELI --- */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Harga Beli Satuan (Rp){" "}
+                                    <span className="text-red-600">*</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    required
+                                    min="0"
+                                    value={data.harga_beli}
+                                    onChange={(e) =>
+                                        setData("harga_beli", e.target.value)
+                                    }
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                                    placeholder="Contoh: 15000"
+                                />
+                            </div>
                         </div>
                         <div className="flex gap-3 mt-6 pt-6 border-t border-gray-200">
                             <button
@@ -221,7 +251,7 @@ export default function BahanBaku({ bahans }: Props) {
                 </div>
 
                 <div className="bg-white rounded-lg shadow p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-500 mb-1">
                                 Kode Bahan Baku
@@ -252,6 +282,15 @@ export default function BahanBaku({ bahans }: Props) {
                             </label>
                             <p className="text-gray-800 font-medium">
                                 {selectedBahan.stok_min}
+                            </p>
+                        </div>
+                        {/* --- TAMPILAN BARU: HARGA BELI --- */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-500 mb-1">
+                                Harga Beli Satuan
+                            </label>
+                            <p className="text-green-700 font-semibold">
+                                {formatRupiah(selectedBahan.harga_beli)}
                             </p>
                         </div>
                     </div>
@@ -314,16 +353,20 @@ export default function BahanBaku({ bahans }: Props) {
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
                             <tr>
                                 <th className="px-6 py-3 font-semibold">
-                                    Kode Bahan Baku
+                                    Kode Bahan
                                 </th>
                                 <th className="px-6 py-3 font-semibold">
-                                    Nama Bahan Baku
+                                    Nama Bahan
                                 </th>
                                 <th className="px-6 py-3 font-semibold">
                                     Satuan
                                 </th>
+                                {/* --- HEADER TABEL BARU --- */}
                                 <th className="px-6 py-3 font-semibold">
-                                    Stok Minimal
+                                    Harga Beli
+                                </th>
+                                <th className="px-6 py-3 font-semibold">
+                                    Stok Min
                                 </th>
                                 <th className="px-6 py-3 font-semibold text-center">
                                     Aksi
@@ -334,7 +377,7 @@ export default function BahanBaku({ bahans }: Props) {
                             {filteredBahan.length === 0 ? (
                                 <tr>
                                     <td
-                                        colSpan={5}
+                                        colSpan={6}
                                         className="px-6 py-8 text-center text-gray-500"
                                     >
                                         Tidak ada data bahan baku
@@ -354,6 +397,10 @@ export default function BahanBaku({ bahans }: Props) {
                                         </td>
                                         <td className="px-6 py-4 text-gray-900">
                                             {bahan.satuan_bahan}
+                                        </td>
+                                        {/* --- ISI TABEL BARU --- */}
+                                        <td className="px-6 py-4 font-medium text-green-700">
+                                            {formatRupiah(bahan.harga_beli)}
                                         </td>
                                         <td className="px-6 py-4 text-gray-900">
                                             {bahan.stok_min}

@@ -15,6 +15,7 @@ class BahanController extends Controller
             'jenis_bahan'  => 'required|in:baku,penolong',
             'nama_bahan'   => 'required|max:100',
             'satuan_bahan' => 'required|max:20',
+            'harga_beli'  => 'required|numeric|min:0',
             'stok_min'     => 'required|numeric',
         ]);
 
@@ -23,6 +24,7 @@ class BahanController extends Controller
             'jenis_bahan'  => $request->jenis_bahan,
             'nama_bahan'   => $request->nama_bahan,
             'satuan_bahan' => $request->satuan_bahan,
+            'harga_beli'      => $request->harga_beli,
             'stok_min'     => $request->stok_min,
         ]);
 
@@ -35,6 +37,7 @@ class BahanController extends Controller
             'jenis_bahan'  => 'required|in:baku,penolong',
             'nama_bahan'   => 'required|max:100',
             'satuan_bahan' => 'required|max:20',
+            'harga_beli'  => 'required|numeric|min:0',
             'stok_min'     => 'required|numeric',
         ]);
 
@@ -51,6 +54,7 @@ class BahanController extends Controller
             'jenis_bahan'  => $request->jenis_bahan,
             'nama_bahan'   => $request->nama_bahan,
             'satuan_bahan' => $request->satuan_bahan,
+            'harga_beli'      => $request->harga_beli,
             'stok_min'     => $request->stok_min,
         ]);
 

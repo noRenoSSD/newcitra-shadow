@@ -24,7 +24,8 @@ use App\Http\Controllers\BomController;
 use App\Http\Controllers\JadwalProduksiController;
 use App\Http\Controllers\PersetujuanJadwalController;
 use App\Http\Controllers\KebutuhanBahanController;
-
+use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\ApprovalPOController;
 
 // stock opname
 Route::prefix('persediaan/stok-opname')->name('stock-opname.')->group(function () {
@@ -138,5 +139,18 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{id}', [PermintaanPembelianController::class, 'destroy'])->name('destroy');
     });
 });
+// --- RUTE PESANAN PEMBELIAN (PURCHASE ORDER) ---
+    Route::prefix('pembelian/pesanan')->name('po.')->group(function () {
+        Route::get('/', [PurchaseOrderController::class, 'index'])->name('index');
+        Route::post('/', [PurchaseOrderController::class, 'store'])->name('store');
+        Route::put('/{id}', [PurchaseOrderController::class, 'update'])->name('update'); // <-- TAMBAHAN ROUTE INI
+        Route::delete('/{id}', [PurchaseOrderController::class, 'destroy'])->name('destroy');
+    });
 
+    // --- RUTE APPROVAL PURCHASE ORDER (FINANCE) ---
+    Route::prefix('keuangan/approval-po')->name('po-approval.')->group(function () {
+        Route::get('/', [ApprovalPOController::class, 'index'])->name('index');
+        Route::put('/{id}/setujui', [ApprovalPOController::class, 'setujui'])->name('setujui');
+        Route::put('/{id}/revisi', [ApprovalPOController::class, 'revisi'])->name('revisi');
+    });
 require __DIR__.'/auth.php';

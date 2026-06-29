@@ -9,6 +9,7 @@ interface Bahan {
     nama_bahan: string;
     satuan_bahan: string;
     stok_min: number;
+    harga_beli: number; // <-- Tambahkan field harga_beli
 }
 
 interface Props {
@@ -27,7 +28,17 @@ export default function BahanPenolong({ bahans }: Props) {
         nama_bahan: "",
         satuan_bahan: "",
         stok_min: 0,
+        harga_beli: 0, // <-- Tambahkan state harga_beli
     });
+
+    // Helper untuk format Rupiah
+    const formatRupiah = (angka: number) => {
+        return new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
+            minimumFractionDigits: 0,
+        }).format(angka || 0);
+    };
 
     const handleAdd = () => {
         setFormData({
@@ -35,6 +46,7 @@ export default function BahanPenolong({ bahans }: Props) {
             nama_bahan: "",
             satuan_bahan: "",
             stok_min: 0,
+            harga_beli: 0,
         });
         setEditMode(false);
         setShowForm(true);
@@ -46,6 +58,7 @@ export default function BahanPenolong({ bahans }: Props) {
             nama_bahan: bahan.nama_bahan,
             satuan_bahan: bahan.satuan_bahan,
             stok_min: bahan.stok_min,
+            harga_beli: bahan.harga_beli, // <-- Isi data harga saat edit
         });
         setSelectedBahan(bahan);
         setEditMode(true);
@@ -64,30 +77,33 @@ export default function BahanPenolong({ bahans }: Props) {
                 "Apakah Anda yakin ingin menghapus data bahan penolong ini?",
             )
         ) {
-            router.delete(`/bahan-penolong/${id}`);
+            router.delete(`/bahan/${id}`);
         }
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        const payload = {
+            ...formData,
+            jenis_bahan: "penolong",
+        };
+
         if (editMode && selectedBahan) {
-            router.put(
-                `/bahan/${selectedBahan.id_bahan}`,
-                {
-                    kode_bahan: formData.kode_bahan,
-                    nama_bahan: formData.nama_bahan,
-                    satuan_bahan: formData.satuan_bahan, // SINKRONKAN: Laravel butuh 'satuan_bahan'
-                    stok_min: formData.stok_min, // SINKRONKAN: Laravel butuh 'stok_min'
-                    jenis_bahan: "penolong", // Memastikan jenis bahan tidak berubah
+            router.put(`/bahan/${selectedBahan.id_bahan}`, payload, {
+                onSuccess: () => {
+                    setShowForm(false);
+                    setSelectedBahan(null);
+                    alert("Data berhasil diperbarui!");
                 },
-                {
-                    onSuccess: () => {
-                        setShowForm(false);
-                        setSelectedBahan(null);
-                        alert("Data berhasil diperbarui!");
-                    },
+            });
+        } else {
+            router.post(`/bahan`, payload, {
+                onSuccess: () => {
+                    setShowForm(false);
+                    alert("Data berhasil disimpan!");
                 },
-            );
+            });
         }
     };
 
@@ -209,6 +225,30 @@ export default function BahanPenolong({ bahans }: Props) {
                                         placeholder="0"
                                     />
                                 </div>
+
+                                {/* INPUT HARGA BELI */}
+                                <div>
+                                    <label className="block mb-2 text-sm font-medium text-gray-700">
+                                        Harga Beli Satuan (Rp){" "}
+                                        <span className="text-red-600">*</span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        required
+                                        min="0"
+                                        value={formData.harga_beli}
+                                        onChange={(e) =>
+                                            setFormData({
+                                                ...formData,
+                                                harga_beli: Number(
+                                                    e.target.value,
+                                                ),
+                                            })
+                                        }
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-900 focus:border-transparent"
+                                        placeholder="Contoh: 5000"
+                                    />
+                                </div>
                             </div>
 
                             <div className="flex gap-3 pt-6 mt-6 border-t border-gray-200">
@@ -256,7 +296,7 @@ export default function BahanPenolong({ bahans }: Props) {
 
                 <div className="bg-white border border-gray-200 shadow-sm rounded-xl">
                     <div className="p-6">
-                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                             <div>
                                 <label className="block mb-1 text-sm font-medium text-gray-500">
                                     Kode Bahan Penolong
@@ -287,6 +327,14 @@ export default function BahanPenolong({ bahans }: Props) {
                                 </label>
                                 <p className="font-medium text-gray-800">
                                     {selectedBahan.stok_min}
+                                </p>
+                            </div>
+                            <div>
+                                <label className="block mb-1 text-sm font-medium text-gray-500">
+                                    Harga Beli Satuan
+                                </label>
+                                <p className="font-semibold text-green-700">
+                                    {formatRupiah(selectedBahan.harga_beli)}
                                 </p>
                             </div>
                         </div>
@@ -336,7 +384,6 @@ export default function BahanPenolong({ bahans }: Props) {
 
             <div className="bg-white border border-gray-200 shadow-sm rounded-xl">
                 <div className="p-6">
-                    {/* Fitur Search */}
                     <div className="relative mb-6">
                         <Search className="absolute w-5 h-5 text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
                         <input
@@ -353,16 +400,19 @@ export default function BahanPenolong({ bahans }: Props) {
                             <thead className="text-xs text-gray-700 uppercase border-b bg-gray-50">
                                 <tr>
                                     <th className="px-6 py-3 font-semibold">
-                                        Kode Bahan Penolong
+                                        Kode
                                     </th>
                                     <th className="px-6 py-3 font-semibold">
-                                        Nama Bahan Penolong
+                                        Nama Bahan
                                     </th>
                                     <th className="px-6 py-3 font-semibold">
                                         Satuan
                                     </th>
                                     <th className="px-6 py-3 font-semibold">
-                                        Stok Minimal
+                                        Harga Beli
+                                    </th>
+                                    <th className="px-6 py-3 font-semibold text-center">
+                                        Stok Min
                                     </th>
                                     <th className="px-6 py-3 font-semibold text-center">
                                         Aksi
@@ -373,7 +423,7 @@ export default function BahanPenolong({ bahans }: Props) {
                                 {filteredBahanPenolong.length === 0 ? (
                                     <tr>
                                         <td
-                                            colSpan={5}
+                                            colSpan={6}
                                             className="py-8 text-center text-gray-500"
                                         >
                                             Tidak ada data bahan penolong
@@ -394,7 +444,10 @@ export default function BahanPenolong({ bahans }: Props) {
                                             <td className="px-6 py-4">
                                                 {bahan.satuan_bahan}
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-4 font-medium text-green-700">
+                                                {formatRupiah(bahan.harga_beli)}
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
                                                 {bahan.stok_min}
                                             </td>
                                             <td className="px-6 py-4">

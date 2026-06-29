@@ -3,21 +3,34 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Bahan extends Model
 {
     protected $table = 't_bahan';
     protected $primaryKey = 'id_bahan';
 
+    // Sudah ditambahkan 'harga_beli' sesuai instruksi migration sebelumnya
     protected $fillable = [
         'jenis_bahan',
         'kode_bahan',
         'nama_bahan',
         'satuan_bahan',
         'stok_min',
+        'harga_beli',
     ];
 
-    // Logika agar kodenya otomatis sesuai jenis bahan
+    /**
+     * Relasi ke t_detail_po (One to Many)
+     */
+    public function detailPO(): HasMany
+    {
+        return $this->hasMany(DetailPO::class, 'id_bahan', 'id_bahan');
+    }
+
+    /**
+     * Logika agar kodenya otomatis sesuai jenis bahan
+     */
     public static function generateKode(string $jenis)
     {
         $prefix = $jenis === 'baku' ? 'BB-' : 'BP-';

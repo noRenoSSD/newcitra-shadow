@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class PermintaanPembelian extends Model
 {
@@ -24,9 +26,17 @@ class PermintaanPembelian extends Model
     ];
 
     /**
+     * Relasi ke t_purchase_order (One to One)
+     */
+    public function purchaseOrder(): HasOne
+    {
+        return $this->hasOne(PurchaseOrder::class, 'id_pp', 'id_pp');
+    }
+
+    /**
      * Relasi ke DetailPP
      */
-    public function details()
+    public function details(): HasMany
     {
         return $this->hasMany(DetailPP::class, 'id_pp', 'id_pp');
     }
@@ -59,10 +69,10 @@ class PermintaanPembelian extends Model
             return $prefix . '-0001';
         }
 
-        // Ambil 4 digit terakhir, ubah ke integer, lalu +1
-        $lastNumber = (int) substr($lastRecord->no_pp, -4);
-        $nextNumber = str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+        // Mengambil nomor urut terakhir setelah tanda strip (misal PRB-0001 diambil 0001)
+        $lastNumber = (int) substr($lastRecord->no_pp, 4);
+        $newNumber = $lastNumber + 1;
 
-        return $prefix . '-' . $nextNumber;
+        return $prefix . '-' . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
     }
 }
