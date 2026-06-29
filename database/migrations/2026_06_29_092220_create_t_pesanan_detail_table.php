@@ -13,13 +13,16 @@ return new class extends Migration
     {
         Schema::create('t_pesanan_detail', function (Blueprint $table) {
 
-            $table->increments('id_pesanan_detail');
+            $table->increments('id_pesanan_detail'); // Menggunakan increments (unsignedInteger)
 
+            // Karena t_pesanan menggunakan increments(), ini tetap unsignedInteger
             $table->unsignedInteger('id_pesanan');
 
-            $table->unsignedInteger('id_produk');
+            // --- UBAH DI SINI: ganti dari unsignedInteger menjadi unsignedBigInteger ---
+            $table->unsignedBigInteger('id_produk');
 
-            $table->unsignedInteger('id_harga');
+            // --- JIKA id_harga_produk di tabel t_harga_produk juga bermasalah, ubah juga ke unsignedBigInteger ---
+            $table->unsignedBigInteger('id_harga');
 
             $table->decimal('harga', 20, 0);
 
