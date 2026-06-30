@@ -91,8 +91,8 @@ function ViewKebutuhanMaterial({
   masterBahan: any[];
   onBack: () => void;
 }) {
-  const isApproved   = jadwal.status_jadwal === 'Approved';
-  const existingData = detail.kebutuhan_bahan ?? [];
+  const isApproved    = jadwal.status_jadwal === 'Approved';
+  const existingData  = detail.kebutuhan_bahan ?? [];
   const sudahGenerate = existingData.length > 0;
 
   // Inisialisasi tabel dari data DB jika sudah pernah digenerate
@@ -110,8 +110,8 @@ function ViewKebutuhanMaterial({
   });
 
   const [generatedMaterials, setGeneratedMaterials] = useState<GeneratedMaterial[]>(initMaterials);
-  const [isGenerated, setIsGenerated]   = useState(sudahGenerate);
-  const [isSaving,    setIsSaving]      = useState(false);
+  const [isGenerated, setIsGenerated] = useState(sudahGenerate);
+  const [isSaving,    setIsSaving]    = useState(false);
 
   const handleGenerate = () => {
     if (!isApproved || isGenerated || isSaving) return;
@@ -132,7 +132,7 @@ function ViewKebutuhanMaterial({
       const matInfo       = masterBahan?.find((mb: any) => String(mb.id_bahan || mb.id) === String(targetIdBahan));
       const qtyStandar    = Number(m.jumlahBahan || m.jumlah_bahan || 0);
       return {
-        id_detail_bom: Number(m.id_detail_bom),  // wajib ada di controller
+        id_detail_bom: Number(m.id_detail_bom),
         kode_bahan:    matInfo?.kode_bahan    || targetIdBahan || '-',
         nama_bahan:    matInfo?.nama_bahan    || m.namaMaterial || 'Bahan tidak ditemukan',
         jenis_bahan:   matInfo?.jenis_bahan   || (String(matInfo?.kode_bahan || targetIdBahan).startsWith('BB') ? 'Bahan Baku' : 'Bahan Penolong'),
@@ -144,9 +144,8 @@ function ViewKebutuhanMaterial({
 
     setIsSaving(true);
 
-    // Simpan ke database via Inertia POST
     router.post('/kebutuhan-bahan', {
-      id_produksi:     detail.id_produksi,
+      id_produksi:      detail.id_produksi,
       tanggal_generate: today(),
       items: materials.map((m) => ({
         id_detail_bom:      m.id_detail_bom,
@@ -212,7 +211,6 @@ function ViewKebutuhanMaterial({
             )}
           </div>
 
-          {/* Tombol: disabled jika belum Approved, sedang menyimpan, atau sudah pernah digenerate */}
           {isGenerated ? (
             <span className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium cursor-not-allowed">
               <CheckCircle2 className="w-4 h-4" /> Sudah Digenerate
@@ -425,26 +423,17 @@ function ViewDetail({ jadwal, masterBom, masterBahan, onBack }: {
         </button>
 
         {isApproved && (
-          <button
-            disabled
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-green-100 text-green-600 text-sm font-medium rounded-lg cursor-not-allowed"
-          >
+          <button disabled className="inline-flex items-center gap-2 px-5 py-2.5 bg-green-100 text-green-600 text-sm font-medium rounded-lg cursor-not-allowed">
             <CheckCircle2 className="w-4 h-4" /> Sudah Disetujui
           </button>
         )}
         {isRevisi && (
-          <button
-            disabled
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-100 text-orange-500 text-sm font-medium rounded-lg cursor-not-allowed"
-          >
+          <button disabled className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-100 text-orange-500 text-sm font-medium rounded-lg cursor-not-allowed">
             <XCircle className="w-4 h-4" /> Menunggu Revisi
           </button>
         )}
         {isPending && (
-          <button
-            disabled
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-lg cursor-not-allowed"
-          >
+          <button disabled className="inline-flex items-center gap-2 px-5 py-2.5 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-lg cursor-not-allowed">
             <AlertCircle className="w-4 h-4" /> Menunggu Persetujuan
           </button>
         )}
@@ -463,9 +452,9 @@ function ModalTambahProduksi({ masterProduk, masterBom, onSimpan, onBatal, nextK
     catatan: '',
   });
 
-  const safeProduk  = Array.isArray(masterProduk) ? masterProduk : [];
-  const safeBom     = Array.isArray(masterBom) ? masterBom : [];
-  const selectedBOM = safeBom.find((b: any) => String(b.id_bom) === String(form.id_bom));
+  const safeProduk     = Array.isArray(masterProduk) ? masterProduk : [];
+  const safeBom        = Array.isArray(masterBom) ? masterBom : [];
+  const selectedBOM    = safeBom.find((b: any) => String(b.id_bom) === String(form.id_bom));
   const selectedProduk = safeProduk.find((p: any) => String(p.id_produk) === String(form.id_produk));
 
   const handleSimpan = () => {
@@ -547,24 +536,24 @@ function ModalTambahProduksi({ masterProduk, masterBom, onSimpan, onBatal, nextK
 function ViewForm({ jadwal, allJadwal, onSave, onCancel, masterProduk, masterBom, nextKodeJadwal, nextProduksiNumber, currentYear }: any) {
   const isEdit = !!jadwal;
 
-  const fallbackKode    = `JDW-${currentGlobalYear}-${Math.floor(Math.random() * 1000).toString().padStart(4, '0')}`;
+  const fallbackKode     = `JDW-${currentGlobalYear}-${Math.floor(Math.random() * 1000).toString().padStart(4, '0')}`;
   const kodeJadwalTampil = isEdit ? jadwal.kode_jadwal : (nextKodeJadwal || fallbackKode);
 
   const defaultBulan = bulanOptions[new Date().getMonth()];
   const defaultTahun = String(currentGlobalYear);
 
-  const [bulan,        setBulan]        = useState(jadwal?.periode?.split(' ')[0] || defaultBulan);
-  const [tahun,        setTahun]        = useState(jadwal?.periode?.split(' ')[1] || defaultTahun);
-  const [tanggalDibuat,setTanggalDibuat]= useState(jadwal?.tanggal_dibuat ?? today());
-  const [selectedRefNo,setSelectedRefNo]= useState('-');
-  const [details,      setDetails]      = useState<DetailJadwalProduksi[]>(jadwal?.detail_produksi ?? []);
-  const [showModal,    setShowModal]    = useState(false);
+  const [bulan,         setBulan]         = useState(jadwal?.periode?.split(' ')[0] || defaultBulan);
+  const [tahun,         setTahun]         = useState(jadwal?.periode?.split(' ')[1] || defaultTahun);
+  const [tanggalDibuat, setTanggalDibuat] = useState(jadwal?.tanggal_dibuat ?? today());
+  const [selectedRefNo, setSelectedRefNo] = useState('-');
+  const [details,       setDetails]       = useState<DetailJadwalProduksi[]>(jadwal?.detail_produksi ?? []);
+  const [showModal,     setShowModal]     = useState(false);
 
-  const safeJadwal = Array.isArray(allJadwal)    ? allJadwal    : [];
-  const safeProduk = Array.isArray(masterProduk)  ? masterProduk : [];
-  const safeBom    = Array.isArray(masterBom)     ? masterBom    : [];
+  const safeJadwal = Array.isArray(allJadwal)   ? allJadwal   : [];
+  const safeProduk = Array.isArray(masterProduk) ? masterProduk : [];
+  const safeBom    = Array.isArray(masterBom)    ? masterBom   : [];
 
-  const formDate     = new Date(parseInt(tahun), bulanOptions.indexOf(bulan), 1);
+  const formDate      = new Date(parseInt(tahun), bulanOptions.indexOf(bulan), 1);
   const availableRefs = safeJadwal
     .filter((j: any) => {
       if (j.id_jadwal === jadwal?.id_jadwal || j.status_jadwal !== 'Approved' || !j.periode) return false;
@@ -596,7 +585,7 @@ function ViewForm({ jadwal, allJadwal, onSave, onCancel, masterProduk, masterBom
     if (!ref?.detail_produksi) return;
     const copiedDetails = ref.detail_produksi.map((d: any, idx: number) => ({
       ...d,
-      id_produksi:  undefined,
+      id_produksi:   undefined,
       kode_produksi: getNextKodeProduksi(idx),
     }));
     setDetails(prev => [...prev, ...copiedDetails]);
@@ -618,13 +607,13 @@ function ViewForm({ jadwal, allJadwal, onSave, onCancel, masterProduk, masterBom
 
   const handleSimpan = (status: StatusJadwal) => {
     const payload = {
-      kode_jadwal:      kodeJadwalTampil,
-      periode:          `${bulan} ${tahun}`,
-      tanggal_dibuat:   tanggalDibuat,
-      jumlah_produksi:  details.length,
-      status_jadwal:    status,
-      komentar_owner:   '',
-      detail_produksi:  details,
+      kode_jadwal:     kodeJadwalTampil,
+      periode:         `${bulan} ${tahun}`,
+      tanggal_dibuat:  tanggalDibuat,
+      jumlah_produksi: details.length,
+      status_jadwal:   status,
+      komentar_owner:  '',
+      detail_produksi: details,
     };
     onSave(payload, isEdit);
   };
@@ -911,12 +900,12 @@ function ViewList({ data, onAdd, onDetail, onEdit, onDelete }: any) {
                         <Eye className="w-4 h-4" />
                       </button>
                       {(j.status_jadwal === 'Draft' || j.status_jadwal === 'Revision Required') && (
-                        <button onClick={() => onEdit(j)} className="p-1.5 rounded text-yellow-600 hover:bg-yellow-100 transition-colors" title="Edit Formula">
+                        <button onClick={() => onEdit(j)} className="p-1.5 rounded text-yellow-600 hover:bg-yellow-100 transition-colors" title="Edit">
                           <Pencil className="w-4 h-4" />
                         </button>
                       )}
                       {j.status_jadwal === 'Draft' && (
-                        <button onClick={() => onDelete(j.id_jadwal!)} className="p-1.5 rounded text-red-500 hover:bg-red-100 transition-colors" title="Hapus Master">
+                        <button onClick={() => onDelete(j.id_jadwal!)} className="p-1.5 rounded text-red-500 hover:bg-red-100 transition-colors" title="Hapus">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       )}

@@ -8,7 +8,7 @@ import { router } from '@inertiajs/react';
 // ── TYPES
 interface DetailBOM {
   id: string;
-  kodeMaterial: string | number; // Ini berisi ID dari database
+  kodeMaterial: string | number;
   namaMaterial: string;
   jumlahBahan: number;
   satuan: string;
@@ -17,7 +17,7 @@ interface DetailBOM {
 interface BOM {
   id: string | number;
   kodeBOM: string;
-  kodeProduk: string | number; // Ini berisi ID dari database
+  kodeProduk: string | number;
   namaProduk: string;
   namaResep: string;
   qtyBatch: number;
@@ -38,7 +38,7 @@ function Combobox<T extends OptionItem>({
   options, value, onChange, placeholder, disabled
 }: {
   options: T[];
-  value: string | number; // Menyimpan ID
+  value: string | number;
   onChange: (item: T) => void;
   placeholder: string;
   disabled?: boolean;
@@ -47,10 +47,7 @@ function Combobox<T extends OptionItem>({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Cari berdasarkan ID
   const selected = options.find(o => String(o.id) === String(value));
-  
-  // Filter pencarian berdasarkan Kode atau Nama
   const filtered = query
     ? options.filter(o =>
         String(o.kode).toLowerCase().includes(query.toLowerCase()) ||
@@ -73,9 +70,7 @@ function Combobox<T extends OptionItem>({
         onClick={() => !disabled && setOpen(o => !o)}
       >
         <span className="flex-1 text-sm text-gray-700 truncate">
-          {/* Tampilan diubah menggunakan .kode asli, bukan .id */}
-          {selected ? <span className="font-semibold">{selected.kode}</span> : null}
-          {selected ? ` - ${selected.nama}` : <span className="text-gray-400">{placeholder}</span>}
+          {selected ? <><span className="font-semibold">{selected.kode}</span>{` - ${selected.nama}`}</> : <span className="text-gray-400">{placeholder}</span>}
         </span>
         <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
       </div>
@@ -110,19 +105,13 @@ function Combobox<T extends OptionItem>({
   );
 }
 
-// ── PAGE SIZE
 const PAGE_SIZE = 10;
 
 // ══════════════════════════════════════════════
 //  LIST VIEW
 // ══════════════════════════════════════════════
 function ListBOM({
-  data,
-  produkList,
-  onAdd,
-  onEdit,
-  onDetail,
-  onDelete,
+  data, produkList, onAdd, onEdit, onDetail, onDelete,
 }: {
   data: BOM[];
   produkList: OptionItem[];
@@ -132,14 +121,11 @@ function ListBOM({
   onDelete: (id: string | number) => void;
 }) {
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const [page, setPage]     = useState(1);
 
-  // Helper untuk menampilkan format "Kode - Nama" di tabel
   const getProdukDisplay = (idProduk: string | number, fallbackNama: string) => {
     const p = produkList.find(x => String(x.id) === String(idProduk));
-    return p ? (
-      <span><span className="font-semibold text-gray-800">{p.kode}</span> - {p.nama}</span>
-    ) : fallbackNama;
+    return p ? <span><span className="font-semibold text-gray-800">{p.kode}</span> - {p.nama}</span> : fallbackNama;
   };
 
   const filtered = data.filter(b =>
@@ -147,16 +133,15 @@ function ListBOM({
     b.namaProduk.toLowerCase().includes(search.toLowerCase()) ||
     b.kodeBOM.toLowerCase().includes(search.toLowerCase())
   );
-  
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const paged      = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-           <h1 className="text-2xl font-bold text-gray-900">Data Kebutuhan Material</h1>
-           <p className="text-sm text-gray-500">Kelola kebutuhan material atau Bill of Material (BOM) setiap produk</p>
+          <h1 className="text-2xl font-bold text-gray-900">Data Kebutuhan Material</h1>
+          <p className="text-sm text-gray-500">Kelola kebutuhan material atau Bill of Material (BOM) setiap produk</p>
         </div>
         <button onClick={onAdd} className="flex items-center gap-2 px-4 py-2 bg-red-800 text-white rounded-lg text-sm font-medium hover:bg-red-900">
           <Plus className="w-4 h-4" /> Tambah BOM
@@ -189,13 +174,9 @@ function ListBOM({
             </thead>
             <tbody className="divide-y divide-gray-100">
               {paged.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-gray-400">
-                    Tidak ada data ditemukan
-                  </td>
-                </tr>
+                <tr><td colSpan={7} className="py-12 text-center text-gray-400">Tidak ada data ditemukan</td></tr>
               ) : (
-                paged.map((bom, idx) => (
+                paged.map(bom => (
                   <tr key={bom.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-semibold">{bom.kodeBOM}</td>
                     <td className="px-4 py-3 text-gray-700">{getProdukDisplay(bom.kodeProduk, bom.namaProduk)}</td>
@@ -205,15 +186,9 @@ function ListBOM({
                     <td className="px-4 py-3 text-gray-700">{bom.details?.length || 0} Bahan</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
-                        <button onClick={() => onDetail(bom)} title="Detail" className="p-1.5 rounded hover:bg-blue-100 text-blue-600 transition-colors">
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => onEdit(bom)} title="Edit" className="p-1.5 rounded hover:bg-yellow-100 text-yellow-600 transition-colors">
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => onDelete(bom.id)} title="Hapus" className="p-1.5 rounded hover:bg-red-100 text-red-500 transition-colors">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <button onClick={() => onDetail(bom)} title="Detail" className="p-1.5 rounded hover:bg-blue-100 text-blue-600 transition-colors"><Eye className="w-4 h-4" /></button>
+                        <button onClick={() => onEdit(bom)} title="Edit" className="p-1.5 rounded hover:bg-yellow-100 text-yellow-600 transition-colors"><Pencil className="w-4 h-4" /></button>
+                        <button onClick={() => onDelete(bom.id)} title="Hapus" className="p-1.5 rounded hover:bg-red-100 text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -229,23 +204,11 @@ function ListBOM({
               {`${(page-1)*PAGE_SIZE+1}–${Math.min(page*PAGE_SIZE, filtered.length)} dari ${filtered.length} data`}
             </span>
             <div className="flex gap-1">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-3 py-1 text-xs border border-gray-200 rounded hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition"
-              >Sebelumnya</button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                <button
-                  key={p}
-                  onClick={() => setPage(p)}
-                  className={`px-3 py-1 text-xs border rounded transition ${p === page ? 'bg-red-800 text-white border-red-800' : 'border-gray-200 hover:bg-white'}`}
-                >{p}</button>
+              <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} className="px-3 py-1 text-xs border border-gray-200 rounded hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition">Sebelumnya</button>
+              {Array.from({ length: totalPages }, (_, i) => i+1).map(p => (
+                <button key={p} onClick={() => setPage(p)} className={`px-3 py-1 text-xs border rounded transition ${p === page ? 'bg-red-800 text-white border-red-800' : 'border-gray-200 hover:bg-white'}`}>{p}</button>
               ))}
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="px-3 py-1 text-xs border border-gray-200 rounded hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition"
-              >Berikutnya</button>
+              <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages} className="px-3 py-1 text-xs border border-gray-200 rounded hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition">Berikutnya</button>
             </div>
           </div>
         )}
@@ -257,13 +220,12 @@ function ListBOM({
 // ══════════════════════════════════════════════
 //  DETAIL VIEW (read-only)
 // ══════════════════════════════════════════════
-function DetailBOMView({ bom, produkList, materialList, onBack }: { 
-  bom: BOM; 
+function DetailBOMView({ bom, produkList, materialList, onBack }: {
+  bom: BOM;
   produkList: OptionItem[];
   materialList: OptionItem[];
-  onBack: () => void 
+  onBack: () => void;
 }) {
-
   const getProdukDisplay = (idProduk: string | number, fallbackNama: string) => {
     const p = produkList.find(x => String(x.id) === String(idProduk));
     return p ? `${p.kode} - ${p.nama}` : fallbackNama;
@@ -271,9 +233,7 @@ function DetailBOMView({ bom, produkList, materialList, onBack }: {
 
   const getMaterialDisplay = (idMaterial: string | number, fallbackNama: string) => {
     const m = materialList.find(x => String(x.id) === String(idMaterial));
-    return m ? (
-      <span><span className="font-semibold text-gray-800">{m.kode}</span> - {m.nama}</span>
-    ) : fallbackNama;
+    return m ? <span><span className="font-semibold text-gray-800">{m.kode}</span> - {m.nama}</span> : fallbackNama;
   };
 
   return (
@@ -283,19 +243,17 @@ function DetailBOMView({ bom, produkList, materialList, onBack }: {
           <h1 className="text-2xl font-bold text-gray-900">Detail BOM — {bom.kodeBOM}</h1>
           <p className="text-sm text-gray-500">Last updated: {bom.lastUpdated}</p>
         </div>
-        <button onClick={onBack} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition">
-          <X className="w-5 h-5" />
-        </button>
+        <button onClick={onBack} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition"><X className="w-5 h-5" /></button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Informasi BOM</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {[
-            { label: 'Kode BOM', value: bom.kodeBOM },
+            { label: 'Kode BOM',    value: bom.kodeBOM },
             { label: 'Nama Produk', value: getProdukDisplay(bom.kodeProduk, bom.namaProduk) },
-            { label: 'Nama Resep', value: bom.namaResep },
-            { label: 'Qty Batch', value: `${bom.qtyBatch} ${bom.satuanBatch}` },
+            { label: 'Nama Resep',  value: bom.namaResep },
+            { label: 'Qty Batch',   value: `${bom.qtyBatch} ${bom.satuanBatch}` },
           ].map(f => (
             <div key={f.label} className="bg-gray-50 rounded-lg px-4 py-3">
               <p className="text-xs text-gray-400 mb-1">{f.label}</p>
@@ -344,18 +302,13 @@ function DetailBOMView({ bom, produkList, materialList, onBack }: {
 //  FORM VIEW (tambah / edit)
 // ══════════════════════════════════════════════
 interface RowDraft {
-  rowId: string;
-  idMaterial: string; // Menyimpan ID bahan
+  rowId: string;      // id_detail_bom untuk baris lama, "new-{ts}" untuk baris baru
+  idMaterial: string;
   jumlahBahan: string;
 }
 
 function FormBOM({
-  editTarget,
-  produkList,
-  materialList,
-  nextKodeBOM,
-  onSave,
-  onCancel,
+  editTarget, produkList, materialList, nextKodeBOM, onSave, onCancel,
 }: {
   editTarget: BOM | null;
   produkList: OptionItem[];
@@ -366,38 +319,35 @@ function FormBOM({
 }) {
   const isEdit = !!editTarget;
 
-  const [kodeBOM, setKodeBOM] = useState(editTarget?.kodeBOM ?? nextKodeBOM);
-  const [idProduk, setIdProduk] = useState(String(editTarget?.kodeProduk ?? ''));
-  const [namaResep, setNamaResep] = useState(editTarget?.namaResep ?? '');
-  const [qtyBatch, setQtyBatch] = useState(editTarget?.qtyBatch?.toString() ?? '');
-  const [satuanBatch, setSatuanBatch] = useState(editTarget?.satuanBatch ?? '');
-  const [rows, setRows] = useState<RowDraft[]>(
+  const [kodeBOM,      setKodeBOM]      = useState(editTarget?.kodeBOM ?? nextKodeBOM);
+  const [idProduk,     setIdProduk]     = useState(String(editTarget?.kodeProduk ?? ''));
+  const [namaResep,    setNamaResep]    = useState(editTarget?.namaResep ?? '');
+  const [qtyBatch,     setQtyBatch]     = useState(editTarget?.qtyBatch?.toString() ?? '');
+  const [satuanBatch,  setSatuanBatch]  = useState(editTarget?.satuanBatch ?? '');
+  const [rows,         setRows]         = useState<RowDraft[]>(
     editTarget
-      ? editTarget.details.map(d => ({ 
-          rowId: String(d.id), 
-          idMaterial: String(d.kodeMaterial), 
-          jumlahBahan: String(d.jumlahBahan) 
+      ? editTarget.details.map(d => ({
+          rowId:      String(d.id),           // ← id_detail_bom dari DB
+          idMaterial: String(d.kodeMaterial),
+          jumlahBahan: String(d.jumlahBahan),
         }))
       : []
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const addRow = () =>
-    setRows(r => [...r, { rowId: `new-${Date.now()}`, idMaterial: '', jumlahBahan: '' }]);
-
+  const addRow    = () => setRows(r => [...r, { rowId: `new-${Date.now()}`, idMaterial: '', jumlahBahan: '' }]);
   const removeRow = (rowId: string) => setRows(r => r.filter(x => x.rowId !== rowId));
-
   const updateRow = (rowId: string, field: keyof RowDraft, val: string) =>
     setRows(r => r.map(x => x.rowId === rowId ? { ...x, [field]: val } : x));
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!kodeBOM.trim()) e['kodeBOM'] = 'Kode BOM wajib diisi';
-    if (!idProduk) e['produk'] = 'Pilih produk terlebih dahulu';
-    if (!namaResep.trim()) e['namaResep'] = 'Nama resep harus diisi';
+    if (!kodeBOM.trim())  e['kodeBOM']    = 'Kode BOM wajib diisi';
+    if (!idProduk)        e['produk']     = 'Pilih produk terlebih dahulu';
+    if (!namaResep.trim())e['namaResep']  = 'Nama resep harus diisi';
     if (!qtyBatch || isNaN(Number(qtyBatch)) || Number(qtyBatch) <= 0) e['qtyBatch'] = 'Qty batch harus > 0';
     if (!satuanBatch.trim()) e['satuanBatch'] = 'Satuan batch harus diisi';
-    if (rows.length === 0) e['rows'] = 'Tambahkan minimal satu bahan';
+    if (rows.length === 0)   e['rows']    = 'Tambahkan minimal satu bahan';
     rows.forEach((row, i) => {
       if (!row.idMaterial) e[`mat-${i}`] = 'Pilih bahan';
       if (!row.jumlahBahan || isNaN(Number(row.jumlahBahan)) || Number(row.jumlahBahan) <= 0)
@@ -409,22 +359,15 @@ function FormBOM({
 
   const handleSave = () => {
     if (!validate()) return;
-    
+
+    // ✅ FIX: sertakan rowId sebagai 'id' agar controller tahu mana UPDATE vs INSERT
     const details = rows.map(row => ({
+      id:          row.rowId.startsWith('new-') ? null : parseInt(row.rowId, 10),
       kodeMaterial: row.idMaterial,
-      jumlahBahan: parseFloat(row.jumlahBahan),
+      jumlahBahan:  parseFloat(row.jumlahBahan),
     }));
 
-    onSave({
-      id: editTarget?.id,
-      kodeBOM,
-      kodeProduk: idProduk,
-      namaResep,
-      qtyBatch: parseFloat(qtyBatch),
-      satuanBatch,
-      details,
-      isEdit,
-    });
+    onSave({ id: editTarget?.id, kodeBOM, kodeProduk: idProduk, namaResep, qtyBatch: parseFloat(qtyBatch), satuanBatch, details, isEdit });
   };
 
   return (
@@ -438,61 +381,26 @@ function FormBOM({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">Kode BOM *</label>
-            <input
-              type="text"
-              disabled 
-              value={kodeBOM}
-              className="w-full px-3 py-2 border border-gray-200 bg-gray-100 cursor-not-allowed rounded-lg text-sm outline-none"
-              placeholder="Contoh: BOM-001"
-            />
+            <input type="text" disabled value={kodeBOM} className="w-full px-3 py-2 border border-gray-200 bg-gray-100 cursor-not-allowed rounded-lg text-sm outline-none" placeholder="Contoh: BOM-001" />
           </div>
-          
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">Nama Produk *</label>
-            <Combobox
-              options={produkList}
-              value={idProduk}
-              onChange={p => { setIdProduk(String(p.id)); setErrors(e => ({ ...e, produk: '' })); }}
-              placeholder="Pilih produk"
-            />
+            <Combobox options={produkList} value={idProduk} onChange={p => { setIdProduk(String(p.id)); setErrors(e => ({ ...e, produk: '' })); }} placeholder="Pilih produk" />
             {errors['produk'] && <p className="text-xs text-red-500 mt-1">{errors['produk']}</p>}
           </div>
-          
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">Nama Resep *</label>
-            <input
-              type="text"
-              value={namaResep}
-              onChange={(e) => { setNamaResep(e.target.value); setErrors(e => ({ ...e, namaResep: '' })); }}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400"
-              placeholder="Masukkan nama resep"
-            />
+            <input type="text" value={namaResep} onChange={e => { setNamaResep(e.target.value); setErrors(v => ({ ...v, namaResep: '' })); }} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400" placeholder="Masukkan nama resep" />
             {errors['namaResep'] && <p className="text-xs text-red-500 mt-1">{errors['namaResep']}</p>}
           </div>
-          
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">Qty Batch *</label>
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              value={qtyBatch}
-              onChange={(e) => { setQtyBatch(e.target.value); setErrors(e => ({ ...e, qtyBatch: '' })); }}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400"
-              placeholder="0"
-            />
+            <input type="number" min={0} step="0.01" value={qtyBatch} onChange={e => { setQtyBatch(e.target.value); setErrors(v => ({ ...v, qtyBatch: '' })); }} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400" placeholder="0" />
             {errors['qtyBatch'] && <p className="text-xs text-red-500 mt-1">{errors['qtyBatch']}</p>}
           </div>
-          
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">Satuan Batch *</label>
-            <input
-              type="text"
-              value={satuanBatch}
-              onChange={(e) => { setSatuanBatch(e.target.value); setErrors(e => ({ ...e, satuanBatch: '' })); }}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400"
-              placeholder="Kg, Pcs, dll"
-            />
+            <input type="text" value={satuanBatch} onChange={e => { setSatuanBatch(e.target.value); setErrors(v => ({ ...v, satuanBatch: '' })); }} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400" placeholder="Kg, Pcs, dll" />
             {errors['satuanBatch'] && <p className="text-xs text-red-500 mt-1">{errors['satuanBatch']}</p>}
           </div>
         </div>
@@ -500,11 +408,7 @@ function FormBOM({
         <div className="border border-gray-200 rounded-xl overflow-hidden mb-6">
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50">
             <p className="text-sm font-semibold text-gray-700">Detail Bahan</p>
-            <button
-              type="button"
-              onClick={addRow}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-red-50 text-red-700 text-xs font-medium rounded-lg transition-colors border border-gray-200 hover:border-red-200"
-            >
+            <button type="button" onClick={addRow} className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-red-50 text-red-700 text-xs font-medium rounded-lg transition-colors border border-gray-200 hover:border-red-200">
               <Plus className="w-3.5 h-3.5" /> Tambah Baris
             </button>
           </div>
@@ -534,25 +438,12 @@ function FormBOM({
                     return (
                       <tr key={row.rowId} className={`border-b border-gray-100 ${idx % 2 === 1 ? 'bg-gray-50' : ''}`}>
                         <td className="px-4 py-2">
-                          <Combobox
-                            options={materialList}
-                            value={row.idMaterial}
-                            onChange={m => updateRow(row.rowId, 'idMaterial', String(m.id))}
-                            placeholder="Pilih bahan"
-                          />
+                          <Combobox options={materialList} value={row.idMaterial} onChange={m => updateRow(row.rowId, 'idMaterial', String(m.id))} placeholder="Pilih bahan" />
                           {errors[`mat-${idx}`] && <p className="text-xs text-red-500 mt-0.5">{errors[`mat-${idx}`]}</p>}
                         </td>
                         <td className="px-4 py-2">
                           <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400"
-                              placeholder="0"
-                              value={row.jumlahBahan}
-                              onChange={e => updateRow(row.rowId, 'jumlahBahan', e.target.value)}
-                            />
+                            <input type="number" min={0} step="0.01" className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400" placeholder="0" value={row.jumlahBahan} onChange={e => updateRow(row.rowId, 'jumlahBahan', e.target.value)} />
                             <span className="text-sm text-gray-500 min-w-[60px]">{mat?.satuan ?? '—'}</span>
                           </div>
                           {errors[`qty-${idx}`] && <p className="text-xs text-red-500 mt-0.5">{errors[`qty-${idx}`]}</p>}
@@ -621,53 +512,50 @@ function DeleteModal({ bom, onConfirm, onCancel }: { bom: BOM; onConfirm: () => 
 type ViewMode = 'list' | 'form' | 'detail';
 
 export default function DataKebutuhanMaterial({ boms = [], produkList = [], materialList = [] }: any) {
-  const [view, setView] = useState<ViewMode>('list');
-  const [selected, setSelected] = useState<BOM | null>(null);
+  const [view,         setView]         = useState<ViewMode>('list');
+  const [selected,     setSelected]     = useState<BOM | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BOM | null>(null);
 
-  // Auto-generate Kode BOM berdasarkan data yang ada
   const generateNextKode = () => {
     if (!boms || boms.length === 0) return 'BOM-001';
     let maxNum = 0;
     boms.forEach((item: BOM) => {
       const match = item.kodeBOM.match(/\d+$/);
-      if (match) {
-        const num = parseInt(match[0], 10);
-        if (num > maxNum) maxNum = num;
-      }
+      if (match) { const num = parseInt(match[0], 10); if (num > maxNum) maxNum = num; }
     });
     return `BOM-${(maxNum + 1).toString().padStart(3, '0')}`;
   };
 
-  // MAPPING: Memisahkan antara ID untuk database dan KODE untuk tampilan
   const mappedProduk = useMemo(() => produkList.map((p: any) => ({
-    id: String(p.id_produk),
-    kode: p.kode_produk ? String(p.kode_produk) : String(p.id_produk), // Pakai kode string jika ada
-    nama: p.nama_produk
+    id:   String(p.id_produk),
+    kode: p.kode_produk ? String(p.kode_produk) : String(p.id_produk),
+    nama: p.nama_produk,
   })), [produkList]);
 
   const mappedMaterial = useMemo(() => materialList.map((m: any) => ({
-    id: String(m.id_bahan),
-    kode: m.kode_bahan ? String(m.kode_bahan) : String(m.id_bahan), // Pakai kode string jika ada
-    nama: m.nama_bahan,
-    satuan: m.satuan_bahan // Di model bahan kamu pakai satuan_bahan
+    id:     String(m.id_bahan),
+    kode:   m.kode_bahan ? String(m.kode_bahan) : String(m.id_bahan),
+    nama:   m.nama_bahan,
+    satuan: m.satuan_bahan,
   })), [materialList]);
 
-  const handleAdd = () => { setSelected(null); setView('form'); };
-  const handleEdit = (b: BOM) => { setSelected(b); setView('form'); };
+  const handleAdd    = () => { setSelected(null); setView('form'); };
+  const handleEdit   = (b: BOM) => { setSelected(b); setView('form'); };
   const handleDetail = (b: BOM) => { setSelected(b); setView('detail'); };
 
   const handleSave = (bomData: any) => {
     const payload = {
-      kode_bom: bomData.kodeBOM,
-      id_produk: bomData.kodeProduk,
-      nama_resep: bomData.namaResep,
-      qty_batch: bomData.qtyBatch,
+      kode_bom:     bomData.kodeBOM,
+      id_produk:    bomData.kodeProduk,
+      nama_resep:   bomData.namaResep,
+      qty_batch:    bomData.qtyBatch,
       satuan_batch: bomData.satuanBatch,
+      // ✅ FIX: sertakan 'id' (id_detail_bom) agar controller bisa UPDATE in-place
       details: bomData.details.map((d: any) => ({
-        id_bahan: d.kodeMaterial,
-        jumlah_bahan: d.jumlahBahan
-      }))
+        id:           d.id ?? null,      // null = baris baru → INSERT
+        id_bahan:     d.kodeMaterial,    // angka = baris lama → UPDATE
+        jumlah_bahan: d.jumlahBahan,
+      })),
     };
 
     if (bomData.isEdit) {
@@ -679,9 +567,7 @@ export default function DataKebutuhanMaterial({ boms = [], produkList = [], mate
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    router.delete(`/kebutuhan-material/${deleteTarget.id}`, {
-      onSuccess: () => setDeleteTarget(null)
-    });
+    router.delete(`/kebutuhan-material/${deleteTarget.id}`, { onSuccess: () => setDeleteTarget(null) });
   };
 
   return (
@@ -701,18 +587,13 @@ export default function DataKebutuhanMaterial({ boms = [], produkList = [], mate
           editTarget={selected}
           produkList={mappedProduk}
           materialList={mappedMaterial}
-          nextKodeBOM={generateNextKode()} // Lempar kode auto-generate
+          nextKodeBOM={generateNextKode()}
           onSave={handleSave}
           onCancel={() => setView('list')}
         />
       )}
       {view === 'detail' && selected && (
-        <DetailBOMView 
-          bom={selected} 
-          produkList={mappedProduk}
-          materialList={mappedMaterial}
-          onBack={() => setView('list')} 
-        />
+        <DetailBOMView bom={selected} produkList={mappedProduk} materialList={mappedMaterial} onBack={() => setView('list')} />
       )}
       {deleteTarget && (
         <DeleteModal bom={deleteTarget} onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} />

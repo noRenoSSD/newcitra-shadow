@@ -73,7 +73,7 @@ class JadwalProduksiController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'kode_jadwal'                        => 'required|string|unique:jadwal_produksi,kode_jadwal',
+            'kode_jadwal'                        => 'required|string|unique:t_jadwal_produksi,kode_jadwal',
             'periode'                            => 'required|string',
             'tanggal_dibuat'                     => 'required|date',
             'status_jadwal'                      => 'required|in:Draft,Pending Approval,Revision Required,Approved',
