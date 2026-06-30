@@ -23,6 +23,8 @@ class PermintaanPembelian extends Model
         'jenis_bahan',
         'status',
         'catatan',
+        'tgl_mulai_periode', // <-- Tambah ini sesuai instruksi
+        'tgl_akhir_periode', // <-- Tambah ini sesuai instruksi
     ];
 
     /**
@@ -69,7 +71,6 @@ class PermintaanPembelian extends Model
             return $prefix . '-0001';
         }
 
-        // Mengambil nomor urut terakhir setelah tanda strip (misal PRB-0001 diambil 0001)
         $lastNumber = (int) substr($lastRecord->no_pp, 4);
         $newNumber = $lastNumber + 1;
 

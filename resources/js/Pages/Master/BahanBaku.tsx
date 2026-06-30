@@ -7,8 +7,9 @@ interface Bahan {
     kode_bahan: string;
     nama_bahan: string;
     satuan_bahan: string;
+    kategori_simpan: "perishable" | "non_perishable"; // <-- Ditambahkan field kategori_simpan
     stok_min: number;
-    harga_beli: number; // <-- Ditambahkan field harga_beli
+    harga_beli: number;
     jenis_bahan: "baku";
 }
 
@@ -28,8 +29,9 @@ export default function BahanBaku({ bahans }: Props) {
         kode_bahan: "",
         nama_bahan: "",
         satuan_bahan: "",
+        kategori_simpan: "perishable", // <-- Ditambahkan state default untuk kategori_simpan
         stok_min: "",
-        harga_beli: "", // <-- Ditambahkan state untuk harga_beli
+        harga_beli: "",
     });
 
     // Helper untuk memformat angka menjadi Rupiah (Rp)
@@ -43,7 +45,15 @@ export default function BahanBaku({ bahans }: Props) {
 
     const handleAdd = () => {
         reset();
-        setData("jenis_bahan", "baku");
+        setData({
+            jenis_bahan: "baku",
+            kode_bahan: "",
+            nama_bahan: "",
+            satuan_bahan: "",
+            kategori_simpan: "perishable",
+            stok_min: "",
+            harga_beli: "",
+        });
         setEditMode(false);
         setShowForm(true);
     };
@@ -54,8 +64,9 @@ export default function BahanBaku({ bahans }: Props) {
             kode_bahan: bahan.kode_bahan,
             nama_bahan: bahan.nama_bahan,
             satuan_bahan: bahan.satuan_bahan,
+            kategori_simpan: bahan.kategori_simpan || "perishable", // <-- Mengisi form edit
             stok_min: bahan.stok_min.toString(),
-            harga_beli: bahan.harga_beli ? bahan.harga_beli.toString() : "0", // <-- Mengisi form edit
+            harga_beli: bahan.harga_beli ? bahan.harga_beli.toString() : "0",
         });
         setSelectedBahan(bahan);
         setEditMode(true);
@@ -166,6 +177,35 @@ export default function BahanBaku({ bahans }: Props) {
                                     placeholder="Contoh: Kg, Liter"
                                 />
                             </div>
+
+                            {/* --- INPUT BARU: DROPDOWN KATEGORI SIMPAN --- */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Kategori Simpan{" "}
+                                    <span className="text-red-600">*</span>
+                                </label>
+                                <select
+                                    required
+                                    value={data.kategori_simpan}
+                                    onChange={(e) =>
+                                        setData(
+                                            "kategori_simpan",
+                                            e.target.value as
+                                                | "perishable"
+                                                | "non_perishable",
+                                        )
+                                    }
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
+                                >
+                                    <option value="perishable">
+                                        Mudah Rusak (Beli H-1 Produksi)
+                                    </option>
+                                    <option value="non_perishable">
+                                        Tahan Lama (Beli Mingguan)
+                                    </option>
+                                </select>
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Stok Minimal{" "}
@@ -184,7 +224,6 @@ export default function BahanBaku({ bahans }: Props) {
                                     placeholder="0"
                                 />
                             </div>
-                            {/* --- INPUT BARU: HARGA BELI --- */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Harga Beli Satuan (Rp){" "}
@@ -278,13 +317,29 @@ export default function BahanBaku({ bahans }: Props) {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-500 mb-1">
+                                Kategori Simpan
+                            </label>
+                            <p className="mt-1">
+                                {selectedBahan.kategori_simpan ===
+                                "perishable" ? (
+                                    <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">
+                                        Mudah Rusak
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">
+                                        Tahan Lama
+                                    </span>
+                                )}
+                            </p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-500 mb-1">
                                 Stok Minimal
                             </label>
                             <p className="text-gray-800 font-medium">
                                 {selectedBahan.stok_min}
                             </p>
                         </div>
-                        {/* --- TAMPILAN BARU: HARGA BELI --- */}
                         <div>
                             <label className="block text-sm font-medium text-gray-500 mb-1">
                                 Harga Beli Satuan
@@ -363,6 +418,9 @@ export default function BahanBaku({ bahans }: Props) {
                                 </th>
                                 {/* --- HEADER TABEL BARU --- */}
                                 <th className="px-6 py-3 font-semibold">
+                                    Kategori Simpan
+                                </th>
+                                <th className="px-6 py-3 font-semibold">
                                     Harga Beli
                                 </th>
                                 <th className="px-6 py-3 font-semibold">
@@ -377,7 +435,7 @@ export default function BahanBaku({ bahans }: Props) {
                             {filteredBahan.length === 0 ? (
                                 <tr>
                                     <td
-                                        colSpan={6}
+                                        colSpan={7}
                                         className="px-6 py-8 text-center text-gray-500"
                                     >
                                         Tidak ada data bahan baku
@@ -398,7 +456,19 @@ export default function BahanBaku({ bahans }: Props) {
                                         <td className="px-6 py-4 text-gray-900">
                                             {bahan.satuan_bahan}
                                         </td>
-                                        {/* --- ISI TABEL BARU --- */}
+                                        {/* --- ISI TABEL BARU (BADGE) --- */}
+                                        <td className="px-6 py-4">
+                                            {bahan.kategori_simpan ===
+                                            "perishable" ? (
+                                                <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">
+                                                    Mudah Rusak
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">
+                                                    Tahan Lama
+                                                </span>
+                                            )}
+                                        </td>
                                         <td className="px-6 py-4 font-medium text-green-700">
                                             {formatRupiah(bahan.harga_beli)}
                                         </td>

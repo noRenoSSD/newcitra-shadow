@@ -13,6 +13,7 @@ class Bahan extends Model
     // Sudah ditambahkan 'harga_beli' sesuai instruksi migration sebelumnya
     protected $fillable = [
         'jenis_bahan',
+        'kategori_simpan',
         'kode_bahan',
         'nama_bahan',
         'satuan_bahan',

@@ -79,7 +79,7 @@ const menuItems: MenuItem[] = [
         subMenus: [
             { label: "Permintaan Pembelian", path: "/pembelian/permintaan" },
             { label: "Pesanan Pembelian", path: "/pembelian/pesanan" },
-            { label: "Penerimaan Bahan", path: "/pembelian/penerimaan" },
+            { label: "Penerimaan Bahan", path: "/pembelian/penerimaan-bahan" },
             { label: "Transaksi Pembelian", path: "/pembelian/transaksi" },
             { label: "Retur Pembelian", path: "/pembelian/retur" },
             { label: "Hutang Usaha", path: "/pembelian/hutang" },

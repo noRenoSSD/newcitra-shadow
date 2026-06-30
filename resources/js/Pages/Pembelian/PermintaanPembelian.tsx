@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { router } from "@inertiajs/react";
 import { Plus, Search, Eye, Trash2, X, Printer } from "lucide-react";
+import axios from "axios"; // <-- WAJIB IMPORT AXIOS
 
 // --- INTERFACES DARI BACKEND ---
 interface Bahan {
@@ -31,9 +32,8 @@ interface PermintaanPembelian {
     details: DetailPP[];
     detail_jadwal?: {
         id_produksi: number;
-        kode_produksi?: string; // Langsung di sini
+        kode_produksi?: string;
         jadwal_produksi?: {
-            // Tetap sediakan untuk jaga-jaga struktur aslinya
             kode_produksi: string;
         };
         produk: {
@@ -41,6 +41,15 @@ interface PermintaanPembelian {
             nama_produk: string;
         };
     };
+}
+
+// --- INTERFACE TAMBAHAN (Sesuai Instruksi) ---
+interface KebutuhanMingguanItem {
+    id_bahan: number;
+    kode_bahan: string;
+    nama_bahan: string;
+    satuan_bahan: string;
+    qty_kebutuhan: number;
 }
 
 type TabType = "baku" | "penolong" | "tambahan";
@@ -53,13 +62,28 @@ export default function PermintaanPembelian({
 }: any) {
     console.log("Data Permintaan:", permintaans);
     console.log("Data Jadwal:", jadwals);
-    console.log("Data Semua Bahan:", bahans); // <--- TAMBAHKAN INI
+    console.log("Data Semua Bahan:", bahans);
+
     const [activeTab, setActiveTab] = useState<TabType>("baku");
     const [showForm, setShowForm] = useState(false);
     const [showDetail, setShowDetail] = useState(false);
     const [selectedPermintaan, setSelectedPermintaan] =
         useState<PermintaanPembelian | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
+
+    // --- STATE TAMBAHAN UNTUK MODE MINGGUAN ---
+    const [modePembelian, setModePembelian] = useState<
+        "per_produksi" | "mingguan"
+    >("per_produksi");
+    const [tglMulaiPeriode, setTglMulaiPeriode] = useState("");
+    const [tglAkhirPeriode, setTglAkhirPeriode] = useState("");
+    const [kodeProduksiCovered, setKodeProduksiCovered] = useState<string[]>(
+        [],
+    );
+    const [idProduksiAnchor, setIdProduksiAnchor] = useState<number | null>(
+        null,
+    );
+    const [isLoadingMingguan, setIsLoadingMingguan] = useState(false);
 
     const [formData, setFormData] = useState({
         tgl_pp: "",
@@ -79,6 +103,21 @@ export default function PermintaanPembelian({
     const handleTabChange = (tab: TabType) => {
         setActiveTab(tab);
         setSearchTerm("");
+        // Reset mode pembelian ke default saat ganti tab
+        if (tab !== "baku") {
+            setModePembelian("per_produksi");
+        }
+    };
+
+    const handleModePembelianChange = (mode: "per_produksi" | "mingguan") => {
+        setModePembelian(mode);
+        // Reset list kebutuhan dan form terkait produksi
+        setKebutuhanList([]);
+        setFormData({ ...formData, id_produksi: "", catatan: "" });
+        setTglMulaiPeriode("");
+        setTglAkhirPeriode("");
+        setKodeProduksiCovered([]);
+        setIdProduksiAnchor(null);
     };
 
     const handleAdd = () => {
@@ -96,9 +135,18 @@ export default function PermintaanPembelian({
             jenis_bahan: "",
             satuan_bahan: "",
         });
+
+        // Reset state mingguan
+        setModePembelian("per_produksi");
+        setTglMulaiPeriode("");
+        setTglAkhirPeriode("");
+        setKodeProduksiCovered([]);
+        setIdProduksiAnchor(null);
+
         setShowForm(true);
     };
 
+    // Fungsi handle dropdown jadwal untuk Mode "Per Produksi"
     const handleJadwalProduksiChange = (idProduksi: string) => {
         if (idProduksi === "") {
             setKebutuhanList([]);
@@ -130,12 +178,80 @@ export default function PermintaanPembelian({
             nama_bahan: m.detail_bom.bahan.nama_bahan,
             jenis_bahan: m.detail_bom.bahan.jenis_bahan,
             kebutuhan: m.qty_kebutuhan,
-            stok_gudang: 0, // Nilai default sementara
+            stok_gudang: 0,
             diminta: 0,
             satuan_bahan: m.detail_bom.bahan.satuan_bahan,
         }));
 
         setKebutuhanList(kebutuhanData);
+    };
+
+    // Fungsi Fetch Kebutuhan Mingguan via API axios
+    const handleGenerateMingguan = async () => {
+        if (!tglMulaiPeriode || !tglAkhirPeriode) {
+            alert(
+                "Silakan pilih Tanggal Mulai dan Tanggal Akhir periode terlebih dahulu!",
+            );
+            return;
+        }
+
+        setIsLoadingMingguan(true);
+        try {
+            const response = await axios.post(
+                "/pembelian/permintaan/kebutuhan-mingguan",
+                {
+                    tgl_mulai: tglMulaiPeriode,
+                    tgl_akhir: tglAkhirPeriode,
+                },
+            );
+
+            const data = response.data;
+
+            if (!data.kebutuhan || data.kebutuhan.length === 0) {
+                alert(
+                    "Tidak ada data kebutuhan bahan tahan lama (non_perishable) pada rentang tanggal tersebut.",
+                );
+                setKebutuhanList([]);
+                setKodeProduksiCovered([]);
+                setIdProduksiAnchor(null);
+                setFormData({ ...formData, id_produksi: "", catatan: "" });
+                return;
+            }
+
+            setKodeProduksiCovered(data.kodeProduksi || []);
+            setIdProduksiAnchor(data.idProduksiAnchor || null);
+
+            // Mapping kebutuhan dari API ke format state lokal form
+            const kebutuhanData = data.kebutuhan.map(
+                (item: KebutuhanMingguanItem, idx: number) => ({
+                    id_list: `mingguan-${Date.now()}-${idx}`,
+                    id_bahan: item.id_bahan,
+                    kode_bahan: item.kode_bahan,
+                    nama_bahan: item.nama_bahan,
+                    jenis_bahan: "baku",
+                    kebutuhan: item.qty_kebutuhan,
+                    stok_gudang: 0,
+                    diminta: 0, // di-set manual atau bisa disamakan dgn kebutuhan
+                    satuan_bahan: item.satuan_bahan,
+                }),
+            );
+
+            setKebutuhanList(kebutuhanData);
+
+            // Set id anchor sebagai id_produksi untuk FK relasi dan catatan cover
+            setFormData({
+                ...formData,
+                id_produksi: data.idProduksiAnchor?.toString() || "",
+                catatan: `Periode: ${tglMulaiPeriode} s/d ${tglAkhirPeriode}. Mencakup Produksi: ${(data.kodeProduksi || []).join(", ")}`,
+            });
+        } catch (error: any) {
+            console.error("Gagal menarik data kebutuhan mingguan:", error);
+            alert(
+                "Terjadi kesalahan. Pastikan rentang tanggal valid atau periksa koneksi backend.",
+            );
+        } finally {
+            setIsLoadingMingguan(false);
+        }
     };
 
     const handleDetail = (permintaan: PermintaanPembelian) => {
@@ -157,7 +273,6 @@ export default function PermintaanPembelian({
             return;
         }
 
-        // Cegah duplikasi
         if (
             kebutuhanList.some(
                 (k) =>
@@ -201,7 +316,11 @@ export default function PermintaanPembelian({
         }
 
         if (activeTab !== "tambahan" && !formData.id_produksi) {
-            alert("Jadwal Produksi harus dipilih");
+            alert(
+                modePembelian === "mingguan"
+                    ? "Silakan Generate Kebutuhan Mingguan terlebih dahulu!"
+                    : "Jadwal Produksi harus dipilih",
+            );
             return;
         }
 
@@ -213,6 +332,15 @@ export default function PermintaanPembelian({
                 catatan: formData.catatan,
                 id_produksi:
                     activeTab === "tambahan" ? null : formData.id_produksi,
+                // Parameter tambahan khusus mode mingguan yang akan ditangkap validasi backend
+                tgl_mulai_periode:
+                    activeTab === "baku" && modePembelian === "mingguan"
+                        ? tglMulaiPeriode
+                        : null,
+                tgl_akhir_periode:
+                    activeTab === "baku" && modePembelian === "mingguan"
+                        ? tglAkhirPeriode
+                        : null,
                 details: kebutuhanList.map((item) => ({
                     id_bahan: item.id_bahan,
                     kode_bahan: item.kode_bahan,
@@ -243,6 +371,11 @@ export default function PermintaanPembelian({
             jenis_bahan: "",
             satuan_bahan: "",
         });
+        setModePembelian("per_produksi");
+        setTglMulaiPeriode("");
+        setTglAkhirPeriode("");
+        setKodeProduksiCovered([]);
+        setIdProduksiAnchor(null);
     };
 
     const handleCetak = (permintaan: PermintaanPembelian) => {
@@ -256,63 +389,63 @@ export default function PermintaanPembelian({
         const itemRows = (permintaan.details || [])
             .map(
                 (item: any) => `
-      <tr>
-// KODE BARU (YANG BENAR):
-${isBahanPenolong || isTambahan ? `<td style="border:1px solid #ccc;padding:6px 10px;">${item.bahan?.kode_bahan || "-"}</td>` : ""}        ${isTambahan ? `<td style="border:1px solid #ccc;padding:6px 10px;">${item.bahan?.jenis_bahan || "-"}</td>` : ""}
-        <td style="border:1px solid #ccc;padding:6px 10px;">${item.bahan?.nama_bahan || "-"}</td>
-        ${!isTambahan ? `<td style="border:1px solid #ccc;padding:6px 10px;text-align:right;">${item.qty_kebutuhan ?? "-"}</td>` : ""}
-        <td style="border:1px solid #ccc;padding:6px 10px;text-align:right;">0</td>
-        <td style="border:1px solid #ccc;padding:6px 10px;text-align:right;">${item.qty_diminta}</td>
-        <td style="border:1px solid #ccc;padding:6px 10px;text-align:center;">${item.bahan?.satuan_bahan || "-"}</td>
-      </tr>`,
+        <tr>
+          ${isBahanPenolong || isTambahan ? `<td style="border:1px solid #ccc;padding:6px 10px;">${item.bahan?.kode_bahan || "-"}</td>` : ""}
+          ${isTambahan ? `<td style="border:1px solid #ccc;padding:6px 10px;">${item.bahan?.jenis_bahan || "-"}</td>` : ""}
+          <td style="border:1px solid #ccc;padding:6px 10px;">${item.bahan?.nama_bahan || "-"}</td>
+          ${!isTambahan ? `<td style="border:1px solid #ccc;padding:6px 10px;text-align:right;">${item.qty_kebutuhan ?? "-"}</td>` : ""}
+          <td style="border:1px solid #ccc;padding:6px 10px;text-align:right;">0</td>
+          <td style="border:1px solid #ccc;padding:6px 10px;text-align:right;">${item.qty_diminta}</td>
+          <td style="border:1px solid #ccc;padding:6px 10px;text-align:center;">${item.bahan?.satuan_bahan || "-"}</td>
+        </tr>`,
             )
             .join("");
 
         const headerCols = `
-      ${isBahanPenolong || isTambahan ? '<th style="border:1px solid #ccc;padding:6px 10px;background:#f3f4f6;">Kode Bahan</th>' : ""}
-      ${isTambahan ? '<th style="border:1px solid #ccc;padding:6px 10px;background:#f3f4f6;">Jenis Bahan</th>' : ""}
-      <th style="border:1px solid #ccc;padding:6px 10px;background:#f3f4f6;">Nama Bahan</th>
-      ${!isTambahan ? '<th style="border:1px solid #ccc;padding:6px 10px;background:#f3f4f6;">Kebutuhan</th>' : ""}
-      <th style="border:1px solid #ccc;padding:6px 10px;background:#f3f4f6;">Stok Gudang</th>
-      <th style="border:1px solid #ccc;padding:6px 10px;background:#f3f4f6;">Diminta</th>
-      <th style="border:1px solid #ccc;padding:6px 10px;background:#f3f4f6;">Satuan</th>`;
+        ${isBahanPenolong || isTambahan ? '<th style="border:1px solid #ccc;padding:6px 10px;background:#f3f4f6;">Kode Bahan</th>' : ""}
+        ${isTambahan ? '<th style="border:1px solid #ccc;padding:6px 10px;background:#f3f4f6;">Jenis Bahan</th>' : ""}
+        <th style="border:1px solid #ccc;padding:6px 10px;background:#f3f4f6;">Nama Bahan</th>
+        ${!isTambahan ? '<th style="border:1px solid #ccc;padding:6px 10px;background:#f3f4f6;">Kebutuhan</th>' : ""}
+        <th style="border:1px solid #ccc;padding:6px 10px;background:#f3f4f6;">Stok Gudang</th>
+        <th style="border:1px solid #ccc;padding:6px 10px;background:#f3f4f6;">Diminta</th>
+        <th style="border:1px solid #ccc;padding:6px 10px;background:#f3f4f6;">Satuan</th>`;
 
         const win = window.open("", "_blank", "width=900,height=700");
         if (!win) return;
         win.document
             .write(`<!DOCTYPE html><html><head><title>Cetak Permintaan Pembelian</title>
-      <style>body{font-family:Arial,sans-serif;font-size:13px;margin:30px;}h2{color:#7f1d1d;margin-bottom:4px;}
-      table{border-collapse:collapse;width:100%;}th{text-align:left;}
-      .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;margin-bottom:16px;}
-      .info-item label{font-size:11px;color:#666;display:block;}
-      .info-item p{font-weight:600;margin:2px 0;}
-      .footer{margin-top:40px;display:flex;justify-content:space-between;}
-      .ttd{text-align:center;width:200px;}
-      .ttd .line{margin-top:60px;border-top:1px solid #333;}
-      @media print{button{display:none!important;}}</style></head><body>
-      <div style="text-align:center;margin-bottom:16px;">
-        <h2>CV NEW CITRA</h2>
-        <p style="margin:0;font-size:12px;color:#555;">Produksi Olahan Bandeng</p>
-        <hr style="border-color:#7f1d1d;margin:8px 0;">
-        <h3 style="margin:4px 0;">SURAT PERMINTAAN PEMBELIAN</h3>
-      </div>
-      <div class="info-grid">
-        <div class="info-item"><label>No. Permintaan</label><p>${permintaan.no_pp}</p></div>
-        <div class="info-item"><label>Tanggal</label><p>${tanggal}</p></div>
-        ${
-            !isTambahan
-                ? `<div class="info-item"><label>Kode Produksi</label><p>${permintaan.id_produksi || "-"}</p></div>
-        <div class="info-item"><label>Produk</label><p>${permintaan.detail_jadwal?.produk?.nama_produk || "-"}</p></div>`
-                : `<div class="info-item"><label>Keterangan</label><p>${permintaan.catatan || "-"}</p></div>`
-        }
-        <div class="info-item"><label>Status</label><p>${permintaan.status}</p></div>
-      </div>
-      <table><thead><tr>${headerCols}</tr></thead><tbody>${itemRows}</tbody></table>
-      <div class="footer">
-        <div class="ttd"><div class="line">Dibuat Oleh</div></div>
-        <div class="ttd"><div class="line">Disetujui Oleh</div></div>
-      </div>
-      <script>window.onload=()=>{window.print();}</script></body></html>`);
+        <style>body{font-family:Arial,sans-serif;font-size:13px;margin:30px;}h2{color:#7f1d1d;margin-bottom:4px;}
+        table{border-collapse:collapse;width:100%;}th{text-align:left;}
+        .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;margin-bottom:16px;}
+        .info-item label{font-size:11px;color:#666;display:block;}
+        .info-item p{font-weight:600;margin:2px 0;}
+        .footer{margin-top:40px;display:flex;justify-content:space-between;}
+        .ttd{text-align:center;width:200px;}
+        .ttd .line{margin-top:60px;border-top:1px solid #333;}
+        @media print{button{display:none!important;}}</style></head><body>
+        <div style="text-align:center;margin-bottom:16px;">
+          <h2>CV NEW CITRA</h2>
+          <p style="margin:0;font-size:12px;color:#555;">Produksi Olahan Bandeng</p>
+          <hr style="border-color:#7f1d1d;margin:8px 0;">
+          <h3 style="margin:4px 0;">SURAT PERMINTAAN PEMBELIAN</h3>
+        </div>
+        <div class="info-grid">
+          <div class="info-item"><label>No. Permintaan</label><p>${permintaan.no_pp}</p></div>
+          <div class="info-item"><label>Tanggal</label><p>${tanggal}</p></div>
+          ${
+              !isTambahan
+                  ? `<div class="info-item"><label>Kode Produksi</label><p>${permintaan.id_produksi || "-"}</p></div>
+          <div class="info-item"><label>Produk / Catatan</label><p>${permintaan.detail_jadwal?.produk?.nama_produk || permintaan.catatan || "-"}</p></div>`
+                  : `<div class="info-item"><label>Keterangan</label><p>${permintaan.catatan || "-"}</p></div>`
+          }
+          <div class="info-item"><label>Status</label><p>${permintaan.status}</p></div>
+        </div>
+        <table><thead><tr>${headerCols}</tr></thead><tbody>${itemRows}</tbody></table>
+        <div class="footer">
+          <div class="ttd"><div class="line">Dibuat Oleh</div></div>
+          <div class="ttd"><div class="line">Disetujui Oleh</div></div>
+        </div>
+        <script>window.onload=()=>{window.print();}</script></body></html>`);
         win.document.close();
     };
 
@@ -373,8 +506,46 @@ ${isBahanPenolong || isTambahan ? `<td style="border:1px solid #ccc;padding:6px 
                     </div>
 
                     <form onSubmit={handleSubmit} className="p-6">
+                        {/* --- TAB SWITCHER KHUSUS MODE PEMBELIAN (BAKU SAJA) --- */}
+                        {activeTab === "baku" && (
+                            <div className="mb-6 flex p-1 bg-gray-100 rounded-lg w-fit">
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        handleModePembelianChange(
+                                            "per_produksi",
+                                        )
+                                    }
+                                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                                        modePembelian === "per_produksi"
+                                            ? "bg-white text-red-800 shadow-sm"
+                                            : "text-gray-500 hover:text-gray-700"
+                                    }`}
+                                >
+                                    Per Produksi (Mudah Rusak)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        handleModePembelianChange("mingguan")
+                                    }
+                                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                                        modePembelian === "mingguan"
+                                            ? "bg-white text-red-800 shadow-sm"
+                                            : "text-gray-500 hover:text-gray-700"
+                                    }`}
+                                >
+                                    Mingguan (Tahan Lama)
+                                </button>
+                            </div>
+                        )}
+
                         <div
-                            className={`grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 ${activeTab !== "tambahan" ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}
+                            className={`grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 ${
+                                activeTab !== "tambahan"
+                                    ? "lg:grid-cols-4"
+                                    : "lg:grid-cols-3"
+                            }`}
                         >
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -390,85 +561,157 @@ ${isBahanPenolong || isTambahan ? `<td style="border:1px solid #ccc;padding:6px 
                                 />
                             </div>
 
-                            <input
-                                type="date"
-                                value={formData.tgl_pp}
-                                onChange={(e) =>
-                                    setFormData({
-                                        ...formData,
-                                        tgl_pp: e.target.value,
-                                    })
-                                }
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:border-red-500"
-                            />
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Tanggal PP{" "}
+                                    <span className="text-red-600">*</span>
+                                </label>
+                                <input
+                                    type="date"
+                                    required
+                                    value={formData.tgl_pp}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            tgl_pp: e.target.value,
+                                        })
+                                    }
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:border-red-500"
+                                />
+                            </div>
 
                             {activeTab !== "tambahan" && (
                                 <>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Kode Produksi{" "}
-                                            <span className="text-red-600">
-                                                *
-                                            </span>
-                                        </label>
-                                        <select
-                                            required
-                                            value={formData.id_produksi}
-                                            onChange={(e) =>
-                                                handleJadwalProduksiChange(
-                                                    e.target.value,
-                                                )
-                                            }
-                                            className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:border-red-400"
-                                        >
-                                            <option value="">
-                                                -- Pilih Produksi --
-                                            </option>
-                                            {availableJadwals.map(
-                                                (jadwal: any) => (
-                                                    <option
-                                                        key={jadwal.id_produksi}
-                                                        value={
-                                                            jadwal.id_produksi
-                                                        }
-                                                    >
-                                                        {jadwal.kode_produksi ||
-                                                            jadwal
-                                                                .jadwal_produksi
-                                                                ?.kode_produksi ||
-                                                            jadwal.id_produksi}{" "}
-                                                        -{" "}
-                                                        {
-                                                            jadwal.produk
-                                                                ?.nama_produk
-                                                        }
+                                    {activeTab !== "baku" ||
+                                    modePembelian === "per_produksi" ? (
+                                        // TAMPILAN NORMAL (Per Produksi / Penolong)
+                                        <>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Kode Produksi{" "}
+                                                    <span className="text-red-600">
+                                                        *
+                                                    </span>
+                                                </label>
+                                                <select
+                                                    required
+                                                    value={formData.id_produksi}
+                                                    onChange={(e) =>
+                                                        handleJadwalProduksiChange(
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:border-red-400 bg-white"
+                                                >
+                                                    <option value="">
+                                                        -- Pilih Produksi --
                                                     </option>
-                                                ),
-                                            )}
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Produk
-                                        </label>
-                                        <input
-                                            type="text"
-                                            disabled
-                                            value={
-                                                formData.id_produksi
-                                                    ? jadwals.find(
-                                                          (j: any) =>
-                                                              j.id_produksi.toString() ===
-                                                              formData.id_produksi.toString(),
-                                                      )?.produk?.nama_produk ||
-                                                      ""
-                                                    : ""
-                                            }
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
-                                            placeholder="Terisi otomatis"
-                                        />
-                                    </div>
+                                                    {availableJadwals.map(
+                                                        (jadwal: any) => (
+                                                            <option
+                                                                key={
+                                                                    jadwal.id_produksi
+                                                                }
+                                                                value={
+                                                                    jadwal.id_produksi
+                                                                }
+                                                            >
+                                                                {jadwal.kode_produksi ||
+                                                                    jadwal
+                                                                        .jadwal_produksi
+                                                                        ?.kode_produksi ||
+                                                                    jadwal.id_produksi}{" "}
+                                                                -{" "}
+                                                                {
+                                                                    jadwal
+                                                                        .produk
+                                                                        ?.nama_produk
+                                                                }
+                                                            </option>
+                                                        ),
+                                                    )}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Produk
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    disabled
+                                                    value={
+                                                        formData.id_produksi
+                                                            ? jadwals.find(
+                                                                  (j: any) =>
+                                                                      j.id_produksi.toString() ===
+                                                                      formData.id_produksi.toString(),
+                                                              )?.produk
+                                                                  ?.nama_produk ||
+                                                              ""
+                                                            : ""
+                                                    }
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
+                                                    placeholder="Terisi otomatis"
+                                                />
+                                            </div>
+                                        </>
+                                    ) : (
+                                        // TAMPILAN KHUSUS MINGGUAN (Baku)
+                                        <>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Tgl Mulai Periode{" "}
+                                                    <span className="text-red-600">
+                                                        *
+                                                    </span>
+                                                </label>
+                                                <input
+                                                    type="date"
+                                                    required
+                                                    value={tglMulaiPeriode}
+                                                    onChange={(e) =>
+                                                        setTglMulaiPeriode(
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:border-red-500"
+                                                />
+                                            </div>
+                                            <div className="flex gap-2 items-end">
+                                                <div className="flex-1">
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Tgl Akhir Periode{" "}
+                                                        <span className="text-red-600">
+                                                            *
+                                                        </span>
+                                                    </label>
+                                                    <input
+                                                        type="date"
+                                                        required
+                                                        value={tglAkhirPeriode}
+                                                        onChange={(e) =>
+                                                            setTglAkhirPeriode(
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:border-red-500"
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    disabled={isLoadingMingguan}
+                                                    onClick={
+                                                        handleGenerateMingguan
+                                                    }
+                                                    className="px-4 py-2 h-[42px] bg-red-800 text-white text-sm font-medium rounded-lg hover:bg-red-900 transition-colors disabled:opacity-50 whitespace-nowrap"
+                                                >
+                                                    {isLoadingMingguan
+                                                        ? "Loading..."
+                                                        : "Generate"}
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
                                 </>
                             )}
 
@@ -491,6 +734,24 @@ ${isBahanPenolong || isTambahan ? `<td style="border:1px solid #ccc;padding:6px 
                                     />
                                 </div>
                             )}
+
+                            {/* TEXTAREA KHUSUS CATATAN KODE PRODUKSI TERCOVER - MINGGUAN */}
+                            {activeTab === "baku" &&
+                                modePembelian === "mingguan" && (
+                                    <div className="md:col-span-2 lg:col-span-4">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Keterangan Produksi Ter-cover
+                                            (Otomatis)
+                                        </label>
+                                        <textarea
+                                            readOnly
+                                            value={formData.catatan}
+                                            className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 outline-none text-gray-600"
+                                            rows={2}
+                                            placeholder="Daftar kode produksi otomatis muncul setelah klik Generate..."
+                                        />
+                                    </div>
+                                )}
                         </div>
 
                         <div className="border-t border-gray-200 pt-6 mt-6">
@@ -501,13 +762,17 @@ ${isBahanPenolong || isTambahan ? `<td style="border:1px solid #ccc;padding:6px 
                                         <span className="ml-2 text-sm font-normal text-gray-600">
                                             -{" "}
                                             {activeTab === "baku"
-                                                ? "Bahan Baku"
+                                                ? modePembelian ===
+                                                  "per_produksi"
+                                                    ? "Bahan Mudah Rusak"
+                                                    : "Bahan Tahan Lama"
                                                 : "Bahan Penolong"}
                                         </span>
                                     )}
                                 </h4>
                                 {activeTab !== "tambahan" &&
-                                    formData.id_produksi && (
+                                    formData.id_produksi &&
+                                    modePembelian === "per_produksi" && (
                                         <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
                                             Auto-filled dari Produksi:{" "}
                                             {formData.id_produksi}
@@ -552,7 +817,7 @@ ${isBahanPenolong || isTambahan ? `<td style="border:1px solid #ccc;padding:6px 
                                                         });
                                                     }
                                                 }}
-                                                className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-red-400"
+                                                className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-red-400 bg-white"
                                             >
                                                 <option value="">
                                                     -- Pilih Bahan Tambahan --
@@ -585,172 +850,146 @@ ${isBahanPenolong || isTambahan ? `<td style="border:1px solid #ccc;padding:6px 
                             {activeTab === "tambahan" && (
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                                     <p className="text-sm text-blue-800">
-                                        <strong>Info:</strong> Pilih bahan
-                                        operasional dari dropdown, lalu klik
-                                        Tambah untuk memasukkan ke tabel. Isi
-                                        jumlah yang diminta pada kolom Diminta.
+                                        💡 Silakan tentukan jumlah yang{" "}
+                                        <strong>diminta</strong> secara manual,
+                                        karena tidak ada data tarikan kebutuhan.
                                     </p>
                                 </div>
                             )}
 
-                            {formData.id_produksi !== "" &&
-                                kebutuhanList.length > 0 &&
-                                activeTab !== "tambahan" && (
-                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                                        <p className="text-sm text-blue-800">
-                                            <strong>Info:</strong> Kebutuhan
-                                            bahan terisi otomatis berdasarkan
-                                            produksi yang dipilih. Stok gudang
-                                            akan diupdate setelah integrasi
-                                            kartu persediaan selesai.
-                                        </p>
-                                    </div>
-                                )}
-
-                            {formData.id_produksi !== "" &&
-                                kebutuhanList.length === 0 &&
-                                activeTab !== "tambahan" && (
-                                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                                        <p className="text-sm text-yellow-800">
-                                            <strong>Perhatian:</strong> Tidak
-                                            ada kebutuhan{" "}
-                                            {activeTab === "baku"
-                                                ? "Bahan Baku"
-                                                : "Bahan Penolong"}{" "}
-                                            pada produksi ini.
-                                        </p>
-                                    </div>
-                                )}
-
                             <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="bg-gray-100">
-                                            {(activeTab === "penolong" ||
-                                                activeTab === "tambahan") && (
-                                                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                                                    Kode Bahan
-                                                </th>
-                                            )}
+                                <table className="w-full text-sm text-left text-gray-500">
+                                    <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
+                                        <tr>
+                                            <th className="px-6 py-3">
+                                                Kode Bahan
+                                            </th>
                                             {activeTab === "tambahan" && (
-                                                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                                                <th className="px-6 py-3">
                                                     Jenis Bahan
                                                 </th>
                                             )}
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                                            <th className="px-6 py-3">
                                                 Nama Bahan
                                             </th>
                                             {activeTab !== "tambahan" && (
-                                                <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">
-                                                    Kebutuhan
+                                                <th className="px-6 py-3 text-right">
+                                                    Kebutuhan Produksi
                                                 </th>
                                             )}
-                                            <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">
+                                            <th className="px-6 py-3 text-right">
                                                 Stok Gudang
                                             </th>
-                                            <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">
+                                            <th className="px-6 py-3 text-right text-red-700">
                                                 Diminta
                                             </th>
-                                            <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">
+                                            <th className="px-6 py-3 text-center">
                                                 Satuan
                                             </th>
-                                            {/* Tampilkan kolom Aksi untuk SEMUA tab per instruksi */}
-                                            <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">
-                                                Aksi
-                                            </th>
+                                            {activeTab === "tambahan" && (
+                                                <th className="px-6 py-3 text-center">
+                                                    Aksi
+                                                </th>
+                                            )}
                                         </tr>
                                     </thead>
-                                    <tbody>
+                                    <tbody className="divide-y divide-gray-200">
                                         {kebutuhanList.length === 0 ? (
                                             <tr>
                                                 <td
                                                     colSpan={
                                                         activeTab === "tambahan"
                                                             ? 7
-                                                            : activeTab ===
-                                                                "penolong"
-                                                              ? 7
-                                                              : 6
+                                                            : 6
                                                     }
-                                                    className="py-6 text-center text-gray-500"
+                                                    className="px-6 py-8 text-center text-gray-500"
                                                 >
-                                                    {activeTab === "tambahan"
-                                                        ? "Pilih kode bahan dari dropdown untuk menambahkan kebutuhan"
-                                                        : `Pilih Produksi untuk mengisi kebutuhan ${activeTab === "baku" ? "Bahan Baku" : "Bahan Penolong"} secara otomatis`}
+                                                    Tidak ada data kebutuhan
+                                                    bahan
                                                 </td>
                                             </tr>
                                         ) : (
-                                            kebutuhanList.map(
-                                                (item: any, idx: number) => (
-                                                    <tr
-                                                        key={item.id_list}
-                                                        className="border-b border-gray-100 hover:bg-gray-50"
-                                                    >
-                                                        {(activeTab ===
-                                                            "penolong" ||
-                                                            activeTab ===
-                                                                "tambahan") && (
-                                                            <td className="py-3 px-4 text-sm font-semibold text-gray-700">
-                                                                {
-                                                                    item.kode_bahan
-                                                                }
-                                                            </td>
-                                                        )}
-                                                        {activeTab ===
-                                                            "tambahan" && (
-                                                            <td className="py-3 px-4 text-sm text-gray-700 capitalize">
-                                                                {
-                                                                    item.jenis_bahan
-                                                                }
-                                                            </td>
-                                                        )}
-                                                        <td className="py-3 px-4 text-sm text-gray-700">
-                                                            {item.nama_bahan}
+                                            kebutuhanList.map((item, index) => (
+                                                <tr
+                                                    key={item.id_list}
+                                                    className="hover:bg-gray-50"
+                                                >
+                                                    <td className="px-6 py-4 font-medium text-gray-900">
+                                                        {item.kode_bahan}
+                                                    </td>
+                                                    {activeTab ===
+                                                        "tambahan" && (
+                                                        <td className="px-6 py-4 capitalize">
+                                                            {item.jenis_bahan}
                                                         </td>
-                                                        {activeTab !==
-                                                            "tambahan" && (
-                                                            <td className="py-3 px-4 text-sm text-gray-700 text-right">
-                                                                {item.kebutuhan}
-                                                            </td>
-                                                        )}
-                                                        <td className="py-3 px-4 text-sm text-gray-700 text-right">
-                                                            {item.stok_gudang}
+                                                    )}
+                                                    <td className="px-6 py-4 font-medium">
+                                                        {item.nama_bahan}
+                                                    </td>
+                                                    {activeTab !==
+                                                        "tambahan" && (
+                                                        <td className="px-6 py-4 text-right bg-blue-50 font-semibold text-blue-700">
+                                                            {item.kebutuhan}
                                                         </td>
-                                                        <td className="py-3 px-4 text-sm text-gray-700 text-right">
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                step="0.01"
-                                                                required
-                                                                value={
-                                                                    item.diminta
-                                                                }
-                                                                onChange={(
-                                                                    e,
-                                                                ) => {
-                                                                    const updatedList =
-                                                                        [
-                                                                            ...kebutuhanList,
-                                                                        ];
-                                                                    updatedList[
-                                                                        idx
-                                                                    ].diminta =
-                                                                        Number(
-                                                                            e
-                                                                                .target
-                                                                                .value,
-                                                                        );
-                                                                    setKebutuhanList(
-                                                                        updatedList,
-                                                                    );
-                                                                }}
-                                                                className="w-24 px-2 py-1 border border-gray-200 rounded text-right outline-none focus:border-red-400"
-                                                            />
-                                                        </td>
-                                                        <td className="py-3 px-4 text-sm text-gray-700 text-center">
-                                                            {item.satuan_bahan}
-                                                        </td>
-                                                        <td className="py-3 px-4 text-center">
+                                                    )}
+                                                    <td className="px-6 py-4 text-right">
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            value={
+                                                                item.stok_gudang
+                                                            }
+                                                            onChange={(e) => {
+                                                                const newList =
+                                                                    [
+                                                                        ...kebutuhanList,
+                                                                    ];
+                                                                newList[
+                                                                    index
+                                                                ].stok_gudang =
+                                                                    parseFloat(
+                                                                        e.target
+                                                                            .value,
+                                                                    ) || 0;
+                                                                setKebutuhanList(
+                                                                    newList,
+                                                                );
+                                                            }}
+                                                            className="w-20 px-2 py-1 border border-gray-300 rounded text-right focus:border-red-500"
+                                                            disabled
+                                                        />
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.01"
+                                                            value={item.diminta}
+                                                            onChange={(e) => {
+                                                                const newList =
+                                                                    [
+                                                                        ...kebutuhanList,
+                                                                    ];
+                                                                newList[
+                                                                    index
+                                                                ].diminta =
+                                                                    parseFloat(
+                                                                        e.target
+                                                                            .value,
+                                                                    ) || 0;
+                                                                setKebutuhanList(
+                                                                    newList,
+                                                                );
+                                                            }}
+                                                            className="w-24 px-2 py-1 border border-red-300 rounded text-right focus:border-red-500 bg-red-50 text-red-900 font-bold"
+                                                        />
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        {item.satuan_bahan}
+                                                    </td>
+                                                    {activeTab ===
+                                                        "tambahan" && (
+                                                        <td className="px-6 py-4 text-center">
                                                             <button
                                                                 type="button"
                                                                 onClick={() =>
@@ -758,33 +997,33 @@ ${isBahanPenolong || isTambahan ? `<td style="border:1px solid #ccc;padding:6px 
                                                                         item.id_list,
                                                                     )
                                                                 }
-                                                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                                className="text-red-500 hover:text-red-700"
                                                             >
                                                                 <Trash2 className="w-4 h-4" />
                                                             </button>
                                                         </td>
-                                                    </tr>
-                                                ),
-                                            )
+                                                    )}
+                                                </tr>
+                                            ))
                                         )}
                                     </tbody>
                                 </table>
                             </div>
                         </div>
 
-                        <div className="flex gap-3 mt-6 pt-6 border-t border-gray-200">
+                        <div className="flex gap-3 mt-6 pt-6 border-t border-gray-200 justify-end">
                             <button
                                 type="button"
                                 onClick={handleCancel}
-                                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                             >
                                 Batal
                             </button>
                             <button
                                 type="submit"
-                                className="px-6 py-2 bg-red-800 text-white rounded-lg hover:bg-red-900 transition-colors"
+                                className="px-4 py-2 text-sm font-medium text-white bg-red-800 rounded-lg hover:bg-red-900"
                             >
-                                Simpan
+                                Simpan Permintaan
                             </button>
                         </div>
                     </form>
@@ -793,212 +1032,195 @@ ${isBahanPenolong || isTambahan ? `<td style="border:1px solid #ccc;padding:6px 
         );
     }
 
+    // === TAMPILAN DETAIL MODAL ===
     if (showDetail && selectedPermintaan) {
-        const detailTitle =
-            activeTab === "baku"
-                ? "Detail Permintaan Bahan Baku"
-                : activeTab === "penolong"
-                  ? "Detail Permintaan Bahan Penolong"
-                  : "Detail Permintaan Bahan Tambahan";
-
         return (
             <div className="p-6">
-                <div className="bg-white rounded-lg shadow">
-                    <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                        <h3 className="text-lg font-bold text-red-800">
-                            {detailTitle}
-                        </h3>
+                <div className="flex justify-between items-center mb-6">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">
+                            Detail Permintaan Pembelian
+                        </h1>
+                        <p className="text-sm text-gray-500">
+                            Lihat rincian data permintaan
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => handleCetak(selectedPermintaan)}
+                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-800 rounded-lg hover:bg-red-900 transition-colors"
+                        >
+                            <Printer className="w-4 h-4" /> Cetak PDF
+                        </button>
                         <button
                             onClick={handleCancel}
-                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                         >
-                            <X className="w-5 h-5 text-gray-600" />
+                            <X className="w-5 h-5" /> Tutup
                         </button>
                     </div>
+                </div>
 
-                    <div className="p-6">
-                        <div
-                            className={`grid grid-cols-1 gap-6 mb-6 ${activeTab !== "tambahan" ? "md:grid-cols-4" : "md:grid-cols-3"}`}
-                        >
+                <div className="bg-white rounded-lg shadow overflow-hidden">
+                    <div className="p-6 border-b border-gray-200">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-500 mb-1">
-                                    No. Permintaan
+                                    No. PP
                                 </label>
-                                <p className="text-gray-800 font-medium">
+                                <p className="font-semibold text-gray-900">
                                     {selectedPermintaan.no_pp}
                                 </p>
                             </div>
-
                             <div>
                                 <label className="block text-sm font-medium text-gray-500 mb-1">
                                     Tanggal
                                 </label>
-                                <p className="text-gray-800 font-medium">
-                                    {new Date(
-                                        selectedPermintaan.tgl_pp,
-                                    ).toLocaleDateString("id-ID")}
+                                <p className="font-semibold text-gray-900">
+                                    {selectedPermintaan.tgl_pp}
                                 </p>
                             </div>
 
-                            {activeTab !== "tambahan" ? (
+                            {selectedPermintaan.jenis_bahan !== "tambahan" ? (
                                 <>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-500 mb-1">
                                             Kode Produksi
                                         </label>
-                                        <p className="text-gray-800 font-medium">
-                                            {selectedPermintaan.detail_jadwal
-                                                ?.kode_produksi ||
-                                                selectedPermintaan.detail_jadwal
-                                                    ?.jadwal_produksi
-                                                    ?.kode_produksi ||
-                                                selectedPermintaan.id_produksi}
+                                        <p className="font-semibold text-gray-900">
+                                            {selectedPermintaan.id_produksi}
                                         </p>
                                     </div>
-
                                     <div>
                                         <label className="block text-sm font-medium text-gray-500 mb-1">
-                                            Produk
+                                            Produk / Catatan
                                         </label>
-                                        <p className="text-gray-800 font-medium">
+                                        <p className="font-semibold text-gray-900">
                                             {selectedPermintaan.detail_jadwal
-                                                ?.produk?.nama_produk || "-"}
+                                                ?.produk?.nama_produk ||
+                                                selectedPermintaan.catatan ||
+                                                "-"}
                                         </p>
                                     </div>
                                 </>
                             ) : (
-                                <div>
+                                <div className="col-span-2">
                                     <label className="block text-sm font-medium text-gray-500 mb-1">
                                         Keterangan
                                     </label>
-                                    <p className="text-gray-800 font-medium">
+                                    <p className="font-semibold text-gray-900">
                                         {selectedPermintaan.catatan || "-"}
                                     </p>
                                 </div>
                             )}
-                        </div>
 
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-500 mb-1">
-                                Status
-                            </label>
-                            <span
-                                className={`inline-block px-3 py-1 rounded-full text-sm font-medium capitalize ${getStatusColor(selectedPermintaan.status)}`}
-                            >
-                                {selectedPermintaan.status}
-                            </span>
-                        </div>
-
-                        <div className="border-t border-gray-200 pt-6">
-                            <h4 className="text-md font-semibold text-gray-800 mb-4">
-                                Kebutuhan Bahan
-                            </h4>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="bg-gray-100">
-                                            {(activeTab === "penolong" ||
-                                                activeTab === "tambahan") && (
-                                                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                                                    Kode Bahan
-                                                </th>
-                                            )}
-                                            {activeTab === "tambahan" && (
-                                                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                                                    Jenis Bahan
-                                                </th>
-                                            )}
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                                                Nama Bahan
-                                            </th>
-                                            {activeTab !== "tambahan" && (
-                                                <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">
-                                                    Kebutuhan
-                                                </th>
-                                            )}
-                                            <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">
-                                                Stok Gudang
-                                            </th>
-                                            <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">
-                                                Diminta
-                                            </th>
-                                            <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">
-                                                Satuan
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {selectedPermintaan.details.map(
-                                            (item: any) => (
-                                                <tr
-                                                    key={item.id_detail_pp}
-                                                    className="border-b border-gray-100 hover:bg-gray-50"
-                                                >
-                                                    {(activeTab ===
-                                                        "penolong" ||
-                                                        activeTab ===
-                                                            "tambahan") && (
-                                                        <td className="py-3 px-4 text-sm font-semibold text-gray-700">
-                                                            {
-                                                                item.bahan
-                                                                    ?.kode_bahan
-                                                            }
-                                                        </td>
-                                                    )}
-                                                    {activeTab ===
-                                                        "tambahan" && (
-                                                        <td className="py-3 px-4 text-sm text-gray-700 capitalize">
-                                                            {
-                                                                item.bahan
-                                                                    ?.jenis_bahan
-                                                            }
-                                                        </td>
-                                                    )}
-                                                    <td className="py-3 px-4 text-sm text-gray-700">
-                                                        {item.bahan?.nama_bahan}
-                                                    </td>
-                                                    {activeTab !==
-                                                        "tambahan" && (
-                                                        <td className="py-3 px-4 text-sm text-gray-700 text-right">
-                                                            {item.qty_kebutuhan}
-                                                        </td>
-                                                    )}
-                                                    <td className="py-3 px-4 text-sm text-gray-700 text-right">
-                                                        0
-                                                    </td>
-                                                    <td className="py-3 px-4 text-sm text-right">
-                                                        <span
-                                                            className={
-                                                                item.qty_diminta >
-                                                                0
-                                                                    ? "font-semibold text-red-600"
-                                                                    : "text-gray-700"
-                                                            }
-                                                        >
-                                                            {item.qty_diminta}
-                                                        </span>
-                                                    </td>
-                                                    <td className="py-3 px-4 text-sm text-gray-700 text-center">
-                                                        {
-                                                            item.bahan
-                                                                ?.satuan_bahan
-                                                        }
-                                                    </td>
-                                                </tr>
-                                            ),
-                                        )}
-                                    </tbody>
-                                </table>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-500 mb-1">
+                                    Status
+                                </label>
+                                <span
+                                    className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(
+                                        selectedPermintaan.status,
+                                    )}`}
+                                >
+                                    {selectedPermintaan.status.toUpperCase()}
+                                </span>
                             </div>
                         </div>
+                    </div>
 
-                        <div className="flex gap-3 mt-6 pt-6 border-t border-gray-200">
-                            <button
-                                onClick={handleCancel}
-                                className="px-6 py-2 bg-red-800 text-white rounded-lg hover:bg-red-900 transition-colors"
-                            >
-                                Tutup
-                            </button>
+                    <div className="p-6">
+                        <h4 className="text-md font-semibold text-gray-800 mb-4 border-l-4 border-red-800 pl-3">
+                            Rincian Bahan Diminta
+                        </h4>
+                        <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                            <table className="w-full text-sm text-left text-gray-500">
+                                <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                        {["penolong", "tambahan"].includes(
+                                            selectedPermintaan.jenis_bahan,
+                                        ) && (
+                                            <th className="px-6 py-3">
+                                                Kode Bahan
+                                            </th>
+                                        )}
+                                        {selectedPermintaan.jenis_bahan ===
+                                            "tambahan" && (
+                                            <th className="px-6 py-3">
+                                                Jenis Bahan
+                                            </th>
+                                        )}
+                                        <th className="px-6 py-3">
+                                            Nama Bahan
+                                        </th>
+                                        {selectedPermintaan.jenis_bahan !==
+                                            "tambahan" && (
+                                            <th className="px-6 py-3 text-right">
+                                                Kebutuhan Produksi
+                                            </th>
+                                        )}
+                                        <th className="px-6 py-3 text-right">
+                                            Stok Gudang
+                                        </th>
+                                        <th className="px-6 py-3 text-right">
+                                            Qty Diminta
+                                        </th>
+                                        <th className="px-6 py-3 text-center">
+                                            Satuan
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {selectedPermintaan.details.map(
+                                        (detail) => (
+                                            <tr
+                                                key={detail.id_detail_pp}
+                                                className="hover:bg-gray-50"
+                                            >
+                                                {[
+                                                    "penolong",
+                                                    "tambahan",
+                                                ].includes(
+                                                    selectedPermintaan.jenis_bahan,
+                                                ) && (
+                                                    <td className="px-6 py-4 font-medium text-gray-900">
+                                                        {detail.bahan
+                                                            ?.kode_bahan || "-"}
+                                                    </td>
+                                                )}
+                                                {selectedPermintaan.jenis_bahan ===
+                                                    "tambahan" && (
+                                                    <td className="px-6 py-4 capitalize">
+                                                        {detail.bahan
+                                                            ?.jenis_bahan ||
+                                                            "-"}
+                                                    </td>
+                                                )}
+                                                <td className="px-6 py-4 text-gray-900">
+                                                    {detail.bahan?.nama_bahan ||
+                                                        "-"}
+                                                </td>
+                                                {selectedPermintaan.jenis_bahan !==
+                                                    "tambahan" && (
+                                                    <td className="px-6 py-4 text-right text-gray-600">
+                                                        {detail.qty_kebutuhan}
+                                                    </td>
+                                                )}
+                                                <td className="px-6 py-4 text-right text-gray-600">
+                                                    0
+                                                </td>
+                                                <td className="px-6 py-4 text-right font-bold text-red-700">
+                                                    {detail.qty_diminta}
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    {detail.bahan
+                                                        ?.satuan_bahan || "-"}
+                                                </td>
+                                            </tr>
+                                        ),
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -1006,114 +1228,108 @@ ${isBahanPenolong || isTambahan ? `<td style="border:1px solid #ccc;padding:6px 
         );
     }
 
+    // === TAMPILAN TABEL UTAMA (LISTING) ===
     return (
         <div className="p-6">
-            <div className="mb-6">
-                <h2 className="text-2xl font-bold text-red-800">
-                    Daftar Permintaan Pembelian
-                </h2>
-                <p className="text-sm text-red-800 mt-1">
-                    Kelola data permintaan pembelian bahan
-                </p>
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">
+                        Permintaan Pembelian
+                    </h1>
+                    <p className="text-sm text-gray-500">
+                        Kelola dan buat Surat Permintaan Pembelian (PP)
+                    </p>
+                </div>
+                <button
+                    onClick={handleAdd}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-800 rounded-lg hover:bg-red-900 transition-colors"
+                >
+                    <Plus className="w-5 h-5" /> Buat Permintaan Pembelian
+                </button>
             </div>
 
-            <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => handleTabChange("baku")}
-                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                                activeTab === "baku"
-                                    ? "bg-red-800 text-white"
-                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }`}
-                        >
-                            Permintaan Bahan Baku
-                        </button>
-                        <button
-                            onClick={() => handleTabChange("penolong")}
-                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                                activeTab === "penolong"
-                                    ? "bg-red-800 text-white"
-                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }`}
-                        >
-                            Permintaan Bahan Penolong
-                        </button>
-                        <button
-                            onClick={() => handleTabChange("tambahan")}
-                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                                activeTab === "tambahan"
-                                    ? "bg-red-800 text-white"
-                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }`}
-                        >
-                            Permintaan Bahan Tambahan
-                        </button>
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="border-b border-gray-200">
+                    <div className="flex space-x-8 px-6">
+                        {(["baku", "penolong", "tambahan"] as TabType[]).map(
+                            (tab) => (
+                                <button
+                                    key={tab}
+                                    onClick={() => handleTabChange(tab)}
+                                    className={`py-4 px-1 inline-flex items-center border-b-2 font-medium text-sm transition-colors ${
+                                        activeTab === tab
+                                            ? "border-red-800 text-red-800"
+                                            : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                                    }`}
+                                >
+                                    Permintaan Bahan{" "}
+                                    {tab === "baku"
+                                        ? "Baku"
+                                        : tab === "penolong"
+                                          ? "Penolong"
+                                          : "Tambahan"}
+                                </button>
+                            ),
+                        )}
                     </div>
                 </div>
 
                 <div className="p-6">
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="relative flex-1 max-w-md">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Cari permintaan..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg outline-none focus:border-red-400"
-                            />
-                        </div>
-                        <button
-                            onClick={handleAdd}
-                            className="flex items-center gap-2 px-4 py-2 bg-red-800 text-white rounded-lg hover:bg-red-900 transition-colors ml-4"
-                        >
-                            <Plus className="w-5 h-5" />
-                            Tambah Permintaan
-                        </button>
+                    <div className="relative mb-6">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder={`Cari berdasarkan No. PP ${activeTab !== "tambahan" ? "atau Nama Produk" : ""}...`}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                        />
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="bg-gray-100">
-                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                                        No. Permintaan
+                        <table className="w-full text-sm text-left text-gray-500">
+                            <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th className="px-6 py-3 font-semibold">
+                                        No. PP
                                     </th>
-                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-800">
-                                        Tanggal
+                                    <th className="px-6 py-3 font-semibold">
+                                        Tanggal PP
                                     </th>
-                                    {activeTab !== "tambahan" ? (
-                                        <>
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-800">
-                                                Kode Produksi
-                                            </th>
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-800">
-                                                Produk
-                                            </th>
-                                        </>
-                                    ) : (
-                                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-800">
-                                            Keterangan
+                                    {activeTab !== "tambahan" && (
+                                        <th className="px-6 py-3 font-semibold">
+                                            Kode Produksi
                                         </th>
                                     )}
-                                    <th className="text-center py-3 px-4 text-sm font-semibold text-gray-800">
+                                    <th className="px-6 py-3 font-semibold">
+                                        {activeTab === "tambahan"
+                                            ? "Catatan Keperluan"
+                                            : "Produk / Keterangan"}
+                                    </th>
+                                    <th className="px-6 py-3 font-semibold">
                                         Status
                                     </th>
-                                    <th className="text-center py-3 px-4 text-sm font-semibold text-gray-800">
+                                    <th className="px-6 py-3 font-semibold text-center">
                                         Aksi
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="divide-y divide-gray-200">
                                 {filteredPermintaan.length === 0 ? (
                                     <tr>
                                         <td
-                                            colSpan={6}
-                                            className="py-8 text-center text-gray-500"
+                                            colSpan={
+                                                activeTab === "tambahan" ? 5 : 6
+                                            }
+                                            className="px-6 py-8 text-center text-gray-500"
                                         >
-                                            Tidak ada data permintaan
+                                            <p className="font-medium text-gray-600 mb-1">
+                                                Tidak ada data ditemukan
+                                            </p>
+                                            <p className="text-xs text-gray-400">
+                                                Coba cari dengan kata kunci lain
+                                                atau tambahkan data baru.
+                                            </p>
                                         </td>
                                     </tr>
                                 ) : (
@@ -1121,52 +1337,45 @@ ${isBahanPenolong || isTambahan ? `<td style="border:1px solid #ccc;padding:6px 
                                         (permintaan: PermintaanPembelian) => (
                                             <tr
                                                 key={permintaan.id_pp}
-                                                className="border-b border-gray-100 hover:bg-gray-50"
+                                                className="hover:bg-gray-50"
                                             >
-                                                <td className="py-3 px-4 text-sm font-semibold text-gray-700">
+                                                <td className="px-6 py-4 font-bold text-red-800">
                                                     {permintaan.no_pp}
                                                 </td>
-                                                <td className="py-3 px-4 text-sm text-gray-700">
-                                                    {new Date(
-                                                        permintaan.tgl_pp,
-                                                    ).toLocaleDateString(
-                                                        "id-ID",
-                                                    )}
+                                                <td className="px-6 py-4 font-medium text-gray-900">
+                                                    {permintaan.tgl_pp}
                                                 </td>
-                                                {activeTab !== "tambahan" ? (
-                                                    <>
-                                                        <td className="py-3 px-4 text-sm font-semibold text-gray-700">
-                                                            {permintaan
-                                                                .detail_jadwal
-                                                                ?.kode_produksi ||
-                                                                permintaan
-                                                                    .detail_jadwal
-                                                                    ?.jadwal_produksi
-                                                                    ?.kode_produksi ||
-                                                                permintaan.id_produksi}
-                                                        </td>
-                                                        <td className="py-3 px-4 text-sm text-gray-700">
-                                                            {permintaan
-                                                                .detail_jadwal
-                                                                ?.produk
-                                                                ?.nama_produk ||
-                                                                "-"}
-                                                        </td>
-                                                    </>
-                                                ) : (
-                                                    <td className="py-3 px-4 text-sm text-gray-700">
-                                                        {permintaan.catatan ||
-                                                            "-"}
+                                                {activeTab !== "tambahan" && (
+                                                    <td className="px-6 py-4">
+                                                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded bg-gray-100 text-gray-800 border border-gray-200">
+                                                            {
+                                                                permintaan.id_produksi
+                                                            }
+                                                        </span>
                                                     </td>
                                                 )}
-                                                <td className="py-3 px-4 text-center">
+                                                <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
+                                                    {permintaan.jenis_bahan ===
+                                                    "tambahan"
+                                                        ? permintaan.catatan ||
+                                                          "-"
+                                                        : permintaan
+                                                              .detail_jadwal
+                                                              ?.produk
+                                                              ?.nama_produk ||
+                                                          permintaan.catatan ||
+                                                          "-"}
+                                                </td>
+                                                <td className="px-6 py-4">
                                                     <span
-                                                        className={`inline-block px-3 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(permintaan.status)}`}
+                                                        className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(
+                                                            permintaan.status,
+                                                        )}`}
                                                     >
-                                                        {permintaan.status}
+                                                        {permintaan.status.toUpperCase()}
                                                     </span>
                                                 </td>
-                                                <td className="py-3 px-4">
+                                                <td className="px-6 py-4">
                                                     <div className="flex items-center justify-center gap-2">
                                                         <button
                                                             onClick={() =>
@@ -1185,8 +1394,8 @@ ${isBahanPenolong || isTambahan ? `<td style="border:1px solid #ccc;padding:6px 
                                                                     permintaan,
                                                                 )
                                                             }
-                                                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                                                            title="Cetak"
+                                                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                                            title="Cetak PDF"
                                                         >
                                                             <Printer className="w-4 h-4" />
                                                         </button>
