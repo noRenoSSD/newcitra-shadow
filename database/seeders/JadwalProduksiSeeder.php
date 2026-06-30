@@ -62,6 +62,7 @@ class JadwalProduksiSeeder extends Seeder
                         [
                             'qty_bahan_snapshot' => $k['qty_snapshot'],
                             'qty_kebutuhan'      => $k['qty_kebutuhan'],
+                            'tanggal_generate'   => now()->toDateString(), // Akan merekam tanggal saat dijalankan
                             'created_at'         => '2026-06-28 14:35:30',
                             'updated_at'         => '2026-06-28 14:35:30'
                         ]

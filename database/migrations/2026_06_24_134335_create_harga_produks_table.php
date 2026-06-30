@@ -10,10 +10,11 @@ return new class extends Migration
     {
         Schema::create('t_harga_produk', function (Blueprint $table) {
 
-            $table->increments('id_harga_produk');
-            $table->string('kode_harga', 20)->unique();
-            $table->unsignedBigInteger('id_produk');
+            $table->id('id_harga_produk');
 
+            $table->string('kode_harga', 20)->unique();
+
+            $table->unsignedBigInteger('id_produk');
 
             $table->enum('jenis_transaksi', [
                 'Penjualan Langsung',
@@ -28,7 +29,6 @@ return new class extends Migration
                 ->references('id_produk')
                 ->on('t_produk')
                 ->onDelete('cascade');
-
         });
     }
 

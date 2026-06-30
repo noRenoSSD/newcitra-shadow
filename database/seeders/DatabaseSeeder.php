@@ -61,7 +61,6 @@ class DatabaseSeeder extends Seeder
         
         // 9. Panggil HargaProdukSeeder
         $this->call([
-            ProdukSeeder::class,
             HargaProdukSeeder::class,
         ]);
 
@@ -72,8 +71,6 @@ class DatabaseSeeder extends Seeder
 
         // 11. Panggil PesananSeeder
         $this->call([
-            MitraSeeder::class,
-            ProdukSeeder::class,
             PesananSeeder::class,
         ]);
 

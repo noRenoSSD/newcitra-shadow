@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB; // <-- Jangan lupa ini wajib ditambahkan
 
 return new class extends Migration
 {
@@ -18,7 +19,9 @@ return new class extends Migration
             $table->decimal('qty_bahan_snapshot', 10, 2); 
             $table->decimal('qty_kebutuhan', 10, 2);
             
-            $table->date('tanggal_generate');
+            // REVISI: Menggunakan default CURRENT_DATE agar otomatis terisi hari ini saat data masuk
+            $table->date('tanggal_generate')->default(DB::raw('(CURRENT_DATE)'));
+            
             $table->timestamps();
 
             // Relational Integrity
