@@ -659,7 +659,7 @@ export default function SalesOrder({ pesanan = [], mitraList = [], produkList = 
                             <button
                               type="button"
                               // Diubah ke /surat-jalan/create?so_id=
-                              onClick={() => router.get(`/surat-jalan/create?so_id=${item.id_pesanan}`)}
+                              onClick={() => router.get(`/delivery-order/create?so_id=${item.id_pesanan}`)}
                               className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-md transition-colors"
                               title="Surat Jalan"
                             >

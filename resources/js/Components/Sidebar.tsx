@@ -113,7 +113,7 @@ const menuItems: MenuItem[] = [
         subMenus: [
             { label: "Pesanan Penjualan", path: "/pesanan" },
             { label: "Penjualan", path: "/transaksi-penjualan" },
-            { label: "Surat Jalan", path: "/penjualan/surat-jalan" },
+            { label: "Surat Jalan", path: "/surat-jalan" },
             { label: "Retur Penjualan", path: "/penjualan/retur" },
             { label: "Piutang", path: "/penjualan/piutang" },
             {

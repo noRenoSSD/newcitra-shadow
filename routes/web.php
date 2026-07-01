@@ -16,6 +16,7 @@ use App\Http\Controllers\HargaProdukController;
 use App\Http\Controllers\PengeluaranController;
 use App\Http\Controllers\PesananController;
 use App\Http\Controllers\PenjualanController;
+use App\Http\Controllers\SuratJalanController;
 use App\Http\Controllers\AsetController;
 use App\Http\Controllers\DivisiController;
 use App\Http\Controllers\OverheadController;
@@ -69,11 +70,11 @@ Route::put('/jenis-pengeluaran/{id_pengeluaran}', [PengeluaranController::class,
 Route::delete('/jenis-pengeluaran/{id_pengeluaran}', [PengeluaranController::class, 'destroy']);
 
 // Rute Pesanan & Dokumen Penjualan
-Route::resource('pesanan', PesananController::class);
 Route::get('/invoice/create', [PesananController::class, 'createInvoice'])->name('invoice.create');
-Route::get('/surat-jalan/create', [PesananController::class, 'createSuratJalan'])->name('surat-jalan.create');
 Route::post('/transaksi-penjualan', [PesananController::class, 'storeInvoice']);
-Route::post('/transaksi-surat-jalan', [PesananController::class, 'storeSuratJalan']);
+Route::get('/delivery-order/create', [PesananController::class, 'createSuratJalan'])->name('surat-jalan.create');
+Route::post('/surat-jalan', [PesananController::class, 'storeSuratJalan']);
+Route::resource('pesanan', PesananController::class);
 
 // Rute Finansial, Organisasi & Aset
 Route::get('/aset', [AsetController::class, 'index'])->name('aset.index');
@@ -115,6 +116,11 @@ Route::post('/kebutuhan-bahan', [KebutuhanBahanController::class, 'store']);
 Route::get('/transaksi-penjualan', [PenjualanController::class, 'index'])->name('transaksi-penjualan.index');
 Route::post('/transaksi-penjualan', [PenjualanController::class, 'storeInvoice'])->name('transaksi-penjualan.store');
 Route::get('/transaksi-penjualan/{id}', [PenjualanController::class, 'show'])->name('transaksi-penjualan.show');
+
+// Rute surat jalan
+Route::post('/surat-jalan', [SuratJalanController::class, 'store'])->name('surat-jalan.store');
+Route::get('/surat-jalan', [SuratJalanController::class, 'index'])->name('surat-jalan.index');
+Route::put('/surat-jalan/{id}/status', [SuratJalanController::class, 'updateStatus']);
 
 // Dasar Autentikasi Redirection
 Route::get('/', function () {

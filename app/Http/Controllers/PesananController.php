@@ -250,4 +250,50 @@ class PesananController extends Controller
             ]
         ]);
     }
+    public function storeSuratJalan(Request $request)
+    {
+        // 1. Validasi input dari React Form
+        $request->validate([
+            'id_pesanan'    => 'required',
+            'nama_pengirim' => 'required|string|max:50',
+            'kendaraan'     => 'required|string|max:30',
+            'no_plat'       => 'required|string|max:15',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            // 2. Generate Nomor Surat Jalan Otomatis (Format: SJ-YYYYMMDD-0001)
+            $tanggal = date('Ymd');
+            $lastId = DB::table('t_surat_jalan')->max('id_surat_jalan') ?? 0;
+            $nomorUrut = str_pad($lastId + 1, 4, '0', STR_PAD_LEFT);
+            $noSuratJalan = "SJ-{$tanggal}-{$nomorUrut}";
+
+            // 3. Simpan MURNI ke t_surat_jalan (Tanpa mengusik t_pesanan)
+            DB::table('t_surat_jalan')->insert([
+                'no_surat_jalan'   => $noSuratJalan,
+                'tgl_surat_jalan'  => date('Y-m-d'),
+                'id_pesanan'       => $request->id_pesanan,
+                'id_konsinyasi'    => null, 
+                'nama_pengirim'    => $request->nama_pengirim,
+                'kendaraan'        => $request->kendaraan,
+                'no_plat'          => $request->no_plat,
+                'status'           => 'Diproses', // Sesuai dengan opsi ENUM database barumu
+                'created_at'       => now(),
+                'updated_at'       => now()
+            ]);
+
+            DB::commit();
+
+            // 4. Redirect aman ke halaman list utama surat jalan
+            return redirect('/surat-jalan')->with('success', 'Surat Jalan berhasil disimpan.');
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            
+            // Tangkap jika ada error tak terduga lainnya
+            return redirect()->back()->withErrors([
+                'database_error' => 'Gagal DB: ' . $e->getMessage()
+            ]);
+        }
+    }
 }
