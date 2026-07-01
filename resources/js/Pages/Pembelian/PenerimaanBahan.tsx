@@ -81,23 +81,36 @@ export default function PenerimaanBahan() {
                     trm.detailPenerimaan ||
                     [];
 
-                const items = detailsRelation.map((d: any) => ({
-                    idBahan: Number(d.id_bahan || 0),
-                    kodeBahan: d.bahan?.kode_bahan || "",
-                    namaBahan: d.bahan?.nama_bahan || "",
-                    // Jika di tabel penerimaan tidak ada qty_po, dia mungkin ambil dari relasi atau 0
-                    qtyPO: Number(d.qty_po || d.qty || d.jumlah || 0),
-                    qtyDiterima: Number(
-                        d.qty_diterima ||
-                            d.qty_terima ||
-                            d.jumlah_diterima ||
-                            0,
-                    ),
-                    qtyRetur: Number(d.qty_retur || d.jumlah_retur || 0),
-                    satuan: d.bahan?.satuan || "",
-                    kondisi: d.kondisi || "Baik",
-                    catatan: d.catatan || "",
-                }));
+                // Cari baris ini di dalam mappedRiwayat:
+                const items = detailsRelation.map((d: any) => {
+                    // 1. Ambil array detail PO dari relasi yang baru saja kita panggil di controller
+                    const poDetails = poRelation?.details || [];
+
+                    // 2. Cari item PO yang id_bahan-nya sama dengan id_bahan di detail penerimaan ini
+                    const originalPoItem = poDetails.find(
+                        (poItem: any) => poItem.id_bahan === d.id_bahan,
+                    );
+
+                    return {
+                        idBahan: Number(d.id_bahan || 0),
+                        kodeBahan: d.bahan?.kode_bahan || "",
+                        namaBahan: d.bahan?.nama_bahan || "",
+
+                        // 3. Ambil Qty PO dari originalPoItem (bukan dari 'd' / tabel penerimaan)
+                        qtyPO: Number(originalPoItem?.qty_po || 0), // 🔥 Perbaikan utama di sini
+
+                        qtyDiterima: Number(
+                            d.qty_diterima ||
+                                d.qty_terima ||
+                                d.jumlah_diterima ||
+                                0,
+                        ),
+                        qtyRetur: Number(d.qty_retur || d.jumlah_retur || 0),
+                        satuan: d.bahan?.satuan || "",
+                        kondisi: d.kondisi || "Baik",
+                        catatan: d.catatan || "",
+                    };
+                });
 
                 return {
                     id: String(trm.id_penerimaan || trm.id),

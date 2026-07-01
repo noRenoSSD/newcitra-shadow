@@ -24,7 +24,7 @@ class PenerimaanBahanController extends Controller
             ->get();
 
         // 3. Ambil data riwayat penerimaan beserta relasinya (Purchase Order & Detail Penerimaan)
-        $riwayatPenerimaan = PenerimaanBahan::with(['purchaseOrder.supplier', 'detailPenerimaan.bahan'])
+        $riwayatPenerimaan = PenerimaanBahan::with(['purchaseOrder.supplier','purchaseOrder.details', 'detailPenerimaan.bahan'])
             ->orderBy('tanggal_penerimaan', 'desc')
             ->get();
 

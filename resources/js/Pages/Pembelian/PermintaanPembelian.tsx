@@ -197,11 +197,13 @@ export default function PermintaanPembelian({
 
         setIsLoadingMingguan(true);
         try {
-            const response = await axios.post(
+            const response = await axios.get(
                 "/pembelian/permintaan/kebutuhan-mingguan",
                 {
-                    tgl_mulai: tglMulaiPeriode,
-                    tgl_akhir: tglAkhirPeriode,
+                    params: {
+                        tgl_mulai: tglMulaiPeriode,
+                        tgl_akhir: tglAkhirPeriode,
+                    },
                 },
             );
 

@@ -28,6 +28,9 @@ use App\Http\Controllers\KebutuhanBahanController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ApprovalPOController;
 use App\Http\Controllers\PenerimaanBahanController;
+use App\Http\Controllers\ReturPembelianController;
+use App\Http\Controllers\HasilProduksiController;
+
 // Rute Stok Opname
 Route::prefix('persediaan/stok-opname')->name('stock-opname.')->group(function () {
     Route::get('/',        [StockOpnameController::class, 'index'])->name('index');
@@ -118,6 +121,7 @@ Route::get('/', function () {
     return redirect('/login');
 });
 
+
 // --- KELOMPOK RUTE DENGAN PROTEKSI AUTHENTICATION (Kunci Perbaikan Di Sini) ---
 Route::middleware('auth')->group(function () {
 
@@ -155,6 +159,15 @@ Route::middleware('auth')->group(function () {
     Route::prefix('pembelian/penerimaan-bahan')->name('penerimaan-bahan.')->group(function () {
         Route::get('/', [PenerimaanBahanController::class, 'index'])->name('index');
         Route::post('/', [PenerimaanBahanController::class, 'store'])->name('store');
+    });
+// --- RUTE RETUR PEMBELIAN ---
+    Route::prefix('pembelian/retur-pembelian')->name('retur-pembelian.')->group(function () {
+        Route::get('/', [ReturPembelianController::class, 'index'])->name('index');
+        Route::post('/', [ReturPembelianController::class, 'store'])->name('store');
+    });
+Route::prefix('produksi/hasil-produksi')->name('hasil-produksi.')->group(function () {
+        Route::get('/', [HasilProduksiController::class, 'index'])->name('index');
+        Route::post('/', [HasilProduksiController::class, 'store'])->name('store');
     });
 }); // Kurung kurawal penutup middleware auth utama berada di akhir rute internal
 
