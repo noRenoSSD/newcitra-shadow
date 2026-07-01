@@ -45,6 +45,19 @@ class SuratJalanController extends Controller
     {
         $id_pesanan = $request->query('so_id');
 
+        //CEK APAKAH PESANAN INI SUDAH PERNAH DIBUATKAN SURAT JALAN
+        $sudahAdaSJ = DB::table('t_surat_jalan')
+            ->where('id_pesanan', $id_pesanan)
+            ->exists();
+
+        if ($sudahAdaSJ) {
+            // Jika sudah ada, kembalikan ke halaman sebelumnya dengan pesan error
+            return redirect()->back()->withErrors([
+                'pesanan' => 'Surat Jalan untuk pesanan ini sudah pernah diterbitkan!'
+            ]);
+        }
+
+        // Jika lolos, ambil data seperti biasa
         $pesanan = DB::table('t_pesanan')
             ->leftJoin('t_mitra', 't_pesanan.id_mitra', '=', 't_mitra.id_mitra')
             ->select('t_pesanan.*', 't_mitra.nama_mitra')

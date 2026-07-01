@@ -4,9 +4,9 @@ import { ArrowLeft, Save, FileText } from 'lucide-react';
 
 export default function InvoiceForm({ pesanan }: any) {
   const [paymentMethod, setPaymentMethod] = useState('Tunai');
-  const [dueType, setDueType] = useState('Hari'); // Hari atau Tanggal
+  const [dueType, setDueType] = useState('Hari'); 
 
-  const { flash } = usePage().props as any;
+  const { flash, errors } = usePage().props as any; // Ambil 'errors' untuk melacak validasi gagal
 
   useEffect(() => {
     if (flash?.error) {
@@ -14,8 +14,15 @@ export default function InvoiceForm({ pesanan }: any) {
     }
   }, [flash?.error]);
 
+  // --- GENERATE OTOMATIS VALUE UNTUK BACKEND ---
+  const tanggalHariIni = new Date().toISOString().split('T')[0];
+  // Format No Invoice Otomatis: INV-YYYYMMDD-IDPESANAN
+  const nomorInvoiceOtomatis = `INV-${tanggalHariIni.replace(/-/g, '')}-${pesanan.id_pesanan}`;
+
   const { data, setData, post, processing } = useForm({
     id_pesanan: pesanan.id_pesanan,
+    no_invoice: nomorInvoiceOtomatis, // SEKARANG SUDAH TERISI
+    tgl_invoice: tanggalHariIni,       // SEKARANG SUDAH TERISI
     metode_pembayaran: 'Tunai',
     termin_hari: '',
     jatuh_tempo_tanggal: '',
@@ -29,8 +36,13 @@ export default function InvoiceForm({ pesanan }: any) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Kirim data menggunakan rute resmi transaksi-penjualan
     post('/transaksi-penjualan', {
-      onSuccess: () => router.get('/transaksi-penjualan')
+      onSuccess: () => {
+         // Paksa redirect setelah sukses
+         router.get('/transaksi-penjualan');
+      }
     });
   };
 
@@ -41,6 +53,16 @@ export default function InvoiceForm({ pesanan }: any) {
       {flash?.error && (
         <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg font-medium text-sm flex items-center gap-2">
           ⚠️ {flash.error}
+        </div>
+      )}
+
+      {/* Debugging validasi backend jika ada yang tertinggal */}
+      {Object.keys(errors).length > 0 && (
+        <div className="mb-4 p-4 bg-orange-100 border border-orange-400 text-orange-700 rounded-lg text-sm">
+          <strong>Gagal Simpan! Periksa Kolom Ini:</strong>
+          <ul className="list-disc pl-5 mt-1">
+            {Object.values(errors).map((err: any, i) => <li key={i}>{err}</li>)}
+          </ul>
         </div>
       )}
       
@@ -55,6 +77,10 @@ export default function InvoiceForm({ pesanan }: any) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Input Hidden untuk No & Tgl Invoice agar tetap terkirim ke backend */}
+        <input type="hidden" value={data.no_invoice} />
+        <input type="hidden" value={data.tgl_invoice} />
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Metode Pembayaran *</label>
           <div className="flex gap-4">

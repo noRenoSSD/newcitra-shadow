@@ -24,6 +24,9 @@ interface TPesanan {
   alamat: string;
   total_harga: number;
   items: TPesananDetail[];
+  status_surat_jalan?: boolean; 
+  status: 'Selesai' | 'Diproses';
+  sudah_ada_invoice: boolean;
 }
 
 interface MasterMitra {
@@ -60,13 +63,13 @@ export default function SalesOrder({ pesanan = [], mitraList = [], produkList = 
   const [selectedOrder, setSelectedOrder] = useState<TPesanan | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-    const { flash } = usePage().props as any;
+  const { flash } = usePage().props as any;
 
-    useEffect(() => {
-        if (flash?.error) {
-        alert(flash.error); 
-        }
-    }, [flash?.error]);
+  useEffect(() => {
+    if (flash?.error) {
+      alert(flash.error); 
+    }
+  }, [flash?.error]);
   
   // State Item Builder Komoditas
   const [localItems, setLocalItems] = useState<TPesananDetail[]>([]);
@@ -155,7 +158,6 @@ export default function SalesOrder({ pesanan = [], mitraList = [], produkList = 
 
   const handleDelete = (id: number) => {
     if (window.confirm('Apakah Anda yakin ingin menghapus data pesanan penjualan ini?')) {
-      // Diubah ke endpoint /pesanan/
       router.delete(`/pesanan/${id}`);
     }
   };
@@ -254,10 +256,8 @@ export default function SalesOrder({ pesanan = [], mitraList = [], produkList = 
     };
 
     if (editMode && selectedOrder) {
-      // Diubah menggunakan /pesanan/ agar terarah ke update() di controller
       router.put(`/pesanan/${selectedOrder.id_pesanan}`, payload, { onSuccess: () => handleCancel() });
     } else {
-      // Diubah menggunakan /pesanan agar terarah ke store() di controller
       router.post('/pesanan', payload, { onSuccess: () => handleCancel() });
     }
   };
@@ -570,8 +570,8 @@ export default function SalesOrder({ pesanan = [], mitraList = [], produkList = 
         <div className="block">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Pesanan Penjualan</h1>
-              <p className="text-sm text-gray-500">Kelola dan pantau seluruh transaksi pesanan penjualan</p>
+              <h1 className="text-2xl font-bold text-red-800">Pesanan Penjualan</h1>
+              <p className="text-sm text-gray-500">Kelola data pesanan penjualan pelanggan</p>
             </div>
             <button
               onClick={handleAdd}
@@ -602,6 +602,7 @@ export default function SalesOrder({ pesanan = [], mitraList = [], produkList = 
                     <th className="px-6 py-3">Tipe Transaksi</th>
                     <th className="px-6 py-3">Pelanggan</th>
                     <th className="px-6 py-3 text-right">Total Transaksi</th>
+                    <th className="px-4 py-3">Status</th>
                     <th className="px-6 py-3 text-center">Aksi</th>
                   </tr>
                 </thead>
@@ -623,6 +624,18 @@ export default function SalesOrder({ pesanan = [], mitraList = [], produkList = 
                         <td className="px-6 py-4">{item.nama_mitra || "Tidak Diketahui"}</td>
                         <td className="px-6 py-4 text-right font-semibold text-gray-900">
                           Rp {(Number(item.total_harga) || 0).toLocaleString('id-ID')}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+                            (item as any).sudah_ada_invoice // <-- Kita langsung cek true/false dari sini
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200' // Jika true -> Hijau (Emerald)
+                              : 'bg-amber-50 text-amber-700 border-amber-200'     // Jika false -> Kuning (Amber)
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              (item as any).sudah_ada_invoice ? 'bg-emerald-500' : 'bg-amber-500'
+                            }`} />
+                            {(item as any).sudah_ada_invoice ? 'Selesai' : 'Diproses'}
+                          </span>
                         </td>
                         <td className="px-6 py-4 text-center">
                           <div className="flex items-center justify-center gap-1.5">
@@ -649,19 +662,30 @@ export default function SalesOrder({ pesanan = [], mitraList = [], produkList = 
                             </button>
                             <button
                               type="button"
-                              // Diubah ke /invoice/create?so_id=
                               onClick={() => router.get(`/invoice/create?so_id=${item.id_pesanan}`)}
                               className="p-1.5 text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
                               title="Faktur Tagihan"
                             >
                               <FileText className="w-4 h-4" />
                             </button>
+                            
+                            {/*PROTEKSI TOMBOL TRUK DISINI */}
                             <button
                               type="button"
-                              // Diubah ke /surat-jalan/create?so_id=
-                              onClick={() => router.get(`/delivery-order/create?so_id=${item.id_pesanan}`)}
-                              className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-md transition-colors"
-                              title="Surat Jalan"
+                              onClick={() => {
+                                if (item.status_surat_jalan) {
+                                  alert('⚠️ Gagal: Surat jalan untuk pesanan ini sudah pernah digenerate!');
+                                } else {
+                                  router.get(`/delivery-order/create?so_id=${item.id_pesanan}`);
+                                }
+                              }}
+                              className={`p-1.5 rounded-md transition-colors ${
+                                item.status_surat_jalan 
+                                  ? 'text-gray-300 bg-gray-50 cursor-not-allowed' 
+                                  : 'text-purple-600 hover:bg-purple-50'
+                              }`}
+                              title={item.status_surat_jalan ? "Surat Jalan Sudah Dibuat" : "Surat Jalan"}
+                              disabled={item.status_surat_jalan}
                             >
                               <Truck className="w-4 h-4" />
                             </button>

@@ -173,8 +173,8 @@ export default function SuratJalan({ suratJalans }: Props) {
     <div className="py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <Head title="Daftar Surat Jalan" />
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-red-800 inline-flex items-center gap-2"> Daftar Dokumen Surat Jalan </h1>
-        <p className="text-sm text-gray-500 mt-1">Sistem Pemantauan Logistik & Pengiriman Barang Gudang</p>
+        <h1 className="text-2xl font-bold text-red-800 inline-flex items-center gap-2"> Daftar Surat Jalan </h1>
+        <p className="text-sm text-gray-500 mt-1">Kelola data surat jalan pengiriman</p>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useForm, Head } from '@inertiajs/react';
+import { useForm, Head, router } from '@inertiajs/react';
 import { ArrowLeft, Save, Truck } from 'lucide-react';
 
 interface Props {
@@ -32,8 +32,8 @@ export default function SuratJalanForm({ pesanan }: Props) {
       
       <div className="mb-6 border-b border-gray-100 pb-4">
         <button 
-          onClick={() => window.history.back()} 
-          type="button"
+          type="button" 
+          onClick={() => router.get('/pesanan', {}, { replace: true })} 
           className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-2"
         >
           <ArrowLeft className="w-4 h-4" /> Kembali

@@ -95,7 +95,7 @@ const menuItems: MenuItem[] = [
                 label: "Persediaan Bahan Penolong",
                 path: "/persediaan/bahan-penolong",
             },
-            { label: "Hasil Produksi", path: "/persediaan/hasil-produksi" },
+            // { label: "Hasil Produksi", path: "/persediaan/hasil-produksi" },
             {
                 label: "Persediaan Produk Jadi",
                 path: "/persediaan/produk-jadi",
@@ -114,7 +114,7 @@ const menuItems: MenuItem[] = [
             { label: "Pesanan Penjualan", path: "/pesanan" },
             { label: "Penjualan", path: "/transaksi-penjualan" },
             { label: "Surat Jalan", path: "/surat-jalan" },
-            { label: "Retur Penjualan", path: "/penjualan/retur" },
+            { label: "Retur Penjualan", path: "/retur-penjualan" },
             { label: "Piutang", path: "/penjualan/piutang" },
             {
                 label: "Perpanjangan Jatuh Tempo Piutang",

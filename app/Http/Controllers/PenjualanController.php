@@ -33,32 +33,62 @@ class PenjualanController extends Controller
     /**
      * 2. Menyimpan Data Hasil Generate Invoice ke t_jual & t_detail_jual
      */
-    public function storeInvoice(Request $request)
+public function storeInvoice(Request $request)
     {
-        $request->validate([
-            'id_pesanan' => 'required',
-            'metode_pembayaran' => 'required',
-        ]);
-
         $idPesanan = $request->id_pesanan;
-        //  1. VALIDASI DUPLIKASI: Cek apakah id_pesanan ini sudah ada di tabel t_jual
-        $sudahAdaInvoice = DB::table('t_jual')->where('id_pesanan', $idPesanan)->first();
+        
+        $noInvoice = $request->no_invoice ?? ('INV-' . date('Ymd') . '-' . $idPesanan);
+        $tglInvoice = $request->tgl_invoice ?? date('Y-m-d');
+        $totalHarga = $request->total_harga ?? 0;
 
-        if ($sudahAdaInvoice) {
-            // Jika sudah ada, kembalikan user ke halaman sebelumnya dengan membawa pesan error/gagal
-            return redirect()->back()->with('error', "Pesanan ini sudah pernah dibuatkan Invoice sebelumnya dengan nomor {$sudahAdaInvoice->no_jual}!");
-        }
+        DB::beginTransaction();
+        try {
+            // 1. INSERT KE TABEL INDUK (t_jual)
+            $idJual = DB::table('t_jual')->insertGetId([
+                'no_jual'           => $noInvoice,
+                'tgl_jual'          => $tglInvoice,
+                'id_pesanan'        => $idPesanan,
+                'jenis_penjualan'   => 'Grosir',      
+                'metode_pembayaran' => $request->metode_pembayaran ?? 'Tunai',       
+                'subtotal'          => $totalHarga,
+                'total_diskon'      => 0,
+                'total_hpp'         => 0,
+                'grand_total'       => $totalHarga,
+                'created_at'        => now(),
+                'updated_at'        => now()
+            ]);
 
-        // Kode proses insert database kamu yang kemarin di bawah ini tetap utuh...
-        DB::transaction(function () use ($request, $idPesanan) {
-            $pesanan = DB::table('t_pesanan')->where('id_pesanan', $idPesanan)->first();
-            if (!$pesanan) {
-                abort(404, 'Data Pesanan tidak ditemukan.');
+            // 2. AMBIL DETAIL DARI t_pesanan_detail (Pastikan kolom id_harga ikut ditarik)
+            $items = DB::table('t_pesanan_detail')->where('id_pesanan', $idPesanan)->get();
+            
+            foreach ($items as $item) {
+                DB::table('t_detail_jual')->insert([
+                    'id_jual'     => $idJual,
+                    'id_produk'   => $item->id_produk,
+                    
+                    // --- SEKARANG ID_HARGA SUDAH DIMASUKKAN ---
+                    // Mengambil id_harga dari detail pesanan milikmu, jika tidak ada pakai $item->id_harga_produk
+                    'id_harga'    => $item->id_harga ?? $item->id_harga_produk ?? 1, 
+                    
+                    'qty_jual'    => $item->qty ?? $item->qty_pesanan ?? 1,
+                    'hpp_satuan'  => 0, 
+                    'diskon'      => 0,
+                    'subtotal'    => $item->subtotal ?? 0,
+                    'created_at'  => now(),
+                    'updated_at'  => now()
+                ]);
             }
-        });
 
-        return redirect()->route('transaksi-penjualan.index')->with('success', 'Transaksi Penjualan Berhasil Disimpan!');
-    }
+            DB::commit();
+
+            // 3. SELESAI & LEMPAR KE HALAMAN TRANSAKSI
+            return redirect('/transaksi-penjualan')->with('success', 'Transaksi Penjualan Berhasil Disimpan!');
+
+        } catch (Exception $e) {
+            DB::rollback();
+            dd('Waduh database crash lagi: ' . $e->getMessage()); 
+        }
+    }  
     /**
  * 3. Menampilkan Detail Rincian Barang per Invoice
  */

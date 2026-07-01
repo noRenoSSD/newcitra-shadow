@@ -16,6 +16,7 @@ use App\Http\Controllers\HargaProdukController;
 use App\Http\Controllers\PengeluaranController;
 use App\Http\Controllers\PesananController;
 use App\Http\Controllers\PenjualanController;
+use App\Http\Controllers\ReturJualController;
 use App\Http\Controllers\SuratJalanController;
 use App\Http\Controllers\AsetController;
 use App\Http\Controllers\DivisiController;
@@ -121,6 +122,9 @@ Route::get('/transaksi-penjualan/{id}', [PenjualanController::class, 'show'])->n
 Route::post('/surat-jalan', [SuratJalanController::class, 'store'])->name('surat-jalan.store');
 Route::get('/surat-jalan', [SuratJalanController::class, 'index'])->name('surat-jalan.index');
 Route::put('/surat-jalan/{id}/status', [SuratJalanController::class, 'updateStatus']);
+
+// Rute retur jual
+Route::get('/retur-penjualan', [ReturJualController::class, 'index'])->name('retur-penjualan.index');
 
 // Dasar Autentikasi Redirection
 Route::get('/', function () {
