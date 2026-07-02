@@ -24,12 +24,12 @@ class KebutuhanBahanController extends Controller
             'items.*.qty_kebutuhan'     => 'required|numeric|min:0',
         ]);
 
-        // ── Guard: tolak generate ulang jika sudah ada data ──────────────────
+        // ── Guard: jika sudah ada data, redirect back() saja (bukan error)
+        //    Tombol di frontend seharusnya sudah disabled setelah relasi model diperbaiki.
+        //    Jika entah bagaimana masuk ke sini, cukup redirect balik — data sudah aman di DB.
         $sudahAda = KebutuhanBahan::where('id_produksi', $request->id_produksi)->exists();
         if ($sudahAda) {
-            return back()->withErrors([
-                'error' => 'Kebutuhan bahan untuk produksi ini sudah pernah digenerate.'
-            ]);
+            return back(); // silent redirect — data sudah ada, tidak perlu error
         }
 
         // ── Guard: jadwal harus berstatus Approved ────────────────────────────
