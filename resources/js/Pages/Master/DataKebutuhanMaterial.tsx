@@ -360,7 +360,6 @@ function FormBOM({
   const handleSave = () => {
     if (!validate()) return;
 
-    // ✅ FIX: sertakan rowId sebagai 'id' agar controller tahu mana UPDATE vs INSERT
     const details = rows.map(row => ({
       id:          row.rowId.startsWith('new-') ? null : parseInt(row.rowId, 10),
       kodeMaterial: row.idMaterial,
@@ -484,22 +483,35 @@ function FormBOM({
 // ══════════════════════════════════════════════
 //  DELETE MODAL
 // ══════════════════════════════════════════════
-function DeleteModal({ bom, onConfirm, onCancel }: { bom: BOM; onConfirm: () => void; onCancel: () => void }) {
+function DeleteModal({ bom, onConfirm, onCancel, error }: { bom: BOM; onConfirm: () => void; onCancel: () => void; error?: string | null }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onCancel}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onCancel}>
       <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-semibold text-gray-800">Hapus Data BOM</h3>
           <button onClick={onCancel} className="p-1 rounded hover:bg-gray-100"><X className="w-4 h-4 text-gray-500" /></button>
         </div>
-        <p className="text-sm text-gray-600 mb-1">Apakah Anda yakin ingin menghapus data BOM berikut?</p>
-        <div className="my-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm">
-          <span className="font-semibold text-red-700">{bom.kodeBOM}</span> — {bom.namaProduk}
+        
+        {error ? (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2 text-red-700 text-sm">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+            <p>{error}</p>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-600 mb-1">Apakah Anda yakin ingin menghapus data BOM berikut?</p>
+        )}
+
+        <div className="my-3 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+          <span className="font-semibold text-gray-700">{bom.kodeBOM}</span> — {bom.namaProduk}
         </div>
-        <p className="text-xs text-gray-400 mb-4">Tindakan ini tidak dapat dibatalkan.</p>
-        <div className="flex justify-end gap-2">
-          <button onClick={onCancel} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Batal</button>
-          <button onClick={onConfirm} className="px-4 py-2 text-sm font-medium text-white bg-red-800 rounded-lg hover:bg-red-900">Hapus</button>
+        
+        {!error && <p className="text-xs text-gray-400 mb-4">Tindakan ini tidak dapat dibatalkan.</p>}
+        
+        <div className="flex justify-end gap-2 mt-4">
+          <button onClick={onCancel} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Tutup</button>
+          {!error && (
+            <button onClick={onConfirm} className="px-4 py-2 text-sm font-medium text-white bg-red-800 rounded-lg hover:bg-red-900">Hapus</button>
+          )}
         </div>
       </div>
     </div>
@@ -512,9 +524,10 @@ function DeleteModal({ bom, onConfirm, onCancel }: { bom: BOM; onConfirm: () => 
 type ViewMode = 'list' | 'form' | 'detail';
 
 export default function DataKebutuhanMaterial({ boms = [], produkList = [], materialList = [] }: any) {
-  const [view,         setView]         = useState<ViewMode>('list');
-  const [selected,     setSelected]     = useState<BOM | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<BOM | null>(null);
+  const [view,          setView]         = useState<ViewMode>('list');
+  const [selected,      setSelected]     = useState<BOM | null>(null);
+  const [deleteTarget,  setDeleteTarget] = useState<BOM | null>(null);
+  const [deleteError,   setDeleteError]  = useState<string | null>(null);
 
   const generateNextKode = () => {
     if (!boms || boms.length === 0) return 'BOM-001';
@@ -550,10 +563,9 @@ export default function DataKebutuhanMaterial({ boms = [], produkList = [], mate
       nama_resep:   bomData.namaResep,
       qty_batch:    bomData.qtyBatch,
       satuan_batch: bomData.satuanBatch,
-      // ✅ FIX: sertakan 'id' (id_detail_bom) agar controller bisa UPDATE in-place
       details: bomData.details.map((d: any) => ({
-        id:           d.id ?? null,      // null = baris baru → INSERT
-        id_bahan:     d.kodeMaterial,    // angka = baris lama → UPDATE
+        id:           d.id ?? null,
+        id_bahan:     d.kodeMaterial,
         jumlah_bahan: d.jumlahBahan,
       })),
     };
@@ -567,7 +579,20 @@ export default function DataKebutuhanMaterial({ boms = [], produkList = [], mate
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    router.delete(`/kebutuhan-material/${deleteTarget.id}`, { onSuccess: () => setDeleteTarget(null) });
+    setDeleteError(null);
+
+    router.delete(`/kebutuhan-material/${deleteTarget.id}`, {
+      preserveScroll: true,
+      onSuccess: () => {
+        setDeleteTarget(null);
+        setDeleteError(null);
+      },
+      onError: (err) => {
+        if (err.delete) {
+          setDeleteError(err.delete);
+        }
+      }
+    });
   };
 
   return (
@@ -596,7 +621,12 @@ export default function DataKebutuhanMaterial({ boms = [], produkList = [], mate
         <DetailBOMView bom={selected} produkList={mappedProduk} materialList={mappedMaterial} onBack={() => setView('list')} />
       )}
       {deleteTarget && (
-        <DeleteModal bom={deleteTarget} onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} />
+        <DeleteModal 
+          bom={deleteTarget} 
+          onConfirm={handleDelete} 
+          onCancel={() => { setDeleteTarget(null); setDeleteError(null); }} 
+          error={deleteError}
+        />
       )}
     </div>
   );

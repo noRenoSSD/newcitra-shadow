@@ -158,9 +158,20 @@ class BomController extends Controller
 
     public function destroy($id)
     {
-        $bom = Bom::findOrFail($id);
-        $bom->delete();
+        try {
+            $bom = Bom::findOrFail($id);
+            $bom->delete();
 
-        return redirect()->back();
+            return redirect()->back();
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Kode 23000 mengindikasikan Integrity constraint violation (Foreign Key)
+            if ($e->getCode() == "23000") {
+                return back()->withErrors([
+                    'delete' => 'BOM (Resep) ini tidak dapat dihapus karena sudah digunakan dalam Jadwal Produksi.'
+                ]);
+            }
+
+            return back()->withErrors(['delete' => 'Terjadi kesalahan pada sistem saat menghapus data.']);
+        }
     }
 }

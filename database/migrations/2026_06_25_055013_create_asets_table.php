@@ -15,7 +15,7 @@ return new class extends Migration
             
             $table->string('kode_aset', 10)->unique(); // Ditambah unique agar kode tidak kembar
             $table->string('nama_aset', 100);
-            $table->enum('tipe_aset', ['mesin', 'kendaraan', 'peralatan']);
+            $table->enum('tipe_aset', ['Mesin', 'Kendaraan', 'Peralatan']);
             $table->date('tanggal_beli');
             $table->decimal('harga_perolehan', 15, 2);
             $table->integer('umur_ekonomis'); 

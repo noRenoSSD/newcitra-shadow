@@ -145,7 +145,7 @@ const menuItems: MenuItem[] = [
                 path: "/keuangan/approval-po",
             },
             { label: "Kartu Piutang", path: "/keuangan/kartu-piutang" },
-            { label: "Penyusutan Aset Tetap", path: "/keuangan/penyusutan" },
+            { label: "Penyusutan Aset Tetap", path: "/penyusutan/aset" },
             { label: "Jurnal Umum", path: "/keuangan/jurnal-umum" },
             {
                 label: "Jurnal Penyesuaian",
