@@ -81,7 +81,10 @@ const menuItems: MenuItem[] = [
             { label: "Permintaan Pembelian", path: "/pembelian/permintaan" },
             { label: "Pesanan Pembelian", path: "/pembelian/pesanan" },
             { label: "Penerimaan Bahan", path: "/pembelian/penerimaan-bahan" },
-            { label: "Transaksi Pembelian", path: "/pembelian/transaksi" },
+            {
+                label: "Transaksi Pembelian",
+                path: "/pembelian/transaksi-pembelian",
+            },
             { label: "Retur Pembelian", path: "/pembelian/retur-pembelian" },
             { label: "Hutang Usaha", path: "/pembelian/hutang" },
         ],
@@ -100,7 +103,7 @@ const menuItems: MenuItem[] = [
                 label: "Persediaan Produk Jadi",
                 path: "/persediaan/produk-jadi",
             },
-            { label: "Stok Opname", path: "/persediaan/stok-opname" },
+            { label: "Stock Opname", path: "/persediaan/stock-opname" },
             {
                 label: "Persetujuan Pemakaian Bahan",
                 path: "/persediaan/approval-pemakaian",

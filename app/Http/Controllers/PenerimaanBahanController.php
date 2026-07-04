@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use App\Services\InventoryService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\PenerimaanBahan;
@@ -70,6 +70,7 @@ class PenerimaanBahanController extends Controller
                     'kondisi' => $item['kondisi'],
                     'catatan' => $item['catatan'] ?? null,
                 ]);
+
             }
 
             // BARIS UPDATE STATUS PO SUDAH DIHAPUS SESUAI REKUES KAMU 👍

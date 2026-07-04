@@ -21,4 +21,9 @@ class PenerimaanBahan extends Model
     {
         return $this->belongsTo(PurchaseOrder::class, 'id_po', 'id_po');
     }
+    // Tambahkan ini di Model PenerimaanBahan.php
+public function transaksiPembelian()
+{
+    return $this->hasOne(TransaksiPembelian::class, 'id_penerimaan', 'id_penerimaan');
+}
 }

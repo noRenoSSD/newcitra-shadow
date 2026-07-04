@@ -1,9 +1,8 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use App\Services\InventoryService;
 use App\Models\HasilProduksi;
-use App\Models\KartuPersediaan;
 use App\Models\PemakaianBahan;
 use App\Models\DetailJadwalProduksi;
 use Illuminate\Http\Request;
@@ -32,78 +31,62 @@ class HasilProduksiController extends Controller
             'jadwalProduksi' => $jadwalProduksi
         ]);
     }
-    // Tambahkan fungsi ini di dalam class HasilProduksiController
-private function catatKartuPersediaan($id_bahan, $id_produk, $no_ref, $jenis, $qty, $tanggal)
-{
-    // Ambil saldo terakhir untuk referensi/audit
-    $lastSaldo = \App\Models\KartuPersediaan::where('id_bahan', $id_bahan)
-        ->orWhere('id_produk', $id_produk)
-        ->latest('id_kartu')
-        ->first();
 
-    $saldoAwal = $lastSaldo ? $lastSaldo->saldo_akhir : 0;
-    $saldoAkhir = ($jenis === 'Masuk') ? ($saldoAwal + $qty) : ($saldoAwal - $qty);
-
-    \App\Models\KartuPersediaan::create([
-        'id_bahan' => $id_bahan,
-        'id_produk' => $id_produk,
-        'no_referensi' => $no_ref,
-        'jenis_transaksi' => $jenis,
-        'qty_masuk' => ($jenis === 'Masuk') ? $qty : 0,
-        'qty_keluar' => ($jenis === 'Keluar') ? $qty : 0,
-        'saldo_akhir' => $saldoAkhir,
-        'tanggal_transaksi' => $tanggal,
-    ]);
-}
     public function store(Request $request)
-{
-    $request->validate([
-        'id_produksi'        => 'required|exists:t_detail_jadwal_produksi,id_produksi',
-        'output_aktual'      => 'required|numeric|min:0',
-        'tanggal_produksi'   => 'required|date',
-        'tanggal_kadaluarsa' => 'required|date',
-        'items'              => 'required|array',
-    ]);
-
-    DB::beginTransaction();
-    try {
-        // 1. Simpan Header Hasil Produksi
-        $hasil = HasilProduksi::create([
-            'id_produksi'        => $request->id_produksi,
-            'output_aktual'      => $request->output_aktual,
-            'tanggal_produksi'   => $request->tanggal_produksi,
-            'tanggal_kadaluarsa' => $request->tanggal_kadaluarsa,
-            'status'             => 'Selesai',
+    {
+        $request->validate([
+            'id_produksi'        => 'required|exists:t_detail_jadwal_produksi,id_produksi',
+            'output_aktual'      => 'required|numeric|min:0',
+            'tanggal_produksi'   => 'required|date',
+            'tanggal_kadaluarsa' => 'required|date',
+            'items'              => 'required|array',
         ]);
 
-        // FIX DISINI: Ambil id_produk dari database menggunakan id_produksi
-        $detailJadwal = DetailJadwalProduksi::findOrFail($request->id_produksi);
-        $idProduk = $detailJadwal->id_produk;
-
-        // 2. Simpan Detail Pemakaian Bahan & Kurangi Stok Bahan Baku
-        foreach ($request->items as $item) {
-            $selisih = $item['qty_aktual'] - $item['kalkulasi_standar'];
-
-            PemakaianBahan::create([
-                'id_hasil_produksi' => $hasil->id_hasil_produksi,
-                'id_bahan'          => $item['id_bahan'],
-                'qty_aktual'        => $item['qty_aktual'],
-                'selisih'           => $selisih,
+        DB::beginTransaction();
+        try {
+            // 1. Simpan Header Hasil Produksi
+            $hasil = HasilProduksi::create([
+                'id_produksi'        => $request->id_produksi,
+                'output_aktual'      => $request->output_aktual,
+                'tanggal_produksi'   => $request->tanggal_produksi,
+                'tanggal_kadaluarsa' => $request->tanggal_kadaluarsa,
+                'status'             => 'Selesai',
             ]);
 
-            // Catat pengurangan stok bahan baku
-            $this->catatKartuPersediaan($item['id_bahan'], null, $hasil->id_hasil_produksi, 'Keluar', $item['qty_aktual'], $request->tanggal_produksi);
+            $detailJadwal = DetailJadwalProduksi::findOrFail($request->id_produksi);
+            $idProduk = $detailJadwal->id_produk;
+
+            // 2. Simpan Detail Pemakaian Bahan & Kurangi Stok Bahan Baku
+            foreach ($request->items as $item) {
+                $selisih = $item['qty_aktual'] - $item['kalkulasi_standar'];
+
+                PemakaianBahan::create([
+                    'id_hasil_produksi' => $hasil->id_hasil_produksi,
+                    'id_bahan'          => $item['id_bahan'],
+                    'qty_aktual'        => $item['qty_aktual'],
+                    'selisih'           => $selisih,
+                ]);
+
+                // ======== KODE KARTU PERSEDIAAN (BARANG KELUAR) ========
+                InventoryService::catatMutasi(
+                    $item['id_bahan'],              // FIX: Ubah $bahan jadi $item
+                    'bahan',                        // Tipe: bahan
+                    'KELUAR',                       // Transaksi KELUAR
+                    'produksi_keluar',              // Sumbernya dari produksi
+                    'PROD-' . $request->id_produksi,// FIX: Referensi dari ID produksi
+                    $item['qty_aktual'],            // FIX: Ubah $bahan jadi $item
+                    0,                              // HARGA ISI 0 SAJA!
+                    $request->tanggal_produksi,     // Tanggal produksi
+                    "Dipakai untuk produksi pabrik"
+                );
+            } // <--- FIX: INI KURUNG KURAWAL TUTUP FOREACH YANG HILANG TADI
+
+            DB::commit();
+            return redirect()->back()->with('success', 'Data hasil produksi & stok berhasil disimpan!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Gagal menyimpan: ' . $e->getMessage()]);
         }
-
-        // 3. Tambah stok produk jadi
-        $this->catatKartuPersediaan(null, $idProduk, $hasil->id_hasil_produksi, 'Masuk', $request->output_aktual, $request->tanggal_produksi);
-
-        DB::commit();
-        return redirect()->back()->with('success', 'Data hasil produksi & stok berhasil disimpan!');
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return back()->withErrors(['error' => 'Gagal menyimpan: ' . $e->getMessage()]);
     }
-}
-}
+} // <--- PASTIKAN HANYA ADA 1 KURUNG KURAWAL DI PALING BAWAH FILE (Penutup Class)

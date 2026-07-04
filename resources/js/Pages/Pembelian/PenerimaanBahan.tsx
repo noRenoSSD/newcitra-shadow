@@ -3,10 +3,11 @@ import { Search, Eye, CheckCircle } from "lucide-react";
 import { usePage, router } from "@inertiajs/react";
 
 interface ItemPO {
-    idBahan: number; // TAMBAHAN: Menangkap ID Bahan untuk database
+    idBahan: number;
     kodeBahan: string;
     namaBahan: string;
     qtyPO: number;
+    harga_po: number; // 🔥 TAMBAHAN: Menampung harga dari PO
     satuan: string;
 }
 
@@ -19,12 +20,13 @@ interface PesananPO {
 }
 
 interface ItemPenerimaan {
-    idBahan: number; // TAMBAHAN: Menangkap ID Bahan
+    idBahan: number;
     kodeBahan: string;
     namaBahan: string;
     qtyPO: number;
     qtyDiterima: number;
     qtyRetur: number;
+    harga_po: number; // 🔥 TAMBAHAN: State harga saat di form
     satuan: string;
     kondisi: "Baik" | "Retur";
     catatan: string;
@@ -55,16 +57,15 @@ export default function PenerimaanBahan() {
                 po.supplier ||
                 "Tidak Ada Supplier",
             tanggal: po.tgl_po || po.tanggal_po || po.tanggal || "",
-            // CATATAN: Kita coba baca relasi detail_po, details, atau detail_pesanan
             items: (po.detail_po || po.detail_pesanan || po.details || []).map(
                 (d: any) => ({
                     idBahan: Number(d.id_bahan || d.bahan?.id_bahan || 0),
                     kodeBahan: d.bahan?.kode_bahan || "",
                     namaBahan: d.bahan?.nama_bahan || "",
-                    // CATATAN: Kita tebak nama kolom kuantitasnya (qty_po, qty, jumlah, dll)
                     qtyPO: Number(
                         d.qty_po || d.qty || d.jumlah || d.kuantitas || 0,
                     ),
+                    harga_po: Number(d.harga_satuan || d.harga || 0), // 🔥 TAMBAHAN: Ambil harga beli dari PO
                     satuan: d.bahan?.satuan || "",
                 }),
             ),
@@ -74,19 +75,14 @@ export default function PenerimaanBahan() {
         const mappedRiwayat: PenerimaanBahan[] = riwayatPenerimaan.map(
             (trm: any) => {
                 const poRelation = trm.purchase_order || trm.purchaseOrder;
-                // CATATAN: Coba tangkap berbagai nama relasi detail penerimaan
                 const detailsRelation =
                     trm.detail_penerimaan_bahan ||
                     trm.detail_penerimaan ||
                     trm.detailPenerimaan ||
                     [];
 
-                // Cari baris ini di dalam mappedRiwayat:
                 const items = detailsRelation.map((d: any) => {
-                    // 1. Ambil array detail PO dari relasi yang baru saja kita panggil di controller
                     const poDetails = poRelation?.details || [];
-
-                    // 2. Cari item PO yang id_bahan-nya sama dengan id_bahan di detail penerimaan ini
                     const originalPoItem = poDetails.find(
                         (poItem: any) => poItem.id_bahan === d.id_bahan,
                     );
@@ -95,10 +91,7 @@ export default function PenerimaanBahan() {
                         idBahan: Number(d.id_bahan || 0),
                         kodeBahan: d.bahan?.kode_bahan || "",
                         namaBahan: d.bahan?.nama_bahan || "",
-
-                        // 3. Ambil Qty PO dari originalPoItem (bukan dari 'd' / tabel penerimaan)
-                        qtyPO: Number(originalPoItem?.qty_po || 0), // 🔥 Perbaikan utama di sini
-
+                        qtyPO: Number(originalPoItem?.qty_po || 0),
                         qtyDiterima: Number(
                             d.qty_diterima ||
                                 d.qty_terima ||
@@ -106,6 +99,11 @@ export default function PenerimaanBahan() {
                                 0,
                         ),
                         qtyRetur: Number(d.qty_retur || d.jumlah_retur || 0),
+                        harga_po: Number(
+                            originalPoItem?.harga_satuan ||
+                                originalPoItem?.harga ||
+                                0,
+                        ), // 🔥 TANGKAP HARGA PO JUGA UNTUK RIWAYAT
                         satuan: d.bahan?.satuan || "",
                         kondisi: d.kondisi || "Baik",
                         catatan: d.catatan || "",
@@ -153,12 +151,13 @@ export default function PenerimaanBahan() {
         });
 
         const items: ItemPenerimaan[] = po.items.map((item) => ({
-            idBahan: item.idBahan, // MASUKKAN ID BAHAN
+            idBahan: item.idBahan,
             kodeBahan: item.kodeBahan,
             namaBahan: item.namaBahan,
             qtyPO: item.qtyPO,
             qtyDiterima: item.qtyPO,
             qtyRetur: 0,
+            harga_po: item.harga_po, // 🔥 TAMBAHAN: Simpan harga ke state inputan
             satuan: item.satuan,
             kondisi: "Baik",
             catatan: "",
@@ -194,10 +193,11 @@ export default function PenerimaanBahan() {
                 no_penerimaan: formData.noPenerimaan,
                 tanggal_penerimaan: formData.tanggal,
                 items: itemsPenerimaan.map((item) => ({
-                    id_bahan: item.idBahan, // PENTING: Controller Laravel butuh 'id_bahan'
+                    id_bahan: item.idBahan,
                     qty_po: item.qtyPO,
                     qty_diterima: item.qtyDiterima,
                     qty_retur: item.qtyRetur,
+                    harga_po: item.harga_po, // 🔥 TAMBAHAN: Akhirnya dikirim ke controller!
                     kondisi: item.kondisi,
                     catatan: item.catatan,
                 })),
@@ -208,7 +208,6 @@ export default function PenerimaanBahan() {
                     alert("Data penerimaan berhasil disimpan ke database!");
                 },
                 onError: (errors) => {
-                    // PENTING: Tangkap error agar tidak cuma refresh diam-diam
                     console.error(errors);
                     alert(
                         "Gagal menyimpan! Coba periksa apakah inputan ada yang kosong atau salah.",

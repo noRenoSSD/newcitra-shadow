@@ -33,7 +33,8 @@ use App\Http\Controllers\PenerimaanBahanController;
 use App\Http\Controllers\ReturPembelianController;
 use App\Http\Controllers\HasilProduksiController;
 use App\Http\Controllers\PenyusutanAsetController;
-
+use App\Http\Controllers\TransaksiPembelianController;
+use App\Http\Controllers\KartuPersediaanController;
 // Dasar Autentikasi Redirection
 Route::get('/', function () {
     return redirect('/login');
@@ -105,7 +106,7 @@ Route::middleware('auth')->group(function () {
 
 
     // --- Stok Opname ---
-    Route::prefix('persediaan/stok-opname')->name('stock-opname.')->group(function () {
+    Route::prefix('persediaan/stock-opname')->name('stock-opname.')->group(function () {
         Route::get('/', [StockOpnameController::class, 'index'])->name('index');
         Route::post('/', [StockOpnameController::class, 'store'])->name('store');
         Route::get('/{id}', [StockOpnameController::class, 'show'])->name('show');
@@ -124,15 +125,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/delivery-order/create', [PesananController::class, 'createSuratJalan'])->name('surat-jalan.create');
     Route::post('/surat-jalan', [PesananController::class, 'storeSuratJalan']);
     Route::resource('pesanan', PesananController::class);
-    
+
     Route::get('/transaksi-penjualan', [PenjualanController::class, 'index'])->name('transaksi-penjualan.index');
     Route::post('/transaksi-penjualan-store', [PenjualanController::class, 'storeInvoice'])->name('transaksi-penjualan.store');
     Route::get('/transaksi-penjualan/{id}', [PenjualanController::class, 'show'])->name('transaksi-penjualan.show');
-    
+
     Route::post('/surat-jalan-store', [SuratJalanController::class, 'store'])->name('surat-jalan.store');
     Route::get('/surat-jalan', [SuratJalanController::class, 'index'])->name('surat-jalan.index');
     Route::put('/surat-jalan/{id}/status', [SuratJalanController::class, 'updateStatus']);
-    
+
     Route::get('/retur-penjualan', [ReturJualController::class, 'index'])->name('retur-penjualan.index');
 
 
@@ -149,7 +150,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/persetujuan-jadwal', [PersetujuanJadwalController::class, 'index'])->name('persetujuan-jadwal.index');
     Route::put('/persetujuan-jadwal/{id}', [PersetujuanJadwalController::class, 'updateStatus'])->name('persetujuan-jadwal.updateStatus');
-    
+
     Route::post('/kebutuhan-bahan', [KebutuhanBahanController::class, 'store']);
 
     Route::prefix('produksi/hasil-produksi')->name('hasil-produksi.')->group(function () {
@@ -188,7 +189,29 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [ReturPembelianController::class, 'index'])->name('index');
         Route::post('/', [ReturPembelianController::class, 'store'])->name('store');
     });
+// --- RUTE TRANSAKSI PEMBELIAN (KEUANGAN/PEMBELIAN) ---
+Route::prefix('pembelian/transaksi-pembelian')->name('transaksi-pembelian.')->group(function () {
+    Route::get('/', [TransaksiPembelianController::class, 'index'])->name('index');
+    Route::post('/', [TransaksiPembelianController::class, 'store'])->name('store');
+});
+// ==========================================
+// RUTE KARTU PERSEDIAAN
+// ==========================================
+Route::prefix('persediaan')->group(function () {
 
+    // 1. Halaman Bahan Baku -> URL: /persediaan/bahan-baku
+    Route::get('/bahan-baku', [KartuPersediaanController::class, 'indexBahanBaku'])
+        ->name('persediaan.baku');
+
+    // 2. Halaman Bahan Penolong -> URL: /persediaan/bahan-penolong
+    Route::get('/bahan-penolong', [KartuPersediaanController::class, 'indexBahanPenolong'])
+        ->name('persediaan.penolong');
+
+    // 3. Halaman Produk Jadi -> URL: /persediaan/produk-jadi
+    Route::get('/produk-jadi', [KartuPersediaanController::class, 'indexProdukJadi'])
+        ->name('persediaan.produk');
+
+});
 }); // <-- Penutup Middleware Auth Utama
 
 require __DIR__.'/auth.php';

@@ -7,6 +7,7 @@ use Inertia\Inertia;
 use App\Models\ReturPembelian;
 use App\Models\DetailReturPembelian;
 use App\Models\PenerimaanBahan;
+use App\Services\InventoryService; // <-- JANGAN LUPA TAMBAHKAN INI
 use Illuminate\Support\Facades\DB;
 
 class ReturPembelianController extends Controller
@@ -47,43 +48,65 @@ class ReturPembelianController extends Controller
         // Validasi data dari React
         $request->validate([
             'id_penerimaan' => 'required',
-            'no_retur' => 'required|unique:t_retur_pembelian,no_retur',
+            'no_retur'      => 'required|unique:t_retur_pembelian,no_retur',
             'tanggal_retur' => 'required|date',
-            'items' => 'required|array',
+            'items'         => 'required|array',
         ]);
 
-        DB::transaction(function () use ($request) {
+        DB::beginTransaction();
+        try {
             $totalNilai = 0;
 
             // 1. Simpan Header Retur
             $retur = ReturPembelian::create([
                 'id_penerimaan' => $request->id_penerimaan,
-                'no_retur' => $request->no_retur,
+                'no_retur'      => $request->no_retur,
                 'tanggal_retur' => $request->tanggal_retur,
-                'total_nilai' => 0, // Set 0 dulu, nanti di-update
+                'total_nilai'   => 0, // Set 0 dulu, nanti di-update
             ]);
 
-            // 2. Simpan Detail Retur
+            // 2. Simpan Detail Retur & POTONG STOK
             foreach ($request->items as $item) {
                 // Pastikan hanya memproses barang yang benar-benar diretur
                 if (isset($item['qtyRetur']) && $item['qtyRetur'] > 0) {
                     $subtotal = $item['qtyRetur'] * $item['harga'];
                     $totalNilai += $subtotal;
 
+                    // Simpan jejak barang yang diretur
                     DetailReturPembelian::create([
-                        'id_retur' => $retur->id_retur,
-                        'id_bahan' => $item['idBahan'],
-                        'qty_retur' => $item['qtyRetur'],
+                        'id_retur'     => $retur->id_retur,
+                        'id_bahan'     => $item['idBahan'],
+                        'qty_retur'    => $item['qtyRetur'],
                         'harga_satuan' => $item['harga'],
-                        'alasan' => $item['alasan'] ?? '-',
+                        'alasan'       => $item['alasan'] ?? '-',
                     ]);
+
+                    // ========================================================
+                    // 3. POTONG KARTU PERSEDIAAN (STOK KELUAR)
+                    // ========================================================
+                    InventoryService::catatMutasi(
+                        $item['idBahan'],
+                        'bahan',
+                        'KELUAR',             // Jenis transaksi (Mengurangi stok gudang)
+                        'retur_pembelian',    // Sumber mutasi
+                        $request->no_retur,   // Nomor nota retur
+                        $item['qtyRetur'],    // Kuantitas yang dikurangi
+                        $item['harga'],       // Harga satuan faktur (hanya referensi)
+                        $request->tanggal_retur,
+                        "Retur pembelian ke supplier. Alasan: " . ($item['alasan'] ?? '-')
+                    );
                 }
             }
 
-            // 3. Update total nilai dari perhitungan detail
+            // 4. Update total nilai dari perhitungan detail
             $retur->update(['total_nilai' => $totalNilai]);
-        });
 
-        return redirect()->back()->with('success', 'Nota Retur berhasil disimpan!');
+            DB::commit();
+            return redirect()->back()->with('success', 'Nota Retur berhasil disimpan dan stok telah dikurangi!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Gagal menyimpan retur: ' . $e->getMessage()]);
+        }
     }
 }
