@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Akun;
 use App\Models\Aset;
+use App\Models\Jurnal;
+use App\Models\JurnalDetail;
 use App\Models\PenyusutanAset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -11,7 +14,6 @@ use Inertia\Inertia;
 
 class PenyusutanAsetController extends Controller
 {
-    // ── Helper: mapping nama bulan → angka ───────────────────────────────────
     private array $bulanMap = [
         'Januari'   => 1,  'Februari'  => 2,  'Maret'     => 3,
         'April'     => 4,  'Mei'       => 5,  'Juni'      => 6,
@@ -19,12 +21,8 @@ class PenyusutanAsetController extends Controller
         'Oktober'   => 10, 'November'  => 11, 'Desember'  => 12,
     ];
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  INDEX — Render halaman penyusutan
-    // ─────────────────────────────────────────────────────────────────────────
     public function index(Request $request)
     {
-        // 1. Periode yang sudah pernah digenerate
         $processedPeriods = PenyusutanAset::selectRaw(
                 "DATE_FORMAT(periode, '%m-%Y') as periode_key, MIN(kode_penyusutan) as kode"
             )
@@ -33,7 +31,6 @@ class PenyusutanAsetController extends Controller
             ->keyBy('periode_key')
             ->map(fn($item) => ['processed' => true, 'kode' => $item->kode]);
 
-        // 2. Baca query param periode (dikirim dari generate() atau reload manual)
         $selectedBulan = $request->input('bulan', '');
         $selectedTahun = $request->input('tahun', '');
 
@@ -44,11 +41,9 @@ class PenyusutanAsetController extends Controller
             $filterPeriode = Carbon::create($selectedTahun, $bulanNum, 1)->startOfMonth();
             $periodeStr    = $filterPeriode->toDateString();
 
-            // ── Cek apakah periode ini sudah digenerate ───────────────────────
             $sudahGenerate = PenyusutanAset::where('periode', $periodeStr)->exists();
 
             if ($sudahGenerate) {
-                // Ambil data AKTUAL dari DB untuk periode ini (bukan kalkulasi ulang)
                 $asetData = PenyusutanAset::with('aset')
                     ->where('periode', $periodeStr)
                     ->get()
@@ -57,7 +52,7 @@ class PenyusutanAsetController extends Controller
                         return [
                             'kode_aset'            => $py->aset->kode_aset,
                             'nama_aset'            => $py->aset->nama_aset,
-                            'tipe_aset'            => $py->aset->tipe_aset,  // ← tambahan
+                            'tipe_aset'            => $py->aset->tipe_aset,
                             'harga_perolehan'      => (float) $py->aset->harga_perolehan,
                             'umur_ekonomis'        => $umurBulan,
                             'penyusutan_per_bulan' => (float) $py->nilai_penyusutan,
@@ -66,7 +61,6 @@ class PenyusutanAsetController extends Controller
                         ];
                     });
             } else {
-                // Periode belum digenerate — filter aset yang masih aktif di periode ini
                 $asetData = Aset::where('umur_ekonomis', '>', 0)
                     ->get()
                     ->filter(function ($aset) use ($filterPeriode) {
@@ -90,7 +84,7 @@ class PenyusutanAsetController extends Controller
                         return [
                             'kode_aset'            => $aset->kode_aset,
                             'nama_aset'            => $aset->nama_aset,
-                            'tipe_aset'            => $aset->tipe_aset,  // ← tambahan
+                            'tipe_aset'            => $aset->tipe_aset,
                             'harga_perolehan'      => (float) $aset->harga_perolehan,
                             'umur_ekonomis'        => $umurBulan,
                             'penyusutan_per_bulan' => round($penyusutanPerBulan, 2),
@@ -101,19 +95,15 @@ class PenyusutanAsetController extends Controller
                     ->values();
             }
         }
-        // Jika tidak ada param periode → asetData kosong (tampilkan empty state)
 
         return Inertia::render('Keuangan/PenyusutanAsetTetap', [
             'initialProcessed' => $processedPeriods,
             'asetData'         => $asetData->values(),
-            'selectedBulan'    => $selectedBulan,   // untuk init state frontend
+            'selectedBulan'    => $selectedBulan,
             'selectedTahun'    => $selectedTahun,
         ]);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  GENERATE — Hitung & simpan penyusutan satu periode
-    // ─────────────────────────────────────────────────────────────────────────
     public function generate(Request $request)
     {
         $request->validate([
@@ -125,7 +115,6 @@ class PenyusutanAsetController extends Controller
         $periodeCarbon = Carbon::create($request->tahun, $bulanNum, 1)->startOfMonth();
         $periodeStr    = $periodeCarbon->toDateString();
 
-        // ── Guard: periode sudah pernah digenerate ────────────────────────────
         if (PenyusutanAset::where('periode', $periodeStr)->exists()) {
             return back()->withErrors([
                 'error' => 'Penyusutan untuk periode ini sudah pernah dilakukan.',
@@ -134,14 +123,12 @@ class PenyusutanAsetController extends Controller
 
         DB::beginTransaction();
         try {
-            // Filter aset yang masih aktif PADA periode yang dipilih
             $asets = Aset::where('umur_ekonomis', '>', 0)
                 ->get()
                 ->filter(function ($aset) use ($periodeCarbon) {
                     $tanggalBeli  = Carbon::parse($aset->tanggal_beli)->startOfMonth();
                     $tanggalHabis = $tanggalBeli->copy()->addYears($aset->umur_ekonomis);
 
-                    // Pakai lessThan agar bulan tepat habis tidak ikut disusutkan
                     return $periodeCarbon->greaterThanOrEqualTo($tanggalBeli)
                         && $periodeCarbon->lessThan($tanggalHabis);
                 });
@@ -163,12 +150,10 @@ class PenyusutanAsetController extends Controller
                 $akumulasiSebelumnya = (float) PenyusutanAset::where('id_aset', $aset->id_aset)
                     ->sum('nilai_penyusutan');
 
-                // Skip jika sudah fully depreciated
                 if ($akumulasiSebelumnya >= $depreciableAmount) {
                     continue;
                 }
 
-                // Cap bulan terakhir agar tidak melampaui sisa yang bisa disusutkan
                 $sisaYangBisaDisusutkan = $depreciableAmount - $akumulasiSebelumnya;
                 $penyusutanBulanIni     = min($penyusutanPerBulan, $sisaYangBisaDisusutkan);
 
@@ -189,7 +174,6 @@ class PenyusutanAsetController extends Controller
 
             DB::commit();
 
-            // ── Redirect ke index dengan param periode → frontend init state ──
             return redirect()->route('penyusutan.index', [
                 'bulan' => $request->bulan,
                 'tahun' => $request->tahun,
@@ -200,6 +184,75 @@ class PenyusutanAsetController extends Controller
             return back()->withErrors([
                 'error' => 'Gagal memproses penyusutan: ' . $e->getMessage(),
             ]);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  SIMPAN JURNAL — Otomatis membuat jurnal berdasarkan periode
+    // ─────────────────────────────────────────────────────────────────────────
+    public function simpanJurnal(Request $request)
+    {
+        $request->validate([
+            'periode'            => 'required|string',
+            'entries'            => 'required|array',
+            'entries.*.kode_akun'=> 'required|string',
+            'entries.*.debit'    => 'required|numeric',
+            'entries.*.kredit'   => 'required|numeric',
+        ]);
+
+        // Parsing "Juli 2026" untuk mendapatkan tanggal akhir bulan
+        $parts = explode(' ', $request->periode);
+        $bulanStr = $parts[0] ?? '';
+        $tahun = $parts[1] ?? date('Y');
+        $bulanNum = $this->bulanMap[$bulanStr] ?? date('n');
+        
+        $tanggalJurnal = Carbon::create($tahun, $bulanNum, 1)->endOfMonth();
+
+        // Cek jika referensi ini sudah di-jurnal sebelumnya untuk mencegah double entry
+        $kodeRef = 'PYS-' . $tanggalJurnal->format('Ym');
+        if (Jurnal::where('kode_referensi', $kodeRef)->exists()) {
+            return back()->withErrors(['error' => 'Jurnal untuk penyusutan periode ini sudah pernah dibuat.']);
+        }
+
+        // Generate Nomor Jurnal (JP-202607-001)
+        $prefix = 'JP-' . $tanggalJurnal->format('Ym') . '-';
+        $lastJurnal = Jurnal::where('kode_jurnal', 'like', $prefix . '%')
+                            ->orderBy('kode_jurnal', 'desc')
+                            ->first();
+
+        $newNumber = $lastJurnal ? ((int) substr($lastJurnal->kode_jurnal, -3)) + 1 : 1;
+        $kodeJurnal = $prefix . str_pad($newNumber, 3, '0', STR_PAD_LEFT);
+
+        DB::beginTransaction();
+        try {
+            $jurnal = Jurnal::create([
+                'kode_jurnal'    => $kodeJurnal,
+                'tanggal'        => $tanggalJurnal->format('Y-m-d'),
+                'keterangan'     => 'Penyusutan Aset Tetap Bulan ' . $request->periode,
+                'jenis_jurnal'   => 'penyesuaian',
+                'kode_referensi' => $kodeRef,
+            ]);
+
+            foreach ($request->entries as $entry) {
+                $akun = Akun::where('kode_akun', $entry['kode_akun'])->first();
+                
+                if (!$akun) {
+                    throw new \Exception("Gagal: Akun dengan kode {$entry['kode_akun']} tidak ditemukan di Master Akun.");
+                }
+
+                JurnalDetail::create([
+                    'id_jurnal' => $jurnal->id_jurnal,
+                    'id_akun'   => $akun->id_akun,
+                    'debit'     => $entry['debit'],
+                    'kredit'    => $entry['kredit'],
+                ]);
+            }
+
+            DB::commit();
+            return back()->with('success', 'Jurnal Penyesuaian berhasil disimpan dan masuk ke Buku Besar!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Sistem gagal menyimpan jurnal: ' . $e->getMessage()]);
         }
     }
 }

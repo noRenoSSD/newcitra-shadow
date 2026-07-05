@@ -1,9 +1,11 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use App\Services\InventoryService;
 use App\Models\HasilProduksi;
 use App\Models\PemakaianBahan;
+use App\Models\ApprovalPemakaianBahan; // <-- Import model approval
 use App\Models\DetailJadwalProduksi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -60,33 +62,54 @@ class HasilProduksiController extends Controller
             foreach ($request->items as $item) {
                 $selisih = $item['qty_aktual'] - $item['kalkulasi_standar'];
 
-                PemakaianBahan::create([
+                $pemakaianBahan = PemakaianBahan::create([
                     'id_hasil_produksi' => $hasil->id_hasil_produksi,
                     'id_bahan'          => $item['id_bahan'],
                     'qty_aktual'        => $item['qty_aktual'],
                     'selisih'           => $selisih,
                 ]);
 
+                // ======== 3. INSERT OTOMATIS KE TABEL APPROVAL ========
+                // Data ini akan muncul dengan status 'pending' di menu Approval
+                ApprovalPemakaianBahan::create([
+                    'id_pemakaian'          => $pemakaianBahan->id_pemakaian, // ID yg barusan dibuat
+                    
+                    // Untuk saat ini di set 1 karena tidak ada field id_kartupers_bahan 
+                    // di frontend kamu. Sesuaikan jika relasinya berubah.
+                    'id_kartupers_bahan'    => 1, 
+                    
+                    // Kita simpan standar dari tabel kebutuhan bahan / input react
+                    'qty_standar'           => $item['kalkulasi_standar'], 
+                    
+                    // Harga dibiarkan 0 jika belum ada logika harga saat produksi
+                    'harga_standar'         => 0,
+                    
+                    'qty_aktual'            => $item['qty_aktual'],
+                    'harga_ratarata_aktual' => 0,
+                    'total_aktual'          => 0,
+                    'status_approval'       => 'pending',
+                ]);
+
                 // ======== KODE KARTU PERSEDIAAN (BARANG KELUAR) ========
                 InventoryService::catatMutasi(
-                    $item['id_bahan'],              // FIX: Ubah $bahan jadi $item
+                    $item['id_bahan'],              // Ubah $bahan jadi $item
                     'bahan',                        // Tipe: bahan
                     'KELUAR',                       // Transaksi KELUAR
                     'produksi_keluar',              // Sumbernya dari produksi
-                    'PROD-' . $request->id_produksi,// FIX: Referensi dari ID produksi
-                    $item['qty_aktual'],            // FIX: Ubah $bahan jadi $item
+                    'PROD-' . $request->id_produksi,// Referensi dari ID produksi
+                    $item['qty_aktual'],            // Ubah $bahan jadi $item
                     0,                              // HARGA ISI 0 SAJA!
                     $request->tanggal_produksi,     // Tanggal produksi
                     "Dipakai untuk produksi pabrik"
                 );
-            } // <--- FIX: INI KURUNG KURAWAL TUTUP FOREACH YANG HILANG TADI
+            }
 
             DB::commit();
-            return redirect()->back()->with('success', 'Data hasil produksi & stok berhasil disimpan!');
+            return redirect()->back()->with('success', 'Data hasil produksi, approval & stok berhasil disimpan!');
 
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors(['error' => 'Gagal menyimpan: ' . $e->getMessage()]);
         }
     }
-} // <--- PASTIKAN HANYA ADA 1 KURUNG KURAWAL DI PALING BAWAH FILE (Penutup Class)
+}

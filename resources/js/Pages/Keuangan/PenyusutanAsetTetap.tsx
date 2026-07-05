@@ -11,12 +11,8 @@ import { usePage, router } from '@inertiajs/react';
 interface AsetTetap {
   kode_aset: string;
   nama_aset: string;
-  tipe_aset: string;   // 'mesin' | 'kendaraan' | 'peralatan'
+  tipe_aset: string;
   harga_perolehan: number;
-  /**
-   * umur_ekonomis dikirim dari backend dalam BULAN (sudah × 12).
-   * Backend harus filter: hanya aset yang bulan_berlalu < umur_ekonomis_bulan.
-   */
   umur_ekonomis: number;
   penyusutan_per_bulan: number;
   akumulasi_penyusutan: number;
@@ -36,6 +32,13 @@ interface JurnalEntry {
 const rp = (n: number) =>
   new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
+// Format kode akun untuk display UI saja (1001001 -> 1-001001)
+const formatKodeAkunUI = (kode: string) => {
+  if (!kode) return '';
+  if (kode.includes('-')) return kode;
+  return `${kode.slice(0, 1)}-${kode.slice(1)}`;
+};
+
 const bulanOptions = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
@@ -50,33 +53,31 @@ const bulanNumMap: Record<string, string> = {
   September: '09', Oktober: '10', November: '11', Desember: '12',
 };
 
-// ─── Mapping Kode Akun per Tipe Aset ─────────────────────────────────────────
-
+// ─── Mapping Kode Akun per Tipe Aset (Tanpa Strip agar cocok dengan database) ─
 const TIPE_AKUN: Record<string, {
   kodeBeban: string; namaBeban: string;
   kodeAkumulasi: string; namaAkumulasi: string;
 }> = {
   peralatan: {
-    kodeBeban:     '6-006005',
-    namaBeban:     'Beban Penyusutan Peralatan',
-    kodeAkumulasi: '1-002006',
-    namaAkumulasi: 'Akumulasi Depresiasi - Peralatan',
+    kodeBeban:     '6006005',
+    namaBeban:     'BEBAN PENYUSUTAN PERALATAN',
+    kodeAkumulasi: '1002006',
+    namaAkumulasi: 'AKUMULASI DEPRESIASI - PERALATAN',
   },
   mesin: {
-    kodeBeban:     '6-006006',
-    namaBeban:     'Beban Penyusutan Mesin',
-    kodeAkumulasi: '1-002007',
-    namaAkumulasi: 'Akumulasi Depresiasi - Mesin',
+    kodeBeban:     '6006006',
+    namaBeban:     'BEBAN PENYUSUTAN MESIN',
+    kodeAkumulasi: '1002007',
+    namaAkumulasi: 'AKUMULASI DEPRESIASI - MESIN',
   },
   kendaraan: {
-    kodeBeban:     '6-006007',
-    namaBeban:     'Beban Penyusutan Kendaraan',
-    kodeAkumulasi: '1-002008',
-    namaAkumulasi: 'Akumulasi Depresiasi - Kendaraan',
+    kodeBeban:     '6006007',
+    namaBeban:     'BEBAN PENYUSUTAN KENDARAAN',
+    kodeAkumulasi: '1002008',
+    namaAkumulasi: 'AKUMULASI DEPRESIASI - KENDARAAN',
   },
 };
 
-// Fallback jika tipe tidak dikenali
 const getAkunByTipe = (tipe: string) =>
   TIPE_AKUN[tipe?.toLowerCase()] ?? TIPE_AKUN['peralatan'];
 
@@ -84,7 +85,6 @@ const buildJurnal = (periode: string, asetData: AsetTetap[]): JurnalEntry[] => {
   const [bulan, tahun] = periode.split(' ');
   const tgl = `${tahun}-${bulanNumMap[bulan]}-30`;
 
-  // Kelompokkan total penyusutan per tipe aset
   const grouped: Record<string, number> = {};
   asetData.forEach(a => {
     const key = a.tipe_aset?.toLowerCase() || 'peralatan';
@@ -93,7 +93,6 @@ const buildJurnal = (periode: string, asetData: AsetTetap[]): JurnalEntry[] => {
 
   const rows: JurnalEntry[] = [];
 
-  // Debit: Beban Penyusutan per tipe
   Object.entries(grouped).forEach(([tipe, total]) => {
     const akun = getAkunByTipe(tipe);
     rows.push({
@@ -105,7 +104,6 @@ const buildJurnal = (periode: string, asetData: AsetTetap[]): JurnalEntry[] => {
     });
   });
 
-  // Kredit: Akumulasi Depresiasi per tipe
   Object.entries(grouped).forEach(([tipe, total]) => {
     const akun = getAkunByTipe(tipe);
     rows.push({
@@ -170,11 +168,12 @@ function ExportDropdown() {
 
 // ─── Jurnal Modal ─────────────────────────────────────────────────────────────
 
-function JurnalModal({ periode, asetData, onClose, onSave }: {
+function JurnalModal({ periode, asetData, onClose, onSave, isSaving }: {
   periode: string;
   asetData: AsetTetap[];
   onClose: () => void;
-  onSave: () => void;
+  onSave: (entries: JurnalEntry[]) => void;
+  isSaving: boolean;
 }) {
   const entries     = buildJurnal(periode, asetData);
   const totalDebit  = entries.reduce((s, e) => s + e.debit, 0);
@@ -213,12 +212,12 @@ function JurnalModal({ periode, asetData, onClose, onSave }: {
                 {entries.map((e, i) => (
                   <tr key={i} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-2.5 text-sm text-gray-700 whitespace-nowrap">{e.tanggal.split('-').reverse().join('/')}</td>
-                    <td className="px-4 py-2.5 text-sm font-semibold text-gray-700">{e.kode_akun}</td>
+                    <td className="px-4 py-2.5 text-sm font-semibold text-gray-700">{formatKodeAkunUI(e.kode_akun)}</td>
                     <td className="px-4 py-2.5 text-sm text-gray-700">{e.nama_akun}</td>
-                    <td className="px-4 py-2.5 text-sm text-right text-gray-700">
+                    <td className="px-4 py-2.5 text-sm text-right text-gray-700 tabular-nums">
                       {e.debit > 0 ? rp(e.debit) : <span className="text-gray-300">—</span>}
                     </td>
-                    <td className="px-4 py-2.5 text-sm text-right text-gray-700">
+                    <td className="px-4 py-2.5 text-sm text-right text-gray-700 tabular-nums">
                       {e.kredit > 0 ? rp(e.kredit) : <span className="text-gray-300">—</span>}
                     </td>
                   </tr>
@@ -227,8 +226,8 @@ function JurnalModal({ periode, asetData, onClose, onSave }: {
               <tfoot>
                 <tr className="bg-gray-100 border-t-2 border-gray-300">
                   <td colSpan={3} className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wide">Total</td>
-                  <td className="px-4 py-3 text-sm text-right font-bold text-gray-700">{rp(totalDebit)}</td>
-                  <td className="px-4 py-3 text-sm text-right font-bold text-gray-700">{rp(totalKredit)}</td>
+                  <td className="px-4 py-3 text-sm text-right font-bold text-gray-700 tabular-nums">{rp(totalDebit)}</td>
+                  <td className="px-4 py-3 text-sm text-right font-bold text-gray-700 tabular-nums">{rp(totalKredit)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -248,13 +247,14 @@ function JurnalModal({ periode, asetData, onClose, onSave }: {
         </div>
 
         <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3">
-          <button onClick={onClose}
-            className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium transition-colors">
+          <button onClick={onClose} disabled={isSaving}
+            className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium transition-colors disabled:opacity-50">
             Batal
           </button>
-          <button onClick={onSave}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-red-700 text-white hover:bg-red-800 text-sm font-semibold transition-colors shadow-sm">
-            <CheckCircle2 className="w-4 h-4" /> Simpan Jurnal
+          <button onClick={() => onSave(entries)} disabled={isSaving || totalDebit !== totalKredit}
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-red-700 text-white hover:bg-red-800 text-sm font-semibold transition-colors shadow-sm disabled:opacity-50">
+            {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+            {isSaving ? 'Menyimpan...' : 'Simpan Jurnal'}
           </button>
         </div>
       </div>
@@ -267,11 +267,11 @@ function JurnalModal({ periode, asetData, onClose, onSave }: {
 export default function PenyusutanAsetTetap() {
   const { initialProcessed = {}, asetData = [], errors, flash, selectedBulan: initBulan = '', selectedTahun: initTahun = '' } = usePage().props as any;
 
-  // Init state dari props (dikirim controller setelah generate/redirect)
   const [bulan, setBulan]           = useState<string>(initBulan);
   const [tahun, setTahun]           = useState<string>(initTahun);
   const [showJurnal, setShowJurnal] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSavingJurnal, setIsSavingJurnal] = useState(false);
 
   const periodeKey     = bulan && tahun ? `${bulanNumMap[bulan]}-${tahun}` : '';
   const periodeDisplay = bulan && tahun ? `${bulan} ${tahun}` : '';
@@ -280,30 +280,20 @@ export default function PenyusutanAsetTetap() {
   const kodePenyusutan = isProcessed ? initialProcessed[periodeKey]?.kode : '';
   const canGenerate    = !!periodeKey && !isProcessed;
 
-  // Saat periode berubah & sudah pernah digenerate → reload halaman dengan
-  // query param agar backend filter asetData sesuai periode yang dipilih.
-  //
-  // PENTING: hasLoaded ref mencegah infinite loop:
-  // Tanpa ini, saat halaman mount dengan URL ?bulan=X&tahun=Y,
-  // useEffect langsung fire → reload → mount lagi → fire lagi → loop.
   const hasLoaded = useRef(false);
   useEffect(() => {
     if (!hasLoaded.current) {
-      // Initial mount — data sudah benar dari URL params, skip reload
       hasLoaded.current = true;
       return;
     }
-    // User mengubah select → jika periode sudah digenerate, reload untuk
-    // mengambil asetData yang difilter sesuai periode tersebut
     if (isProcessed && bulan && tahun) {
       router.get('/penyusutan/aset', { bulan, tahun }, {
         preserveScroll: true,
         replace: true,
       });
     }
-  }, [bulan, tahun]); // Hanya react ke perubahan user pada select, bukan isProcessed
+  }, [bulan, tahun]);
 
-  // asetData sudah difilter backend per periode, pengaman tambahan
   const activeAsetData: AsetTetap[] = (asetData as AsetTetap[]).filter(
     a => a.penyusutan_per_bulan > 0
   );
@@ -315,15 +305,28 @@ export default function PenyusutanAsetTetap() {
 
   const handleGenerate = () => {
     setIsGenerating(true);
-    // generate() akan redirect ke index?bulan=&tahun= setelah sukses
-    // sehingga controller otomatis filter asetData untuk periode yang benar
     router.post('/penyusutan/generate', { bulan, tahun }, {
-      onSuccess: () => setIsGenerating(false), // reset state setelah redirect selesai
+      onSuccess: () => setIsGenerating(false),
       onError:   () => setIsGenerating(false),
     });
   };
 
-  const handleSaveJurnal = () => setShowJurnal(false);
+  // Fungsi pengiriman Jurnal ke Controller
+  const handleSaveJurnal = (entries: JurnalEntry[]) => {
+    setIsSavingJurnal(true);
+    router.post('/penyusutan/simpan-jurnal', { 
+      periode: periodeDisplay,
+      entries: entries as any
+    }, {
+      onSuccess: () => {
+        setIsSavingJurnal(false);
+        setShowJurnal(false);
+      },
+      onError: () => {
+        setIsSavingJurnal(false);
+      }
+    });
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -337,6 +340,13 @@ export default function PenyusutanAsetTetap() {
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
           <AlertCircle className="w-5 h-5" />
           <span className="text-sm font-medium">{errors.error}</span>
+        </div>
+      )}
+
+      {flash?.success && (
+        <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-3.5 flex items-center gap-3">
+          <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+          <p className="text-sm text-green-800">{flash.success}</p>
         </div>
       )}
 
@@ -440,16 +450,6 @@ export default function PenyusutanAsetTetap() {
       {/* ── Tabel Hasil ── */}
       {isProcessed && !isGenerating && (
         <>
-          {(flash?.success || isProcessed) && (
-            <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-3.5 flex items-center gap-3">
-              <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-              <p className="text-sm text-green-800">
-                Data penyusutan aset untuk periode <span className="font-semibold">{periodeDisplay}</span>{' '}
-                {flash?.success ? 'berhasil diproses.' : 'sudah tersedia.'}
-              </p>
-            </div>
-          )}
-
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
               <div>
@@ -458,9 +458,6 @@ export default function PenyusutanAsetTetap() {
                   Periode: {periodeDisplay} · {activeAsetData.length} aset
                 </p>
               </div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Sudah Dihitung
-              </span>
             </div>
 
             <div className="overflow-x-auto">
@@ -494,7 +491,6 @@ export default function PenyusutanAsetTetap() {
                       <td className="px-4 py-3 text-sm font-semibold text-gray-700 whitespace-nowrap">{a.kode_aset}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">{a.nama_aset}</td>
                       <td className="px-4 py-3 text-sm text-right text-gray-700 whitespace-nowrap">{rp(a.harga_perolehan)}</td>
-                      {/* umur_ekonomis dari backend dalam BULAN */}
                       <td className="px-4 py-3 text-sm text-right text-gray-700 whitespace-nowrap">{a.umur_ekonomis} bln</td>
                       <td className="px-4 py-3 text-sm text-right font-medium whitespace-nowrap bg-red-50/30">{rp(a.penyusutan_per_bulan)}</td>
                       <td className="px-4 py-3 text-sm text-right text-gray-700 whitespace-nowrap">{rp(a.akumulasi_penyusutan)}</td>
@@ -520,7 +516,7 @@ export default function PenyusutanAsetTetap() {
             </div>
           </div>
 
-          {/* ── Action Buttons (sesuai Figma: Kembali | Export | Generate Jurnal) ── */}
+          {/* ── Action Buttons ── */}
           <div className="flex items-center justify-end gap-3 flex-wrap">
             <button
               onClick={() => { setBulan(''); setTahun(''); }}
@@ -533,7 +529,7 @@ export default function PenyusutanAsetTetap() {
               onClick={() => setShowJurnal(true)}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-700 text-white hover:bg-red-800 text-sm font-semibold transition-colors shadow-sm"
             >
-              <BookOpen className="w-4 h-4" /> Generate Jurnal
+              <BookOpen className="w-4 h-4" /> Review & Simpan Jurnal
             </button>
           </div>
         </>
@@ -545,6 +541,7 @@ export default function PenyusutanAsetTetap() {
           asetData={activeAsetData}
           onClose={() => setShowJurnal(false)}
           onSave={handleSaveJurnal}
+          isSaving={isSavingJurnal}
         />
       )}
     </div>

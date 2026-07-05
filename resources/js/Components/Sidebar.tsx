@@ -51,10 +51,7 @@ const menuItems: MenuItem[] = [
             { label: "Data Produk Jadi", path: "/produk" },
             { label: "Data Kebutuhan Material", path: "/kebutuhan-material" },
             { label: "Data Overhead", path: "/overhead" },
-            {
-                label: "Data Jenis Pengeluaran",
-                path: "/jenis-pengeluaran",
-            },
+            { label: "Data Jenis Pengeluaran", path: "/jenis-pengeluaran" },
             { label: "Data Aset Tetap", path: "/aset" },
             { label: "Data Akun", path: "/akun" },
             { label: "Data User", path: "/master/user" },
@@ -66,10 +63,7 @@ const menuItems: MenuItem[] = [
         subMenus: [
             // UBAH BARIS INI
             { label: "Jadwal Produksi", path: "/jadwal-produksi" },
-            {
-                label: "Persetujuan Jadwal Produksi",
-                path: "/persetujuan-jadwal",
-            },
+            { label: "Persetujuan Jadwal Produksi", path: "/persetujuan-jadwal"},
             { label: "Hasil Produksi", path: "/produksi/hasil-produksi" },
             { label: "Harga Pokok Produksi", path: "/produksi/hpp" },
         ],
@@ -104,10 +98,7 @@ const menuItems: MenuItem[] = [
                 path: "/persediaan/produk-jadi",
             },
             { label: "Stock Opname", path: "/persediaan/stock-opname" },
-            {
-                label: "Persetujuan Pemakaian Bahan",
-                path: "/persediaan/approval-pemakaian",
-            },
+            { label: "Persetujuan Pemakaian Bahan", path: "/approval-pemakaian-bahan" }
         ],
     },
     {
@@ -150,10 +141,7 @@ const menuItems: MenuItem[] = [
             { label: "Kartu Piutang", path: "/keuangan/kartu-piutang" },
             { label: "Penyusutan Aset Tetap", path: "/penyusutan/aset" },
             { label: "Jurnal Umum", path: "/keuangan/jurnal-umum" },
-            {
-                label: "Jurnal Penyesuaian",
-                path: "/keuangan/jurnal-penyesuaian",
-            },
+            { label: "Jurnal Penyesuaian", path: "/keuangan/jurnal-penyesuaian"},
             { label: "Buku Besar", path: "/keuangan/buku-besar" },
         ],
     },

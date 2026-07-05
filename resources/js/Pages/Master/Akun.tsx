@@ -19,6 +19,12 @@ const PREFIX_MAP: Record<string, string> = {
   'Beban Lain-lain': '9',
 };
 
+// Helper Format Rupiah
+const formatRupiah = (value: number | string) => {
+  const num = Number(value) || 0;
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(num);
+};
+
 export default function DataAkun({ akuns }: any) {
   const [view, setView] = useState<ViewMode>('list');
   const [isEdit, setIsEdit] = useState(false);
@@ -29,11 +35,13 @@ export default function DataAkun({ akuns }: any) {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [page, setPage] = useState(1);
 
-  // Inertia Form
+  // Inertia Form (diperbarui dengan kolom baru)
   const { data, setData, post, put, reset, transform } = useForm({
     kode_akun_suffix: '', 
     nama_akun: '',
     kategori: '',
+    saldo_normal: 'Debit', // Default Enum
+    saldo_awal: 0,
   });
 
   transform((formData) => {
@@ -42,24 +50,25 @@ export default function DataAkun({ akuns }: any) {
       kode_akun: prefix + formData.kode_akun_suffix,
       nama_akun: formData.nama_akun,
       kategori: formData.kategori,
+      saldo_normal: formData.saldo_normal,
+      saldo_awal: parseFloat(formData.saldo_awal.toString()) || 0,
     };
   });
 
   const uniqueCategories = useMemo(() => {
     const cats = akuns.map((a: any) => a.kategori);
-    return Array.from(new Set(cats));
+    return Array.from(new Set(cats)).filter(Boolean);
   }, [akuns]);
 
   // Helper untuk menampilkan format 1-xxxx di Tabel & UI
   const formatKodeAkun = (kode: string, kategori: string) => {
     if (!kode) return '';
     const prefix = PREFIX_MAP[kategori];
-    // Jika ada prefix dan kode berawalan angka tersebut, beri tanda strip (-)
     if (prefix && kode.startsWith(prefix)) {
       const suffix = kode.substring(prefix.length);
       return `${prefix}-${suffix}`;
     }
-    return kode; // Jika tidak cocok, kembalikan seperti aslinya
+    return kode;
   };
 
   const openFormTambah = () => {
@@ -84,6 +93,8 @@ export default function DataAkun({ akuns }: any) {
       kode_akun_suffix: suffix,
       nama_akun: item.nama_akun,
       kategori: item.kategori || '',
+      saldo_normal: item.saldo_normal || 'Debit',
+      saldo_awal: item.saldo_awal || 0,
     });
     setView('form');
   };
@@ -107,8 +118,8 @@ export default function DataAkun({ akuns }: any) {
 
   const filtered = akuns.filter((a: any) => {
     const matchesSearch = 
-      a.kode_akun.toLowerCase().includes(search.toLowerCase()) ||
-      a.nama_akun.toLowerCase().includes(search.toLowerCase());
+      (a.kode_akun || '').toLowerCase().includes(search.toLowerCase()) ||
+      (a.nama_akun || '').toLowerCase().includes(search.toLowerCase());
     const matchesCategory = selectedCategory === '' || a.kategori === selectedCategory;
     
     return matchesSearch && matchesCategory;
@@ -125,10 +136,11 @@ export default function DataAkun({ akuns }: any) {
       <div className="p-6 max-w-4xl mx-auto space-y-6">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">{isEdit ? 'Edit Data Akun' : 'Tambah Data Akun'}</h1>
-          <p className="text-sm text-gray-500">Isi informasi Chart of Accounts (CoA)</p>
+          <p className="text-sm text-gray-500">Isi informasi Chart of Accounts (CoA) beserta saldo awalnya</p>
         </div>
 
         <form onSubmit={handleSave} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          {/* Baris Kategori */}
           <div className="mb-4">
             <label className="block text-xs font-medium text-gray-600 mb-1.5">Kategori *</label>
             <select 
@@ -144,6 +156,7 @@ export default function DataAkun({ akuns }: any) {
             </select>
           </div>
 
+          {/* Baris Kode & Nama Akun */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">Kode Akun *</label>
@@ -174,6 +187,34 @@ export default function DataAkun({ akuns }: any) {
               />
             </div>
           </div>
+
+          {/* Baris Saldo Normal & Saldo Awal */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Saldo Normal *</label>
+              <select 
+                required
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 bg-white"
+                value={data.saldo_normal}
+                onChange={e => setData('saldo_normal', e.target.value)}
+              >
+                <option value="Debit">Debit</option>
+                <option value="Kredit">Kredit</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Saldo Awal</label>
+              <input 
+                type="number"
+                min="0"
+                step="0.01"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400" 
+                placeholder="0" 
+                value={data.saldo_awal} 
+                onChange={e => setData('saldo_awal', Number(e.target.value))} 
+              />
+            </div>
+          </div>
           
           <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
             <button type="button" onClick={() => setView('list')} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Batal</button>
@@ -191,7 +232,6 @@ export default function DataAkun({ akuns }: any) {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Detail Akun</h1>
-            {/* Terapkan helper di detail */}
             <p className="text-sm text-gray-500">{formatKodeAkun(selectedItem.kode_akun, selectedItem.kategori)}</p>
           </div>
           <button onClick={() => setView('list')} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition">
@@ -206,15 +246,26 @@ export default function DataAkun({ akuns }: any) {
             </div>
             <div>
               <p className="text-lg font-bold text-gray-800">{selectedItem.nama_akun}</p>
-              {/* Terapkan helper di detail */}
               <p className="text-xs text-gray-500">Kode: {formatKodeAkun(selectedItem.kode_akun, selectedItem.kategori)}</p>
             </div>
           </div>
           <hr className="border-gray-100 my-4" />
-          <div>
-            <p className="text-xs font-medium text-gray-400 mb-1">Kategori</p>
-            <p className="text-sm text-gray-700">{selectedItem.kategori}</p>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div>
+              <p className="text-xs font-medium text-gray-400 mb-1">Kategori</p>
+              <p className="text-sm font-semibold text-gray-700">{selectedItem.kategori}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-400 mb-1">Saldo Normal</p>
+              <p className="text-sm font-semibold text-gray-700">{selectedItem.saldo_normal}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-400 mb-1">Saldo Awal</p>
+              <p className="text-sm font-semibold text-green-700">{formatRupiah(selectedItem.saldo_awal)}</p>
+            </div>
           </div>
+
           <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
             <button onClick={() => setView('list')} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Tutup</button>
           </div>
@@ -229,7 +280,7 @@ export default function DataAkun({ akuns }: any) {
       <div className="flex justify-between items-center mb-6">
         <div>
            <h1 className="text-2xl font-bold text-gray-900">Data Akun</h1>
-           <p className="text-sm text-gray-500">Kelola master data Chart of Accounts</p>
+           <p className="text-sm text-gray-500">Kelola master data Chart of Accounts & Saldo Awal</p>
         </div>
         <button onClick={openFormTambah} className="flex items-center gap-2 px-4 py-2 bg-red-800 text-white rounded-lg text-sm font-medium hover:bg-red-900">
           <Plus className="w-4 h-4" /> Tambah Akun
@@ -264,20 +315,27 @@ export default function DataAkun({ akuns }: any) {
                 <th className="px-4 py-3 font-semibold text-gray-900">Kode Akun</th>
                 <th className="px-4 py-3 font-semibold text-gray-900">Nama Akun</th>
                 <th className="px-4 py-3 font-semibold text-gray-900">Kategori</th>
+                <th className="px-4 py-3 font-semibold text-gray-900">Saldo Normal</th>
+                <th className="px-4 py-3 font-semibold text-gray-900 text-right">Saldo Awal</th>
                 <th className="px-4 py-3 font-semibold text-gray-900 text-center">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {paged.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-12 text-center text-gray-400">Tidak ada data ditemukan</td>
+                  <td colSpan={6} className="py-12 text-center text-gray-400">Tidak ada data ditemukan</td>
                 </tr>
               ) : paged.map((a: any) => (
                 <tr key={a.id_akun} className="hover:bg-gray-50">
-                  {/* Terapkan helper di tabel */}
                   <td className="px-4 py-3 font-semibold">{formatKodeAkun(a.kode_akun, a.kategori)}</td>
                   <td className="px-4 py-3">{a.nama_akun}</td>
                   <td className="px-4 py-3 text-gray-500">{a.kategori}</td>
+                  <td className="px-4 py-3 text-gray-600">
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${a.saldo_normal === 'Debit' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'}`}>
+                      {a.saldo_normal}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium text-gray-800">{formatRupiah(a.saldo_awal)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-1">
                       <button title="Detail" onClick={() => { setSelectedItem(a); setView('detail'); }} className="p-1.5 rounded hover:bg-blue-100 text-blue-600"><Eye className="w-4 h-4" /></button>
@@ -315,9 +373,9 @@ export default function DataAkun({ akuns }: any) {
               <button onClick={() => setDeleteTarget(null)}><X className="w-4 h-4 text-gray-500" /></button>
             </div>
             <p className="text-sm text-gray-600 mb-3">Apakah Anda yakin ingin menghapus data akun berikut?</p>
-            <div className="my-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm">
-              {/* Terapkan helper di modal hapus */}
-              <span className="font-semibold text-red-700">{formatKodeAkun(deleteTarget.kode_akun, deleteTarget.kategori)}</span> — <span>{deleteTarget.nama_akun}</span>
+            <div className="my-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm flex flex-col">
+              <span className="font-semibold text-red-700 mb-1">{formatKodeAkun(deleteTarget.kode_akun, deleteTarget.kategori)} — {deleteTarget.nama_akun}</span>
+              <span className="text-gray-500 text-xs">Saldo Awal: {formatRupiah(deleteTarget.saldo_awal)}</span>
             </div>
             <p className="text-xs text-gray-400 mb-4">Tindakan ini tidak dapat dibatalkan.</p>
             <div className="flex justify-end gap-2">

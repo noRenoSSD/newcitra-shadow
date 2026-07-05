@@ -35,6 +35,13 @@ use App\Http\Controllers\HasilProduksiController;
 use App\Http\Controllers\PenyusutanAsetController;
 use App\Http\Controllers\TransaksiPembelianController;
 use App\Http\Controllers\KartuPersediaanController;
+use App\Http\Controllers\ApprovalPemakaianBahanController;
+use App\Http\Controllers\HargaPokokProduksiController;
+use App\Http\Controllers\JurnalUmumController;
+use App\Http\Controllers\JurnalPenyesuaianController;
+use App\Http\Controllers\BukuBesarController;
+
+
 // Dasar Autentikasi Redirection
 Route::get('/', function () {
     return redirect('/login');
@@ -97,13 +104,29 @@ Route::middleware('auth')->group(function () {
     Route::put('/jenis-pengeluaran/{id_pengeluaran}', [PengeluaranController::class, 'update']);
     Route::delete('/jenis-pengeluaran/{id_pengeluaran}', [PengeluaranController::class, 'destroy']);
 
+    // --- Approval Pemakaian Bahan ---
+    Route::get('/approval-pemakaian-bahan', [ApprovalPemakaianBahanController::class, 'index'])->name('approval-pemakaian-bahan.index');
+    Route::put('/approval-pemakaian-bahan/{id}', [ApprovalPemakaianBahanController::class, 'approve'])->name('approval-pemakaian-bahan.approve');
+
+    // Rute Harga Pokok Produksi (COGM)
+    Route::prefix('produksi/hpp')->name('hpp.')->group(function () {
+        Route::get('/', [HargaPokokProduksiController::class, 'index'])->name('index');
+        Route::post('/', [HargaPokokProduksiController::class, 'store'])->name('store');
+    });
 
     // --- Penyusutan Aset (MENGGUNAKAN PREFIX & ROUTE GENERATE) ---
     Route::prefix('penyusutan')->name('penyusutan.')->group(function () {
         Route::get('/aset', [PenyusutanAsetController::class, 'index'])->name('index');
         Route::post('/generate', [PenyusutanAsetController::class, 'generate'])->name('generate');
+        Route::post('/simpan-jurnal', [PenyusutanAsetController::class, 'simpanJurnal'])->name('simpan-jurnal');
     });
-
+    
+    // --- Jurnal Umum & Jurnal Penyesuaian ---
+    Route::get('/keuangan/jurnal-umum', [JurnalUmumController::class, 'index'])->name('jurnal.umum');
+    Route::get('/keuangan/jurnal-penyesuaian', [JurnalPenyesuaianController::class, 'index'])->name('jurnal.penyesuaian');
+   
+    // --- Buku Besar ---
+    Route::get('/keuangan/buku-besar', [BukuBesarController::class, 'index'])->name('buku.besar');
 
     // --- Stok Opname ---
     Route::prefix('persediaan/stock-opname')->name('stock-opname.')->group(function () {

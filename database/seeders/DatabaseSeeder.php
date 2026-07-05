@@ -75,8 +75,12 @@ class DatabaseSeeder extends Seeder
         ]);
         // 12. Panggil supplierseeder
         $this->call([
-            // Seeder lain...,
             SupplierSeeder::class,
+        ]);
+
+        // 13. Panggil DivisiSeeder
+        $this->call([
+            DivisiSeeder::class,
         ]);
 
     }
