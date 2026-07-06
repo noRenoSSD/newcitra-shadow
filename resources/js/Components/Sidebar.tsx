@@ -63,7 +63,10 @@ const menuItems: MenuItem[] = [
         subMenus: [
             // UBAH BARIS INI
             { label: "Jadwal Produksi", path: "/jadwal-produksi" },
-            { label: "Persetujuan Jadwal Produksi", path: "/persetujuan-jadwal"},
+            {
+                label: "Persetujuan Jadwal Produksi",
+                path: "/persetujuan-jadwal",
+            },
             { label: "Hasil Produksi", path: "/produksi/hasil-produksi" },
             { label: "Harga Pokok Produksi", path: "/produksi/hpp" },
         ],
@@ -80,7 +83,6 @@ const menuItems: MenuItem[] = [
                 path: "/pembelian/transaksi-pembelian",
             },
             { label: "Retur Pembelian", path: "/pembelian/retur-pembelian" },
-            { label: "Hutang Usaha", path: "/pembelian/hutang" },
         ],
     },
     {
@@ -98,7 +100,10 @@ const menuItems: MenuItem[] = [
                 path: "/persediaan/produk-jadi",
             },
             { label: "Stock Opname", path: "/persediaan/stock-opname" },
-            { label: "Persetujuan Pemakaian Bahan", path: "/approval-pemakaian-bahan" }
+            {
+                label: "Persetujuan Pemakaian Bahan",
+                path: "/approval-pemakaian-bahan",
+            },
         ],
     },
     {
@@ -139,9 +144,13 @@ const menuItems: MenuItem[] = [
                 path: "/keuangan/approval-po",
             },
             { label: "Kartu Piutang", path: "/keuangan/kartu-piutang" },
+            { label: "Hutang Usaha", path: "/keuangan/hutang-usaha" },
             { label: "Penyusutan Aset Tetap", path: "/penyusutan/aset" },
             { label: "Jurnal Umum", path: "/keuangan/jurnal-umum" },
-            { label: "Jurnal Penyesuaian", path: "/keuangan/jurnal-penyesuaian"},
+            {
+                label: "Jurnal Penyesuaian",
+                path: "/keuangan/jurnal-penyesuaian",
+            },
             { label: "Buku Besar", path: "/keuangan/buku-besar" },
         ],
     },

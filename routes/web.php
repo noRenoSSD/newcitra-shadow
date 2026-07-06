@@ -40,7 +40,7 @@ use App\Http\Controllers\HargaPokokProduksiController;
 use App\Http\Controllers\JurnalUmumController;
 use App\Http\Controllers\JurnalPenyesuaianController;
 use App\Http\Controllers\BukuBesarController;
-
+use App\Http\Controllers\HutangUsahaController;
 
 // Dasar Autentikasi Redirection
 Route::get('/', function () {
@@ -120,11 +120,11 @@ Route::middleware('auth')->group(function () {
         Route::post('/generate', [PenyusutanAsetController::class, 'generate'])->name('generate');
         Route::post('/simpan-jurnal', [PenyusutanAsetController::class, 'simpanJurnal'])->name('simpan-jurnal');
     });
-    
+
     // --- Jurnal Umum & Jurnal Penyesuaian ---
     Route::get('/keuangan/jurnal-umum', [JurnalUmumController::class, 'index'])->name('jurnal.umum');
     Route::get('/keuangan/jurnal-penyesuaian', [JurnalPenyesuaianController::class, 'index'])->name('jurnal.penyesuaian');
-   
+
     // --- Buku Besar ---
     Route::get('/keuangan/buku-besar', [BukuBesarController::class, 'index'])->name('buku.besar');
 
@@ -234,6 +234,11 @@ Route::prefix('persediaan')->group(function () {
     Route::get('/produk-jadi', [KartuPersediaanController::class, 'indexProdukJadi'])
         ->name('persediaan.produk');
 
+});
+Route::prefix('keuangan/hutang-usaha')->name('hutang-usaha.')->group(function () {
+    Route::get('/', [HutangUsahaController::class, 'index'])->name('index');
+    // Ubah baris di bawah ini (hapus kata /hutang-usaha di depan karena sudah diwakili prefix)
+    Route::post('/{id_hutang}/bayar', [\App\Http\Controllers\HutangUsahaController::class, 'bayar'])->name('bayar');
 });
 }); // <-- Penutup Middleware Auth Utama
 

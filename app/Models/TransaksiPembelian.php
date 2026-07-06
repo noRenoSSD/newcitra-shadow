@@ -17,8 +17,14 @@ class TransaksiPembelian extends Model
     }
 
     // Relasi ke Penerimaan
-    public function penerimaan()
+    public function penerimaanBahan()
     {
         return $this->belongsTo(PenerimaanBahan::class, 'id_penerimaan', 'id_penerimaan');
     }
+
+    //relasi ke hutang
+    public function hutangUsaha()
+{
+    return $this->hasOne(HutangUsaha::class, 'id_transaksi', 'id_transaksi');
+}
 }

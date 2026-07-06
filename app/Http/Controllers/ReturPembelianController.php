@@ -7,6 +7,9 @@ use Inertia\Inertia;
 use App\Models\ReturPembelian;
 use App\Models\DetailReturPembelian;
 use App\Models\PenerimaanBahan;
+use App\Models\HutangUsaha;
+use App\Models\PembayaranHutang;
+use App\Models\TransaksiPembelian;
 use App\Services\InventoryService; // <-- JANGAN LUPA TAMBAHKAN INI
 use Illuminate\Support\Facades\DB;
 
@@ -98,9 +101,36 @@ class ReturPembelianController extends Controller
                 }
             }
 
-            // 4. Update total nilai dari perhitungan detail
-            $retur->update(['total_nilai' => $totalNilai]);
+            // 5. Integrasi Keuangan: Potong Saldo Hutang Usaha
+            $transaksi = TransaksiPembelian::where('id_penerimaan', $retur->id_penerimaan)->first();
 
+            if ($transaksi) {
+                $hutang = HutangUsaha::where('id_transaksi', $transaksi->id_transaksi)->first();
+
+                if ($hutang) {
+                    // Update saldo hutang (Retur mengurangi hutang)
+                    $hutang->terbayar += $totalNilai;
+                    $hutang->kurang_bayar -= $totalNilai;
+
+                    if ($hutang->kurang_bayar <= 0) {
+                        $hutang->status = 'Lunas';
+                        $hutang->kurang_bayar = 0;
+                    }
+                    $hutang->save();
+
+                    // Catat di Riwayat Pembayaran (Agar muncul di Kartu Hutang)
+                    PembayaranHutang::create([
+                        'id_hutang'          => $hutang->id_hutang,
+                        'id_retur'           => $retur->id_retur,
+                        'no_pembayaran'      => 'RET-' . $retur->no_retur,
+                        'tanggal_pembayaran' => $request->tanggal_retur,
+                        'jumlah_dibayar'     => $totalNilai,
+                        'metode_pembayaran'  => 'Potongan Retur',
+                        'tipe'               => 'Retur',
+                        'catatan'            => 'Retur atas transaksi ' . $transaksi->no_transaksi,
+                    ]);
+                }
+            }
             DB::commit();
             return redirect()->back()->with('success', 'Nota Retur berhasil disimpan dan stok telah dikurangi!');
 

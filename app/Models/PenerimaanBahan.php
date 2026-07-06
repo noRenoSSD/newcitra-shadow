@@ -26,4 +26,10 @@ public function transaksiPembelian()
 {
     return $this->hasOne(TransaksiPembelian::class, 'id_penerimaan', 'id_penerimaan');
 }
+
+// relasi ke supplier
+public function supplier()
+{
+    return $this->belongsTo(Supplier::class, 'id_supplier', 'id'); // Sesuaikan foreign key id_supplier kamu jika beda
+}
 }

@@ -6,34 +6,88 @@ use App\Models\TransaksiPembelian;
 use App\Models\DetailTransaksiPembelian;
 use App\Models\DetailPenerimaanBahan;
 use App\Models\PenerimaanBahan;
+use App\Models\HutangUsaha;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class TransaksiPembelianController extends Controller
 {
-    /**
+
+/**
      * Menampilkan daftar penerimaan yang siap ditagihkan
      * dan riwayat transaksi yang sudah dibuat.
      */
     public function index()
     {
-        // SESUDAHNYA (Tambahkan purchaseOrder.details)
-$penerimaanPending = PenerimaanBahan::with([
-        'purchaseOrder.supplier',
-        'purchaseOrder.details', // <-- Ini kunci untuk mengambil harga PO
-        'detailPenerimaan.bahan'
-    ])
-    ->whereDoesntHave('transaksiPembelian')
-    ->get();
-        // Ambil Riwayat Transaksi
-        $riwayatTransaksi = TransaksiPembelian::with('penerimaan.purchaseOrder.supplier')
-            ->orderBy('created_at', 'desc')
-            ->get();
+        // 1. Ambil data PO & Penerimaan yang belum ditagihkan (Tidak diubah)
+        $penerimaanPending = PenerimaanBahan::with([
+            'purchaseOrder.supplier',
+            'purchaseOrder.details',
+            'detailPenerimaan.bahan'
+        ])
+        ->whereDoesntHave('transaksiPembelian')
+        ->get();
+
+        // 2. Ambil Riwayat Transaksi (Sekarang kita LOAD semua relasi termasuk detail item barangnya)
+        $riwayatTransaksiRaw = TransaksiPembelian::with([
+            'penerimaanBahan.purchaseOrder.supplier',
+            'details.detailPenerimaan.bahan' // <-- Wajib dipanggil agar tabel item tidak kosong!
+        ])
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+        // 3. Mapping data agar STRUKTURNYA COCOK 100% dengan kebutuhan variabel di React
+        $riwayatTransaksi = $riwayatTransaksiRaw->map(function($t) {
+            $penerimaan = $t->penerimaanBahan;
+            $po = $penerimaan ? $penerimaan->purchaseOrder : null;
+            $supplier = $po ? $po->supplier : null;
+
+            // Merapikan data detail barang
+            $mappedDetails = $t->details->map(function($d) {
+                $detPenerimaan = $d->detailPenerimaan;
+                $bahan = $detPenerimaan ? $detPenerimaan->bahan : null;
+
+                return [
+                    'qty'          => $detPenerimaan ? (int) $detPenerimaan->qty_diterima : 0,
+                    'harga_aktual' => (float) $d->harga_aktual,
+                    'subtotal'     => (float) $d->subtotal,
+                    'bahan'        => $bahan ? [
+                        'kode_bahan'   => $bahan->kode_bahan,
+                        'nama_bahan'   => $bahan->nama_bahan,
+                        'satuan_bahan' => $bahan->satuan_bahan ?? $bahan->satuan ?? '-'
+                    ] : null
+                ];
+            });
+
+            // Mengembalikan struktur yang ditangkap oleh React (t.penerimaan.purchase_order...)
+            return [
+                'id_transaksi'      => $t->id_transaksi,
+                'no_faktur'         => $t->no_faktur,
+                'tanggal_transaksi' => $t->tanggal_transaksi,
+                'metode_pembayaran' => $t->metode_pembayaran,
+                'jatuh_tempo'       => $t->jatuh_tempo,
+                'subtotal_barang'   => $t->subtotal_barang,
+                'diskon'            => $t->diskon,
+                'ongkos_kirim'      => $t->ongkos_kirim,
+                'pajak'             => $t->pajak,
+                'total_tagihan'     => $t->total_tagihan,
+                'penerimaan'        => $penerimaan ? [
+                    'no_penerimaan'  => $penerimaan->no_penerimaan,
+                    'purchase_order' => $po ? [
+                        'no_po'    => $po->no_po,
+                        'supplier' => $supplier ? [
+                            'nama_supplier' => $supplier->nama_supplier
+                        ] : null
+                    ] : null
+                ] : null,
+                'details' => $mappedDetails // Menyuplai data item untuk modal dan print
+            ];
+        });
 
         return Inertia::render('Pembelian/TransaksiPembelian', [
             'penerimaanPending' => $penerimaanPending,
-            'riwayatTransaksi' => $riwayatTransaksi
+            'riwayatTransaksi'  => $riwayatTransaksi
         ]);
     }
 
@@ -101,7 +155,19 @@ $penerimaanPending = PenerimaanBahan::with([
                     );
         }
     }
-
+// =================================================================
+        // 3. OTOMATIS CATAT HUTANG JIKA METODE PEMBAYARAN "KREDIT"
+        // =================================================================
+        if ($request->metode_pembayaran === 'Kredit') {
+            HutangUsaha::create([
+                'id_transaksi' => $transaksi->id_transaksi,
+                'no_hutang'    => 'HU-' . date('Ymd') . '-' . str_pad($transaksi->id_transaksi, 3, '0', STR_PAD_LEFT),
+                'total_hutang' => $transaksi->total_tagihan,
+                'terbayar'     => 0,
+                'kurang_bayar' => $transaksi->total_tagihan,
+                'status'       => 'Belum Lunas'
+            ]);
+        }
 
         DB::commit();
         return redirect()->back()->with('success', 'Transaksi Pembelian berhasil disimpan!');
