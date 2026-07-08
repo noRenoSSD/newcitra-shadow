@@ -8,27 +8,65 @@ use Inertia\Inertia;
 
 class SuratJalanController extends Controller
 {
-    /**
-     * 1. Menampilkan Daftar Surat Jalan (Halaman Utama SuratJalan.tsx)
-     */
-    /**
-     * 1. Menampilkan Daftar Surat Jalan beserta Detail Barang
+   /**
+     * 1. Menampilkan Daftar Surat Jalan (Mendukung Jalur Pesanan & Konsinyasi Keluar)
      */
     public function index()
     {
         $suratJalans = DB::table('t_surat_jalan')
+            // Join Jalur 1: Dari Pesanan (Sales Order)
             ->leftJoin('t_pesanan', 't_surat_jalan.id_pesanan', '=', 't_pesanan.id_pesanan')
-            ->leftJoin('t_mitra', 't_pesanan.id_mitra', '=', 't_mitra.id_mitra')
-            ->select('t_surat_jalan.*', 't_pesanan.no_pesanan', 't_mitra.nama_mitra')
+            ->leftJoin('t_mitra as mitra_pesanan', 't_pesanan.id_mitra', '=', 'mitra_pesanan.id_mitra')
+            
+            // Join Jalur 2: Dari Konsinyasi Keluar
+            ->leftJoin('t_konsinyasi_keluar', 't_surat_jalan.id_konsinyasi', '=', 't_konsinyasi_keluar.id_konsinyasi_keluar')
+            ->leftJoin('t_mitra as mitra_konsinyasi', 't_konsinyasi_keluar.id_mitra', '=', 'mitra_konsinyasi.id_mitra')
+            
+            ->select(
+                // Data dari Jalur Pesanan
+                't_pesanan.no_pesanan', 
+                'mitra_pesanan.nama_mitra as nama_mitra_pesanan',
+                
+                // Data dari Jalur Konsinyasi (Alamat diambil dari tabel mitra_konsinyasi)
+                't_konsinyasi_keluar.no_konsinyasi as k_no_konsinyasi',
+                'mitra_konsinyasi.nama_mitra as nama_mitra_konsinyasi',
+                'mitra_konsinyasi.alamat as k_alamat', // <-- PERBAIKAN DI SINI
+                
+                // t_surat_jalan.* di paling bawah agar status pengiriman murni milik Surat Jalan
+                't_surat_jalan.*' 
+            )
             ->orderBy('t_surat_jalan.id_surat_jalan', 'desc')
             ->get()
             ->map(function ($sj) {
-                // SINKRONISASI: Kita cari detail pesanan berdasarkan id_pesanan milik tabel surat jalan
-                $sj->items = DB::table('t_pesanan_detail')
-                    ->leftJoin('t_produk', 't_pesanan_detail.id_produk', '=', 't_produk.id_produk')
-                    ->select('t_pesanan_detail.*', 't_produk.nama_produk')
-                    ->where('t_pesanan_detail.id_pesanan', $sj->id_pesanan) 
-                    ->get();
+                // SINKRONISASI UNTUK FRONTEND REACT
+                // 1. Ambil nomor referensi
+                $sj->konsinyasi_no_order = $sj->k_no_konsinyasi; 
+                
+                // 2. Ambil nama mitra secara tepat dari relasi masing-masing
+                $sj->nama_mitra = $sj->nama_mitra_pesanan; 
+                $sj->konsinyasi_nama_toko = $sj->nama_mitra_konsinyasi; 
+                
+                // 3. Ambil alamat pengiriman
+                $sj->konsinyasi_alamat = $sj->k_alamat ?? '';
+
+                // SINKRONISASI DETAIL PRODUK (Masing-masing Jalur)
+                if ($sj->id_pesanan) {
+                    // Jalur Produk 1: Jika dari Pesanan
+                    $sj->items = DB::table('t_pesanan_detail')
+                        ->leftJoin('t_produk', 't_pesanan_detail.id_produk', '=', 't_produk.id_produk')
+                        ->select('t_pesanan_detail.*', 't_produk.nama_produk')
+                        ->where('t_pesanan_detail.id_pesanan', $sj->id_pesanan) 
+                        ->get();
+                } else if ($sj->id_konsinyasi) {
+                    // Jalur Produk 2: Jika dari Konsinyasi Keluar
+                    $sj->items = DB::table('t_konsinyasi_keluar_detail')
+                        ->leftJoin('t_produk', 't_konsinyasi_keluar_detail.id_produk', '=', 't_produk.id_produk')
+                        ->select('t_konsinyasi_keluar_detail.*', 't_produk.nama_produk')
+                        ->where('t_konsinyasi_keluar_detail.id_konsinyasi_keluar', $sj->id_konsinyasi) 
+                        ->get();
+                } else {
+                    $sj->items = [];
+                }
                 
                 return $sj;
             });
@@ -45,19 +83,17 @@ class SuratJalanController extends Controller
     {
         $id_pesanan = $request->query('so_id');
 
-        //CEK APAKAH PESANAN INI SUDAH PERNAH DIBUATKAN SURAT JALAN
+        // CEK APAKAH PESANAN INI SUDAH PERNAH DIBUATKAN SURAT JALAN
         $sudahAdaSJ = DB::table('t_surat_jalan')
             ->where('id_pesanan', $id_pesanan)
             ->exists();
 
         if ($sudahAdaSJ) {
-            // Jika sudah ada, kembalikan ke halaman sebelumnya dengan pesan error
             return redirect()->back()->withErrors([
                 'pesanan' => 'Surat Jalan untuk pesanan ini sudah pernah diterbitkan!'
             ]);
         }
 
-        // Jika lolos, ambil data seperti biasa
         $pesanan = DB::table('t_pesanan')
             ->leftJoin('t_mitra', 't_pesanan.id_mitra', '=', 't_mitra.id_mitra')
             ->select('t_pesanan.*', 't_mitra.nama_mitra')
@@ -75,7 +111,6 @@ class SuratJalanController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'id_pesanan'    => 'required',
             'nama_pengirim' => 'required',
             'kendaraan'     => 'required',
             'no_plat'       => 'required',
@@ -88,38 +123,33 @@ class SuratJalanController extends Controller
             $nomorUrut = str_pad($lastId + 1, 4, '0', STR_PAD_LEFT);
             $noSuratJalan = "SJ-{$tanggal}-{$nomorUrut}";
 
-            // Insert ke t_surat_jalan dengan status default 'Diproses'
             DB::table('t_surat_jalan')->insert([
                 'no_surat_jalan'   => $noSuratJalan,
                 'tgl_surat_jalan'  => date('Y-m-d'),
-                'id_pesanan'       => $request->id_pesanan,
-                'id_konsinyasi'    => null, 
+                'id_pesanan'       => $request->id_pesanan ?? null,
+                'id_konsinyasi'    => $request->id_konsinyasi ?? null, 
                 'nama_pengirim'    => $request->nama_pengirim,
                 'kendaraan'        => $request->kendaraan,
                 'no_plat'          => $request->no_plat,
-                'status'           => 'Diproses', // <--- Sinkron ENUM
+                'status'           => 'Diproses',
                 'created_at'       => now(),
                 'updated_at'       => now()
             ]);
 
-            // ❌ BAGIAN UPDATE STATUS t_pesanan YANG BIKIN ERROR SUDAH DIBUANG DARI SINI!
-
             DB::commit();
-
             return redirect('/surat-jalan');
 
         } catch (\Exception $e) {
             DB::rollback();
-            return redirect()->back()->withErrors(['id_pesanan' => 'Gagal DB: ' . $e->getMessage()]);
+            return redirect()->back()->withErrors(['error' => 'Gagal DB: ' . $e->getMessage()]);
         }
     }
 
     /**
-     * 4. Mengubah Status Pengiriman Secara Inline (Diproses / Dikirim / Terkirim)
+     * 4. Mengubah Status Pengiriman Secara Inline
      */
     public function updateStatus(Request $request, $id)
     {
-        // SINKRONISASI: Ubah validasi agar menerima input ENUM yang baru
         $request->validate([
             'status' => 'required|string|in:Diproses,Dikirim,Terkirim'
         ]);
@@ -139,8 +169,18 @@ class SuratJalanController extends Controller
      */
     public function destroy($id)
     {
-        DB::table('t_surat_jalan')->where('id_surat_jalan', $id)->delete();
+        try {
+            $sj = DB::table('t_surat_jalan')->where('id_surat_jalan', $id)->first();
+            
+            if (!$sj) {
+                return redirect()->back()->with('error', 'Data surat jalan tidak ditemukan.');
+            }
 
-        return redirect()->back()->with('success', 'Dokumen Surat Jalan berhasil dihapus!');
+            DB::table('t_surat_jalan')->where('id_surat_jalan', $id)->delete();
+            return redirect()->back()->with('success', 'Surat Jalan berhasil dihapus.');
+            
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Gagal menghapus data: ' . $e->getMessage());
+        }
     }
 }

@@ -23,6 +23,7 @@ return new class extends Migration
 
             $table->enum('jenis_transaksi', [
                 'Penjualan Langsung',
+                'Maklon',
                 'Konsinyasi'
             ]);
 

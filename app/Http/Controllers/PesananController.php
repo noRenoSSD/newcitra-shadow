@@ -15,7 +15,7 @@ class PesananController extends Controller
 {
     public function index()
     {
-        // 1. Ambil data mitra dengan filter langsung di database (lebih cepat & aman memory)
+        // 1. Ambil data mitra dengan filter langsung di database
         $mitraList = Mitra::whereIn(DB::raw('LOWER(status)'), ['aktif', 'active'])
             ->orWhereNull('status')
             ->select('id_mitra', 'kode_mitra', 'nama_mitra', 'alamat')
@@ -47,8 +47,6 @@ class PesananController extends Controller
                 
                 // --- LOGIKA STATUS OTOMATIS BERDASARKAN RELASI ---
                 $adaSJ = DB::table('t_surat_jalan')->where('id_pesanan', $order->id_pesanan)->exists();
-
-                // SEKARANG SUDAH AKURAT MENGGUNAKAN TABEL t_jual
                 $adaInvoice = DB::table('t_jual')->where('id_pesanan', $order->id_pesanan)->exists();
 
                 if ($adaInvoice) {
@@ -68,9 +66,9 @@ class PesananController extends Controller
                     'jenis_transaksi' => $order->jenis_transaksi,
                     'alamat' => $order->alamat,
                     'total_harga' => (float) $order->total_harga,
-                    'status' => $statusTiruan, // <-- Field Status Tersedia untuk Frontend
-                    'sudah_ada_invoice' => $adaInvoice, // Membantu FE menonaktifkan tombol jika perlu
-                    'sudah_ada_sj' => $adaSJ,           // Membantu FE menonaktifkan tombol jika perlu
+                    'status' => $statusTiruan,
+                    'sudah_ada_invoice' => $adaInvoice,
+                    'sudah_ada_sj' => $adaSJ,
                     'items' => $order->items->map(function ($detail) {
                         return [
                             'id_pesanan_detail' => $detail->id_pesanan_detail,
@@ -112,7 +110,7 @@ class PesananController extends Controller
             'nomorSO' => 'required|string|max:20',
             'tanggalSO' => 'required|date',
             'idMitra' => 'required|integer|exists:t_mitra,id_mitra',
-            'jenisTransaksi' => 'required|in:Penjualan Langsung,Konsinyasi',
+            'jenisTransaksi' => 'required|in:Penjualan Langsung,Konsinyasi,Maklon',
             'alamat' => 'required|string|max:100',
             'items' => 'required|array|min:1',
             'items.*.id_produk' => 'required|integer|exists:t_produk,id_produk',
@@ -200,7 +198,6 @@ class PesananController extends Controller
     {
         $idPesanan = $request->query('so_id');
         
-        // PROTEKSI: Cek apakah data penjualan sudah ada di tabel t_jual
         $sudahAdaInvoice = DB::table('t_jual')->where('id_pesanan', $idPesanan)->exists();
         if ($sudahAdaInvoice) {
             return redirect('/pesanan')->with('error', 'Invoice gagal di-generate! Transaksi untuk pesanan ini sudah pernah dibuat sebelumnya.');
@@ -227,9 +224,8 @@ class PesananController extends Controller
         ]);
     }
 
-public function storeInvoice(Request $request)
+    public function storeInvoice(Request $request)
     {
-        // 1. Validasi input form invoice kamu
         $request->validate([
             'id_pesanan'   => 'required',
             'no_invoice'   => 'required|string|max:20',
@@ -237,7 +233,6 @@ public function storeInvoice(Request $request)
             'total_harga'  => 'required|numeric',
         ]);
 
-        // 2. Proteksi Klik Ganda
         $sudahAdaInvoice = DB::table('t_jual')->where('id_pesanan', $request->id_pesanan)->exists();
         if ($sudahAdaInvoice) {
             return redirect()->route('transaksi-penjualan.index')->with('error', 'Invoice untuk pesanan ini sudah pernah dibuat.');
@@ -245,42 +240,40 @@ public function storeInvoice(Request $request)
 
         DB::beginTransaction();
         try {
-            // 3. Ambil data pesanan asli untuk menghitung HPP / Modal jika dibutuhkan
             $pesanan = Pesanan::with('items')->findOrFail($request->id_pesanan);
 
-            // 4. INSERT KE TABEL INDUK (t_jual)
+            // INSERT KE TABEL INDUK (t_jual)
             $idJual = DB::table('t_jual')->insertGetId([
                 'no_jual'           => $request->no_invoice,
                 'tgl_jual'          => $request->tgl_invoice,
                 'id_pesanan'        => $request->id_pesanan,
-                'jenis_penjualan'   => 'Grosir',      
+                'jenis_penjualan'   => $pesanan->jenis_transaksi,      
                 'metode_pembayaran' => 'Tunai',       
                 'subtotal'          => $request->total_harga,
                 'total_diskon'      => 0,
-                'total_hpp'         => 0, // Set 0 dulu agar tidak error SQL
+                'total_hpp'         => 0, 
                 'grand_total'       => $request->total_harga,
                 'created_at'        => now(),
                 'updated_at'        => now()
             ]);
 
-            // 5. INSERT KE TABEL DETAIL (t_detail_jual) 
-            // Bagian ini WAJIB ADA agar query join di PenjualanController tidak pecah/kosong!
+            // INSERT KE TABEL DETAIL (t_jual_detail) 
             foreach ($pesanan->items as $item) {
-                DB::table('t_detail_jual')->insert([
-                    'id_jual'     => $idJual,
-                    'id_produk'   => $item->id_produk,
-                    'qty_jual'    => $item->qty,
-                    'hpp_satuan'  => 0, // Set default aman
-                    'diskon'      => 0,
-                    'subtotal'    => $item->subtotal,
-                    'created_at'  => now(),
-                    'updated_at'  => now()
+                DB::table('t_jual_detail')->insert([
+                    'id_jual'    => $idJual,
+                    'id_produk'  => $item->id_produk,
+                    'harga'      => $item->harga, // ✨ SEKARANG SUDAH BERHASIL DIISI!
+                    'qty_jual'   => $item->qty,
+                    'hpp_satuan' => 0, 
+                    'diskon'     => 0,
+                    'subtotal'   => $item->subtotal,
+                    'created_at' => now(),
+                    'updated_at' => now()
                 ]);
             }
 
             DB::commit();
             
-            // 6. REDIRECT RESMI KE HALAMAN TRANSAKSI PENJUALAN
             return redirect()->route('transaksi-penjualan.index')->with('success', 'Transaksi Penjualan Berhasil Disimpan!');
 
         } catch (Exception $e) {
@@ -295,16 +288,12 @@ public function storeInvoice(Request $request)
     {
         $idPesanan = $request->query('so_id');
         
-        // 1. Proteksi jika memang sudah ada surat jalan
         $sudahAdaSuratJalan = DB::table('t_surat_jalan')->where('id_pesanan', $idPesanan)->exists();
         if ($sudahAdaSuratJalan) {
             return redirect('/pesanan')->with('error', 'Surat Jalan untuk pesanan ini sudah pernah dibuat.');
         }
         
-        // 2. --- FIX SISA ALERT MASA LALU ---
-        // Jika lolos dan sukses masuk form, paksa hapus sisa flash error dari session
         $request->session()->forget('error'); 
-        // Atau jika frontend-mu membaca dari key 'flash', gunakan ini:
         session()->forget('flash.error');
 
         $pesanan = Pesanan::with(['mitra', 'items.produk'])->findOrFail($idPesanan);
@@ -341,6 +330,7 @@ public function storeInvoice(Request $request)
 
         DB::beginTransaction();
         try {
+            $pesanan = Pesanan::findOrFail($request->id_pesanan);
             $tanggal = date('Ymd');
             $lastId = DB::table('t_surat_jalan')->max('id_surat_jalan') ?? 0;
             $nomorUrut = str_pad($lastId + 1, 4, '0', STR_PAD_LEFT);
@@ -351,6 +341,7 @@ public function storeInvoice(Request $request)
                 'tgl_surat_jalan'  => date('Y-m-d'),
                 'id_pesanan'       => $request->id_pesanan,
                 'id_konsinyasi'    => null, 
+                'alamat'           => $pesanan->alamat,
                 'nama_pengirim'    => $request->nama_pengirim,
                 'kendaraan'        => $request->kendaraan,
                 'no_plat'          => $request->no_plat,
@@ -361,13 +352,44 @@ public function storeInvoice(Request $request)
 
             DB::commit();
             
-            // Diarahkan kembali ke halaman pesanan agar status langsung berubah
             return redirect('/pesanan')->with('success', 'Surat Jalan berhasil disimpan.');
 
         } catch (Exception $e) {
             DB::rollback();
             return redirect()->back()->withErrors([
                 'database_error' => 'Gagal menyimpan Surat Jalan: ' . $e->getMessage()
+            ]);
+        }
+    }
+    public function destroy($id)
+    {
+        DB::beginTransaction();
+        try {
+            // 1. Cari data pesanan asli
+            $pesanan = Pesanan::findOrFail($id);
+
+            // 2. Proteksi: Jangan biarkan pesanan dihapus jika sudah jadi Invoice atau Surat Jalan
+            $adaInvoice = DB::table('t_jual')->where('id_pesanan', $id)->exists();
+            $adaSJ = DB::table('t_surat_jalan')->where('id_pesanan', $id)->exists();
+
+            if ($adaInvoice || $adaSJ) {
+                return redirect()->back()->with('error', 'Pesanan tidak bisa dihapus karena sudah diproses menjadi Surat Jalan atau Invoice!');
+            }
+
+            // 3. Hapus detail pesanan terlebih dahulu (t_pesanan_detail) untuk menghindari foreign key constraint
+            PesananDetail::where('id_pesanan', $id)->delete();
+
+            // 4. Hapus data induk pesanan (t_pesanan)
+            $pesanan->delete();
+
+            DB::commit();
+
+            return redirect('/pesanan')->with('success', 'Pesanan berhasil dihapus.');
+
+        } catch (Exception $e) {
+            DB::rollback();
+            return redirect()->back()->withErrors([
+                'database_error' => 'Gagal menghapus pesanan: ' . $e->getMessage()
             ]);
         }
     }

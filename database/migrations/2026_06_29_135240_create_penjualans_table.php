@@ -18,7 +18,7 @@ return new class extends Migration
             $table->integer('id_pesanan'); // int(12)
             
             // Sesuaikan pilihan opsi enum di bawah ini dengan kebutuhan bisnismu
-            $table->enum('jenis_penjualan', ['Grosir', 'Eceran']); 
+            $table->string('jenis_penjualan', 50); 
             $table->enum('metode_pembayaran', ['Tunai', 'Kredit']); 
             
             $table->decimal('subtotal', 20, 0); // decimal(20,0)

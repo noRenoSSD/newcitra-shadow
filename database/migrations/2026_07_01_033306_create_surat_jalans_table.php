@@ -14,6 +14,7 @@ return new class extends Migration
             $table->date('tgl_surat_jalan');
             $table->integer('id_pesanan')->nullable();
             $table->integer('id_konsinyasi')->nullable();
+            $table->string('alamat', 150)->nullable();
             $table->string('nama_pengirim', 50); // Menyesuaikan dengan form React
             $table->string('kendaraan', 30);     // Menyesuaikan dengan form React (Jenis armada)
             $table->string('no_plat', 15);  

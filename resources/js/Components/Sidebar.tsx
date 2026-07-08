@@ -114,7 +114,7 @@ const menuItems: MenuItem[] = [
             { label: "Penjualan", path: "/transaksi-penjualan" },
             { label: "Surat Jalan", path: "/surat-jalan" },
             { label: "Retur Penjualan", path: "/retur-penjualan" },
-            { label: "Piutang", path: "/penjualan/piutang" },
+            // { label: "Piutang", path: "/penjualan/piutang" },
             {
                 label: "Perpanjangan Jatuh Tempo Piutang",
                 path: "/penjualan/perpanjangan",
@@ -125,9 +125,9 @@ const menuItems: MenuItem[] = [
         label: "Konsinyasi",
         icon: <Handshake className="w-5 h-5" />,
         subMenus: [
-            { label: "Produk Konsinyasi Keluar", path: "/konsinyasi/keluar" },
-            { label: "Penjualan Konsinyasi", path: "/konsinyasi/penjualan" },
-            { label: "Retur Konsinyasi", path: "/konsinyasi/retur" },
+            { label: "Produk Konsinyasi Keluar", path: "/konsinyasi-keluar" },
+            { label: "Penjualan Konsinyasi", path: "/konsinyasi-penjualan" },
+            { label: "Retur Konsinyasi", path: "/konsinyasi-retur" },
         ],
     },
     {
@@ -143,7 +143,7 @@ const menuItems: MenuItem[] = [
                 label: "Approval Pesanan Pembelian",
                 path: "/keuangan/approval-po",
             },
-            { label: "Kartu Piutang", path: "/keuangan/kartu-piutang" },
+            { label: "Piutang Usaha", path: "/piutang" },
             { label: "Hutang Usaha", path: "/keuangan/hutang-usaha" },
             { label: "Penyusutan Aset Tetap", path: "/penyusutan/aset" },
             { label: "Jurnal Umum", path: "/keuangan/jurnal-umum" },

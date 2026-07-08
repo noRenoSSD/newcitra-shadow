@@ -6,7 +6,7 @@ export default function InvoiceForm({ pesanan }: any) {
   const [paymentMethod, setPaymentMethod] = useState('Tunai');
   const [dueType, setDueType] = useState('Hari'); 
 
-  const { flash, errors } = usePage().props as any; // Ambil 'errors' untuk melacak validasi gagal
+  const { flash, errors } = usePage().props as any; 
 
   useEffect(() => {
     if (flash?.error) {
@@ -16,31 +16,50 @@ export default function InvoiceForm({ pesanan }: any) {
 
   // --- GENERATE OTOMATIS VALUE UNTUK BACKEND ---
   const tanggalHariIni = new Date().toISOString().split('T')[0];
-  // Format No Invoice Otomatis: INV-YYYYMMDD-IDPESANAN
   const nomorInvoiceOtomatis = `INV-${tanggalHariIni.replace(/-/g, '')}-${pesanan.id_pesanan}`;
 
   const { data, setData, post, processing } = useForm({
     id_pesanan: pesanan.id_pesanan,
-    no_invoice: nomorInvoiceOtomatis, // SEKARANG SUDAH TERISI
-    tgl_invoice: tanggalHariIni,       // SEKARANG SUDAH TERISI
+    no_invoice: nomorInvoiceOtomatis, 
+    tgl_invoice: tanggalHariIni,      
     metode_pembayaran: 'Tunai',
     termin_hari: '',
-    jatuh_tempo_tanggal: '',
+    jatuh_tempo_tanggal: '', // Ini yang akan dibaca oleh backend t_piutang
     total_harga: pesanan.total_harga
   });
 
   const handlePaymentChange = (method: string) => {
     setPaymentMethod(method);
     setData('metode_pembayaran', method);
+    if (method === 'Tunai') {
+      setData(prev => ({
+        ...prev,
+        metode_pembayaran: 'Tunai',
+        termin_hari: '',
+        jatuh_tempo_tanggal: ''
+      }));
+    }
+  };
+
+  // ─── FILTER OTOMATIS: HITUNG TANGGAL JIKA INPUT TERMIN HARI ───
+  const handleTerminHariChange = (hari: string) => {
+    setData('termin_hari', hari);
+    
+    if (hari && !isNaN(Number(hari))) {
+      const date = new Date();
+      date.setDate(date.getDate() + parseInt(hari, 10));
+      const hasilTanggal = date.toISOString().split('T')[0];
+      setData('jatuh_tempo_tanggal', hasilTanggal);
+    } else {
+      setData('jatuh_tempo_tanggal', '');
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Kirim data menggunakan rute resmi transaksi-penjualan
-    post('/transaksi-penjualan', {
+    post('/transaksi-penjualan-store', { // Mengarah ke named route store yang benar
       onSuccess: () => {
-         // Paksa redirect setelah sukses
          router.get('/transaksi-penjualan');
       }
     });
@@ -56,7 +75,7 @@ export default function InvoiceForm({ pesanan }: any) {
         </div>
       )}
 
-      {/* Debugging validasi backend jika ada yang tertinggal */}
+      {/* Debugging validasi backend */}
       {Object.keys(errors).length > 0 && (
         <div className="mb-4 p-4 bg-orange-100 border border-orange-400 text-orange-700 rounded-lg text-sm">
           <strong>Gagal Simpan! Periksa Kolom Ini:</strong>
@@ -77,7 +96,6 @@ export default function InvoiceForm({ pesanan }: any) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Input Hidden untuk No & Tgl Invoice agar tetap terkirim ke backend */}
         <input type="hidden" value={data.no_invoice} />
         <input type="hidden" value={data.tgl_invoice} />
 
@@ -97,14 +115,14 @@ export default function InvoiceForm({ pesanan }: any) {
 
         {/* Kondisional jika memilih Kredit */}
         {paymentMethod === 'Kredit' && (
-          <div className="p-4 bg-red-50/50 border border-red-100 rounded-xl space-y-4 animate-fadeIn">
+          <div className="p-4 bg-red-50/50 border border-red-100 rounded-xl space-y-4">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-2">Tentukan Jatuh Tempo Based On:</label>
               <div className="flex gap-4">
-                <button type="button" onClick={() => setDueType('Hari')} className={`px-3 py-1.5 text-xs font-medium rounded-md border ${dueType === 'Hari' ? 'bg-red-900 text-white border-red-900' : 'bg-white text-gray-700 border-gray-200'}`}>
+                <button type="button" onClick={() => { setDueType('Hari'); setData('jatuh_tempo_tanggal', ''); }} className={`px-3 py-1.5 text-xs font-medium rounded-md border ${dueType === 'Hari' ? 'bg-red-900 text-white border-red-900' : 'bg-white text-gray-700 border-gray-200'}`}>
                   Termin Hari (TOP)
                 </button>
-                <button type="button" onClick={() => setDueType('Tanggal')} className={`px-3 py-1.5 text-xs font-medium rounded-md border ${dueType === 'Tanggal' ? 'bg-red-900 text-white border-red-900' : 'bg-white text-gray-700 border-gray-200'}`}>
+                <button type="button" onClick={() => { setDueType('Tanggal'); setData('termin_hari', ''); }} className={`px-3 py-1.5 text-xs font-medium rounded-md border ${dueType === 'Tanggal' ? 'bg-red-900 text-white border-red-900' : 'bg-white text-gray-700 border-gray-200'}`}>
                   Pilih Tanggal Langsung
                 </button>
               </div>
@@ -114,9 +132,12 @@ export default function InvoiceForm({ pesanan }: any) {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Jumlah Hari (Termin) *</label>
                 <div className="relative">
-                  <input type="number" required min="1" placeholder="Contoh: 30" value={data.termin_hari} onChange={e => setData('termin_hari', e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-800 pr-12" />
+                  <input type="number" required min="1" placeholder="Contoh: 30" value={data.termin_hari} onChange={e => handleTerminHariChange(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-800 pr-12" />
                   <span className="absolute right-4 top-2 text-sm font-semibold text-gray-400">Hari</span>
                 </div>
+                {data.jatuh_tempo_tanggal && (
+                  <p className="text-xs text-red-800 mt-1 font-medium">➔ Tanggal jatuh tempo otomatis: {data.jatuh_tempo_tanggal}</p>
+                )}
               </div>
             ) : (
               <div>

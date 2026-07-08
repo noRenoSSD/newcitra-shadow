@@ -17,7 +17,11 @@ use App\Http\Controllers\PengeluaranController;
 use App\Http\Controllers\PesananController;
 use App\Http\Controllers\PenjualanController;
 use App\Http\Controllers\ReturJualController;
+use App\Http\Controllers\KonsinyasiKeluarController;
+use App\Http\Controllers\PenjualanKonsinyasiController;
+use App\Http\Controllers\ReturKonsinyasiController;
 use App\Http\Controllers\SuratJalanController;
+use App\Http\Controllers\PiutangController;
 use App\Http\Controllers\AsetController;
 use App\Http\Controllers\DivisiController;
 use App\Http\Controllers\OverheadController;
@@ -156,9 +160,36 @@ Route::middleware('auth')->group(function () {
     Route::post('/surat-jalan-store', [SuratJalanController::class, 'store'])->name('surat-jalan.store');
     Route::get('/surat-jalan', [SuratJalanController::class, 'index'])->name('surat-jalan.index');
     Route::put('/surat-jalan/{id}/status', [SuratJalanController::class, 'updateStatus']);
+    Route::delete('/surat-jalan/{id}', [SuratJalanController::class, 'destroy']);
 
     Route::get('/retur-penjualan', [ReturJualController::class, 'index'])->name('retur-penjualan.index');
+    Route::post('/retur-penjualan', [ReturJualController::class, 'store']);
+    Route::get('/retur-penjualan/invoice-items/{id_jual}', [ReturJualController::class, 'getInvoiceItems']);
+    Route::get('/retur-penjualan/detail-items/{id_retur_jual}', [ReturJualController::class, 'getReturDetails']);
 
+    // Konsinyasi
+    Route::get('/konsinyasi-keluar', [KonsinyasiKeluarController::class, 'index'])->name('konsinyasi.keluar.index');
+    Route::post('/konsinyasi-keluar/store', [KonsinyasiKeluarController::class, 'store'])->name('konsinyasi.keluar.store');
+    Route::put('/konsinyasi-keluar/update/{id}', [KonsinyasiKeluarController::class, 'update']);
+    Route::post('/konsinyasi-keluar/delete/{id}', [KonsinyasiKeluarController::class, 'delete']);
+    Route::post('/konsinyasi-keluar/generate-sj/{id}', [KonsinyasiKeluarController::class, 'generateSj']);
+    
+    Route::get('/konsinyasi-penjualan', [PenjualanKonsinyasiController::class, 'index'])->name('konsinyasi-penjualan.index');
+    Route::post('/konsinyasi-penjualan/store', [PenjualanKonsinyasiController::class, 'store'])->name('konsinyasi-penjualan.store');
+    Route::put('/konsinyasi-penjualan/update/{id}', [PenjualanKonsinyasiController::class, 'update'])->name('konsinyasi-penjualan.update');
+    Route::delete('/konsinyasi-penjualan/destroy/{id}', [PenjualanKonsinyasiController::class, 'destroy'])->name('konsinyasi-penjualan.destroy');
+    Route::get('/konsinyasi-penjualan/print/{id}', [PenjualanKonsinyasiController::class, 'print'])->name('konsinyasi-penjualan.print');
+
+    Route::get('/konsinyasi-retur', [ReturKonsinyasiController::class, 'index'])->name('konsinyasi-retur.index');
+    Route::post('/konsinyasi-retur', [ReturKonsinyasiController::class, 'store'])->name('konsinyasi-retur.store');
+    Route::put('/konsinyasi-retur/{id}', [ReturKonsinyasiController::class, 'update'])->name('konsinyasi-retur.update');
+
+    // Piutang
+    Route::get('/piutang', [PiutangController::class, 'index'])->name('piutang.index');
+    Route::get('/piutang/kartu/{id_mitra}', [PiutangController::class, 'detailKartu'])->name('piutang.detail');
+    Route::post('/piutang/bayar', [PiutangController::class, 'bayarCicilan'])->name('piutang.bayar');
+    Route::post('/piutang/saldo-awal', [PiutangController::class, 'simpanSaldoAwal']);
+    Route::post('/piutang/perpanjang', [PiutangController::class, 'perpanjang']);
 
     // --- Produksi ---
     Route::get('/kebutuhan-material', [BomController::class, 'index']);

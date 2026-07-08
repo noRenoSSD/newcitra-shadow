@@ -1,6 +1,7 @@
+import React from 'react';
 import { useState, useEffect } from 'react';
 import { useForm, router, usePage } from '@inertiajs/react';
-import { Plus, Search, Eye, Pencil, Trash2, X, FileText, Truck } from 'lucide-react';
+import { Plus, Search, Eye, Pencil, Trash2, X, FileText, Truck, ArrowLeft } from 'lucide-react';
 
 // ==================== INTERFACES & TYPES ====================
 interface TPesananDetail {
@@ -20,7 +21,7 @@ interface TPesanan {
   tgl_pesanan: string;
   id_mitra: number;
   nama_mitra?: string; 
-  jenis_transaksi: 'Penjualan Langsung' | 'Konsinyasi';
+  jenis_transaksi: 'Penjualan Langsung' | 'Maklon';
   alamat: string;
   total_harga: number;
   items: TPesananDetail[];
@@ -54,7 +55,6 @@ interface SalesOrderProps {
   nextNoPesanan?: string;
 }
 
-
 export default function SalesOrder({ pesanan = [], mitraList = [], produkList = [], nextNoPesanan = '' }: SalesOrderProps) {
   // ==================== STATES SYSTEM ====================
   const [showForm, setShowForm] = useState(false);
@@ -77,7 +77,6 @@ export default function SalesOrder({ pesanan = [], mitraList = [], produkList = 
   const [inputQty, setInputQty] = useState('');
   const [currentHargaObj, setCurrentHargaObj] = useState<{ id_harga: number; harga: number }>({ id_harga: 0, harga: 0 });
 
-  
   // ==================== INERTIA HOOK FORM ====================
   const { data, setData, post, put, reset, errors, processing } = useForm({
     no_pesanan: nextNoPesanan || '',
@@ -321,6 +320,7 @@ export default function SalesOrder({ pesanan = [], mitraList = [], produkList = 
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-800 bg-white"
                   >
                     <option value="Penjualan Langsung">Penjualan Langsung</option>
+                    <option value="Maklon">Maklon</option>
                     <option value="Konsinyasi">Konsinyasi</option>
                   </select>
                 </div>
@@ -475,90 +475,128 @@ export default function SalesOrder({ pesanan = [], mitraList = [], produkList = 
 
       {/* 2. KONDISI DETAIL VIEW */}
       {showDetail && selectedOrder && (
-        <div className="block">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Detail Pesanan Penjualan</h1>
-              <p className="text-sm text-gray-500">Informasi komplit lembar order pelanggan</p>
-            </div>
-            <button
+        <div className="block animate-fade-in">
+          {/* Header */}
+          <div className="mb-6">
+            {/* <button
               onClick={handleCancel}
-              className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+              className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 mb-4 transition-colors cursor-pointer bg-transparent border-0 p-0"
             >
-              <X className="w-5 h-5" /> Tutup
-            </button>
+              <ArrowLeft className="w-4 h-4" />
+              Kembali ke Daftar
+            </button> */}
+            <h1 className="text-3xl font-bold text-gray-900">Detail Pesanan Penjualan</h1>
+            <p className="text-red-800 font-semibold mt-1">{selectedOrder.no_pesanan}</p>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Detail Card Master Transaksi */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">No. Pesanan</label>
-                <p className="text-gray-800 font-bold text-base">{selectedOrder.no_pesanan}</p>
+                <p className="text-xs font-semibold text-gray-400">No. Order / No. Pesanan</p>
+                <p className="text-base font-bold text-gray-900 mt-0.5">{selectedOrder.no_pesanan}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Tanggal Transaksi</label>
-                <p className="text-gray-800 font-medium">{selectedOrder.tgl_pesanan}</p>
+                <p className="text-xs font-semibold text-gray-400">Tanggal Transaksi</p>
+                <p className="text-base font-medium text-gray-900 mt-0.5">
+                  {new Date(selectedOrder.tgl_pesanan).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Jenis Transaksi</label>
-                <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">
-                  {selectedOrder.jenis_transaksi}
-                </span>
+                <p className="text-xs font-semibold text-gray-400">Tipe / Jenis Transaksi</p>
+                <p className="text-base font-bold text-gray-900 mt-0.5">{selectedOrder.jenis_transaksi}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Nama Pelanggan / Mitra</label>
-                <p className="text-gray-800 font-medium">{selectedOrder.nama_mitra || 'Tidak Diketahui'}</p>
+                <p className="text-xs font-semibold text-gray-400">Nama Pelanggan / Mitra</p>
+                <p className="text-base font-bold text-gray-900 mt-0.5">{selectedOrder.nama_mitra || 'Tidak Diketahui'}</p>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-500 mb-1">Alamat Pengiriman</label>
-                <p className="text-gray-800 font-medium">{selectedOrder.alamat}</p>
+                <p className="text-xs font-semibold text-gray-400">Alamat Pengiriman</p>
+                <p className="text-base font-medium text-gray-900 mt-0.5">{selectedOrder.alamat || '-'}</p>
               </div>
             </div>
+          </div>
 
-            <div className="border-t border-gray-200 pt-4">
-              <label className="block text-sm font-bold text-gray-700 mb-3">Item Produk Terdaftar</label>
-              <div className="overflow-x-auto border border-gray-200 rounded-xl">
-                <table className="w-full text-left border-collapse text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 text-gray-600 font-semibold border-b border-gray-200">
-                      <th className="px-4 py-3">Nama Produk</th>
-                      <th className="px-4 py-3">Kuantitas</th>
-                      <th className="px-4 py-3">Harga Bersih</th>
-                      <th className="px-4 py-3">Subtotal</th>
+          {/* Items Card Rincian Barang */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <h2 className="text-base font-bold text-gray-900">Rincian Item Produk Terdaftar</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-gray-100 border-b border-gray-200 text-xs font-bold text-gray-600">
+                  <tr>
+                    <th className="px-6 py-3">Nama Produk</th>
+                    <th className="px-6 py-3 text-center">Kuantitas</th>
+                    <th className="px-6 py-3 text-right">Harga Bersih</th>
+                    <th className="px-6 py-3 text-right">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 text-sm text-gray-700 bg-white">
+                  {(selectedOrder.items || []).length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-10 text-center text-gray-400 italic">
+                        Tidak ada item produk di dalam dokumen ini
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {(selectedOrder.items || []).map((item, idx) => (
-                      <tr key={idx}>
-                        <td className="px-4 py-3 font-medium text-gray-900">{item.nama_produk || 'Produk Tidak Diketahui'}</td>
-                        <td className="px-4 py-3">{item.qty}</td>
-                        <td className="px-4 py-3">Rp {(Number(item.harga) || 0).toLocaleString('id-ID')}</td>
-                        <td className="px-4 py-3 font-semibold">Rp {(Number(item.subtotal) || 0).toLocaleString('id-ID')}</td>
+                  ) : (
+                    (selectedOrder.items || []).map((item, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50/50">
+                        <td className="px-6 py-4 font-medium text-gray-900">{item.nama_produk || 'Produk Tidak Diketahui'}</td>
+                        <td className="px-6 py-4 text-center whitespace-nowrap">{item.qty} Pcs</td>
+                        <td className="px-6 py-4 text-right">Rp {(Number(item.harga) || 0).toLocaleString('id-ID')}</td>
+                        <td className="px-6 py-4 text-right font-bold text-gray-900">
+                          Rp {(Number(item.subtotal) || 0).toLocaleString('id-ID')}
+                        </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
+          </div>
 
-            <div className="flex justify-between items-center pt-6 border-t border-gray-200">
-              <div className="flex gap-2">
-                <button
-                  onClick={handleCancel}
-                  className="px-4 py-2 border border-gray-300 hover:bg-gray-100 text-gray-700 text-sm font-medium rounded-lg transition-colors"
-                >
-                  Kembali
-                </button>
-                <button
-                  onClick={() => handleEdit(selectedOrder)}
-                  className="inline-flex items-center gap-1 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-colors"
-                >
-                  <Pencil className="w-4 h-4" /> Edit Order
-                </button>
-              </div>
-              <div className="text-right">
-                <span className="text-xs text-gray-500 font-medium block mb-1">Total Nilai Tagihan</span>
-                <span className="text-xl font-bold text-red-900">Rp {(Number(selectedOrder.total_harga) || 0).toLocaleString('id-ID')}</span>
+          {/* Bagian Bawah Form Aksi & Grand Total Box */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+            {/* Tombol Aksi Kiri */}
+            <div className="flex gap-2">
+              {/* <button
+                onClick={handleCancel}
+                className="px-4 py-2 border border-gray-300 hover:bg-gray-100 text-gray-700 text-sm font-medium rounded-lg transition-colors bg-white shadow-sm"
+              >
+                Kembali ke Daftar
+              </button> */}
+            </div>
+            
+            {/* Kotak Total Tagihan + Tombol Edit Order (Di bawahnya) */}
+        </div>
+
+          {/* Bagian Bawah Form Aksi & Grand Total Box */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+            {/* Tombol Aksi Kiri (Berjejer di pojok kiri bawah) */}
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={handleCancel}
+                className="px-4 py-2 border border-gray-300 hover:bg-gray-100 text-gray-700 text-sm font-medium rounded-lg transition-colors bg-white shadow-sm"
+              >
+                Kembali ke Daftar
+              </button>
+
+              <button
+                onClick={() => handleEdit(selectedOrder)}
+                className="w-max inline-flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+              >
+                <Pencil className="w-4 h-4" /> Edit Order Pesanan
+              </button>
+            </div>
+            
+            {/* Kotak Total Tagihan (Tetap di pojok kanan bawah) */}
+            <div className="w-full md:w-auto flex flex-col gap-3 items-end">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 w-full md:w-80">
+                <div className="flex justify-between items-center font-bold text-gray-900">
+                  <span>Total Nilai Tagihan:</span>
+                  <span className="text-xl text-red-800">Rp {(Number(selectedOrder.total_harga) || 0).toLocaleString('id-ID')}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -609,7 +647,7 @@ export default function SalesOrder({ pesanan = [], mitraList = [], produkList = 
                 <tbody className="divide-y divide-gray-200 text-sm text-gray-700">
                   {filteredOrders.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-8 text-gray-500">Tidak ada data dokumen pesanan penjualan</td>
+                      <td colSpan={7} className="text-center py-8 text-gray-500">Tidak ada data dokumen pesanan penjualan</td>
                     </tr>
                   ) : (
                     filteredOrders.map((item) => (
@@ -627,9 +665,9 @@ export default function SalesOrder({ pesanan = [], mitraList = [], produkList = 
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
-                            (item as any).sudah_ada_invoice // <-- Kita langsung cek true/false dari sini
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200' // Jika true -> Hijau (Emerald)
-                              : 'bg-amber-50 text-amber-700 border-amber-200'     // Jika false -> Kuning (Amber)
+                            (item as any).sudah_ada_invoice
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
                           }`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${
                               (item as any).sudah_ada_invoice ? 'bg-emerald-500' : 'bg-amber-500'
@@ -669,7 +707,6 @@ export default function SalesOrder({ pesanan = [], mitraList = [], produkList = 
                               <FileText className="w-4 h-4" />
                             </button>
                             
-                            {/*PROTEKSI TOMBOL TRUK DISINI */}
                             <button
                               type="button"
                               onClick={() => {

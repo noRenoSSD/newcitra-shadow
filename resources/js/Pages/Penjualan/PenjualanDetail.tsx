@@ -1,5 +1,5 @@
 import { ArrowLeft } from 'lucide-react';
-import { router } from '@inertiajs/react'; // 🔴 1. Pastikan router di-import di sini
+import { router } from '@inertiajs/react'; // 1. Pastikan router di-import di sini
 
 interface InvoiceDetailProps {
   invoice: {
@@ -24,7 +24,7 @@ interface InvoiceDetailProps {
       harga_jual_satuan: number;
     }[];
   };
-  onBack?: () => void; // 🔴 2. Ubah jadi opsional pakai tanda tanya (?) agar tidak error saat dikosongkan
+  onBack?: () => void; // 2. Ubah jadi opsional pakai tanda tanya (?) agar tidak error saat dikosongkan
 }
 
 export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
@@ -34,7 +34,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
       <div className="mb-6">
         <button
           onClick={() => {
-            // 🔴 3. KUNCI AMAN: Jika parent tidak kirim fungsi onBack, paksa redirect lewat URL Inertia
+            // 3. KUNCI AMAN: Jika parent tidak kirim fungsi onBack, paksa redirect lewat URL Inertia
             if (onBack) {
               onBack();
             } else {
@@ -74,7 +74,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
           <div>
             <p className="text-xs font-semibold text-gray-400 uppercase">Jenis & Metode Pembayaran</p>
             <p className="text-base font-medium text-gray-900 mt-0.5">
-              <span className="font-semibold text-red-900">{invoice.jenis_penjualan}</span> — Haluan ({invoice.metode_pembayaran})
+              <span className="font-semibold text-red-900">{invoice.jenis_penjualan}</span> — ({invoice.metode_pembayaran})
             </p>
           </div>
           <div>

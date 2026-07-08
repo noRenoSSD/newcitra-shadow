@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useForm, router, Head } from '@inertiajs/react';
-import { Eye, Trash2, Search, Printer, Pencil, X, Check } from 'lucide-react';
+import { Eye, Trash2, Search, Printer, Pencil, X, Check } from 'lucide-react'; 
 
 interface SuratJalanItem {
-  id_pesanan_detail: number;
-  id_pesanan: number;
+  id_pesanan_detail?: number;
+  id_konsinyasi_detail?: number;
   id_produk: number;
   nama_produk: string;
   qty: number;
@@ -14,13 +14,18 @@ interface DBStatusSuratJalan {
   id_surat_jalan: number;
   no_surat_jalan: string;
   tgl_surat_jalan: string;
-  no_pesanan: string;
-  nama_mitra: string;
+  no_pesanan: string | null;
+  nama_mitra: string | null;
+  konsinyasi_no_order: string | null;
+  konsinyasi_nama_toko: string | null;
+  konsinyasi_alamat: string | null;
   nama_pengirim: string;
   kendaraan: string;
   no_plat: string;
-  status: 'Diproses' | 'Dikirim' | 'Terkirim'; //Hanya 3 pilihan status resmi
+  alamat: string | null; 
+  status: 'Diproses' | 'Dikirim' | 'Terkirim';
   items?: SuratJalanItem[];
+  [key: string]: any; 
 }
 
 interface Props {
@@ -32,7 +37,6 @@ export default function SuratJalan({ suratJalans }: Props) {
   const [viewingDetail, setViewingDetail] = useState<DBStatusSuratJalan | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   
-  // Ambil state form, default diatur ke 'Diproses'
   const { data, setData } = useForm({
     status: 'Diproses' as 'Diproses' | 'Dikirim' | 'Terkirim'
   });
@@ -63,22 +67,34 @@ export default function SuratJalan({ suratJalans }: Props) {
     });
   };
 
-  const filteredSuratJalans = (suratJalans || []).filter(sj =>
-    sj.no_surat_jalan?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    sj.nama_mitra?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    sj.no_pesanan?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Helper cerdas pembaca data dinamis
+  const getNoReferensi = (sj: DBStatusSuratJalan) => {
+    return sj.no_pesanan || sj.konsinyasi_no_order || '-';
+  };
 
-  // Fungsi helper untuk memberikan warna berbeda di setiap status
+  const getNamaMitra = (sj: DBStatusSuratJalan) => {
+    return sj.nama_mitra || sj.konsinyasi_nama_toko || '-';
+  };
+
+  const getAlamatKirim = (sj: DBStatusSuratJalan) => {
+    return sj.alamat || sj.konsinyasi_alamat || '';
+  };
+
+  const filteredSuratJalans = (suratJalans || []).filter(sj => {
+    const noSj = (sj.no_surat_jalan || '').toLowerCase();
+    const noRef = getNoReferensi(sj).toLowerCase();
+    const mitra = getNamaMitra(sj).toLowerCase();
+    const query = searchQuery.toLowerCase();
+    
+    return noSj.includes(query) || noRef.includes(query) || mitra.includes(query);
+  });
+
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
-      case 'Terkirim':
-        return 'bg-green-100 text-green-800 border-green-200'; // Hijau
-      case 'Dikirim':
-        return 'bg-blue-100 text-blue-800 border-blue-200';   // Biru
+      case 'Terkirim': return 'bg-green-100 text-green-800 border-green-200';
+      case 'Dikirim': return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'Diproses':
-      default:
-        return 'bg-amber-100 text-amber-800 border-amber-200'; // Kuning/Oranye
+      default: return 'bg-amber-100 text-amber-800 border-amber-200';
     }
   };
 
@@ -92,7 +108,7 @@ export default function SuratJalan({ suratJalans }: Props) {
           onClick={() => setViewingDetail(null)}
           className="flex items-center gap-2 text-red-800 hover:text-red-900 mb-4 font-medium transition-colors"
         >
-          ← Kembali ke Daftar
+          &larr; Kembali ke Daftar
         </button>
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Detail Surat Jalan</h1>
@@ -104,7 +120,6 @@ export default function SuratJalan({ suratJalans }: Props) {
           </div>
         </div>
 
-        {/* Informasi Ekspedisi */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
           <h2 className="text-lg font-semibold text-red-800 mb-4 border-b border-gray-100 pb-2">Informasi Ekspedisi</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -117,8 +132,8 @@ export default function SuratJalan({ suratJalans }: Props) {
               <p className="text-base font-medium text-gray-900">{viewingDetail.tgl_surat_jalan}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">No. Pesanan / SO</p>
-              <p className="text-base font-medium text-gray-900">{viewingDetail.no_pesanan}</p>
+              <p className="text-sm text-gray-500">No. Pesanan / Referensi</p>
+              <p className="text-base font-medium text-gray-900">{getNoReferensi(viewingDetail)}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Nama Driver / Pengirim</p>
@@ -126,16 +141,21 @@ export default function SuratJalan({ suratJalans }: Props) {
             </div>
             <div>
               <p className="text-sm text-gray-500">Pelanggan / Mitra</p>
-              <p className="text-base font-medium text-gray-900">{viewingDetail.nama_mitra}</p>
+              <p className="text-base font-medium text-gray-900">{getNamaMitra(viewingDetail)}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Armada & Plat Nomor</p>
               <p className="text-base font-medium text-gray-900">{viewingDetail.kendaraan} ({viewingDetail.no_plat})</p>
             </div>
+            <div className="md:col-span-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Alamat Tujuan Pengiriman</p>
+              <p className="text-sm font-medium text-gray-800 mt-1 leading-relaxed">
+               {getAlamatKirim(viewingDetail) || <span className="text-gray-400 italic">Alamat tidak terdata</span>}
+               </p>
+            </div>
           </div>
         </div>
 
-        {/* Tabel Rincian Produk */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-red-800 mb-4 border-b border-gray-100 pb-2">Rincian Barang Dikirim</h2>
           <div className="overflow-x-auto">
@@ -147,10 +167,10 @@ export default function SuratJalan({ suratJalans }: Props) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {listBarang.map((item, index) => (
+                {listBarang.map((item: any, index: number) => (
                   <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-gray-900 font-medium">{item.nama_produk}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900 text-center font-semibold">{item.qty} Pcs</td>
+                    <td className="px-6 py-4 text-sm text-gray-900 font-medium">{item.nama_produk || 'Produk Tidak Diketahui'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900 text-center font-semibold">{item.qty || item.jumlah || 0} Pcs</td>
                   </tr>
                 ))}
                 {listBarang.length === 0 && (
@@ -195,7 +215,7 @@ export default function SuratJalan({ suratJalans }: Props) {
               <tr className="text-sm font-semibold text-gray-600">
                 <th className="px-6 py-4">No. Surat Jalan</th>
                 <th className="px-6 py-4">Tanggal</th>
-                <th className="px-6 py-4">No. Pesanan</th>
+                <th className="px-6 py-4">No. Pesanan / Referensi</th>
                 <th className="px-6 py-4">Pelanggan / Mitra</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-center">Aksi</th>
@@ -206,8 +226,8 @@ export default function SuratJalan({ suratJalans }: Props) {
                 <tr key={sj.id_surat_jalan} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 text-sm text-gray-900 font-semibold">{sj.no_surat_jalan}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{sj.tgl_surat_jalan}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900 font-medium">{sj.no_pesanan}</td>
-                  <td className="px-6 py-4 text-sm text-gray-800 font-medium">{sj.nama_mitra}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900 font-medium">{getNoReferensi(sj)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-800 font-medium">{getNamaMitra(sj)}</td>
                   <td className="px-6 py-4 text-sm">
                     {editingId === sj.id_surat_jalan ? (
                       <select
@@ -215,7 +235,6 @@ export default function SuratJalan({ suratJalans }: Props) {
                         onChange={(e) => setData('status', e.target.value as any)}
                         className="p-1.5 text-xs font-medium border border-gray-300 rounded focus:outline-none focus:border-red-800 bg-white text-gray-800"
                       >
-                        {/* 🌟 OPSI DROPDOWN DIKUNCI HANYA 3 SESUAI PERINTAH */}
                         <option value="Diproses">Diproses</option>
                         <option value="Dikirim">Dikirim</option>
                         <option value="Terkirim">Terkirim</option>
