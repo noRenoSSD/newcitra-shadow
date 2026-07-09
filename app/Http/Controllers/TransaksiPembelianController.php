@@ -126,20 +126,20 @@ class TransaksiPembelianController extends Controller
             ]);
 
            // =================================================================
+// =================================================================
 // 2. SIMPAN DETAIL TRANSAKSI & CATAT MUTASI MASUK PERSEDIAAN
 // =================================================================
-// Hitung faktor penyesuaian di luar perulangan agar performa cepat
+// Hitung faktor penyesuaian di luar perulangan agar tidak membebani server
 $subtotalBarang = $request->subtotal_barang;
 $totalTagihan = $request->total_tagihan;
-
-// Rumus faktor: Total Tagihan / Subtotal Kotor
 $faktorPenyesuaian = $subtotalBarang > 0 ? ($totalTagihan / $subtotalBarang) : 1;
 
 foreach ($request->items as $item) {
-    $detailPenerimaan = DetailPenerimaanBahan::find($item['id_detail_penerimaan']);
+    // Pastikan relasi bahan dipanggil agar bisa mengambil nama/jenisnya untuk keterangan
+    $detailPenerimaan = DetailPenerimaanBahan::with('bahan')->find($item['id_detail_penerimaan']);
 
     if ($detailPenerimaan) {
-        // 1. Simpan detail transaksi pembelian (Tetap simpan harga asli faktur agar cocok dengan fisik nota supplier)
+        // 1. Simpan detail transaksi (Tetap simpan harga asli faktur)
         DetailTransaksiPembelian::create([
             'id_transaksi'         => $transaksi->id_transaksi,
             'id_detail_penerimaan' => $item['id_detail_penerimaan'],
@@ -147,21 +147,24 @@ foreach ($request->items as $item) {
             'subtotal'             => $item['subtotal'],
         ]);
 
-        // 2. HITUNG HARGA BERSIH UNTUK KARTU PERSEDIAAN (Landed Cost)
-        // Harga Bersih = Harga Faktur x Faktor Penyesuaian (Sudah include proporsi ongkir & diskon)
-        $hargaBersih = round($item['harga_aktual'] * $faktorPenyesuaian);
+       // 2. HITUNG TOTAL BERSIH ITEM (Fokus pada Total Uang, bukan Unit)
+        $totalBersihItem = round($item['subtotal'] * $faktorPenyesuaian);
+        $hargaBersih = $detailPenerimaan->qty_diterima > 0 ? ($totalBersihItem / $detailPenerimaan->qty_diterima) : 0;
 
-        // 3. CATAT MUTASI KE KARTU PERSEDIAAN MENGGUNAKAN HARGA BERSIH
+        // 3. Catat Mutasi ke Kartu Persediaan
+        $namaBahan = $detailPenerimaan->bahan->nama_bahan ?? 'Bahan';
+
         InventoryService::catatMutasi(
             $item['id_bahan'],
             'bahan',
-            'MASUK',                     // Tipe Mutasi
-            'pembelian',                 // Sumber Transaksi
-            $request->no_faktur,         // Nomor Referensi
+            'MASUK',
+            'pembelian',
+            $request->no_faktur,
             $detailPenerimaan->qty_diterima,
-            $hargaBersih,                // <--- KUNCI PERBAIKAN: Menggunakan harga bersih yang sudah proporsional
+            $hargaBersih,
             $request->tanggal_transaksi,
-            "Pembelian bahan baku berdasarkan faktur: " . $request->no_faktur
+            "Pembelian " . $namaBahan . " berdasarkan faktur: " . $request->no_faktur,
+            $totalBersihItem // <--- KUNCI UTAMA: Lempar totalnya ke parameter ke-10 yang baru kita buat!
         );
     }
 }

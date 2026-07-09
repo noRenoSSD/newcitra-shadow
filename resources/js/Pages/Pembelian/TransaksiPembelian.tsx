@@ -32,7 +32,6 @@ export default function TransaksiPembelian() {
         subtotal_barang: 0,
         diskon: 0,
         ongkos_kirim: 0,
-        pajak: 0,
         total_tagihan: 0,
         items: [] as any[],
     });
@@ -85,7 +84,6 @@ export default function TransaksiPembelian() {
             subtotal_barang: initialSubtotal,
             diskon: 0,
             ongkos_kirim: 0,
-            pajak: 0,
             total_tagihan: initialSubtotal,
             items: initialItems,
         });
@@ -109,17 +107,14 @@ export default function TransaksiPembelian() {
             0,
         );
         const total =
-            subtotalBarang -
-            Number(form.diskon) +
-            Number(form.ongkos_kirim) +
-            Number(form.pajak);
+            subtotalBarang - Number(form.diskon) + Number(form.ongkos_kirim);
 
         setForm((prev) => ({
             ...prev,
             subtotal_barang: subtotalBarang,
             total_tagihan: total,
         }));
-    }, [form.items, form.diskon, form.ongkos_kirim, form.pajak]);
+    }, [form.items, form.diskon, form.ongkos_kirim]);
 
     // 4. Submit Data
     // 4. Submit Data
@@ -896,41 +891,6 @@ export default function TransaksiPembelian() {
                                                                                     .target
                                                                                     .value,
                                                                             ),
-                                                                    })
-                                                                }
-                                                                className="w-28 px-2 py-1 border border-gray-200 rounded text-right outline-none focus:border-red-400 text-sm"
-                                                                placeholder="0"
-                                                            />
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                                <tr className="border-b border-gray-100">
-                                                    <td
-                                                        colSpan={6}
-                                                        className="py-2 px-4 text-sm text-gray-700 text-right"
-                                                    >
-                                                        Pajak
-                                                    </td>
-                                                    <td className="py-2 px-4 text-sm text-gray-700 text-right">
-                                                        <div className="flex items-center justify-end gap-1">
-                                                            <span className="text-gray-400 text-xs">
-                                                                Rp
-                                                            </span>
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                value={
-                                                                    form.pajak ||
-                                                                    ""
-                                                                }
-                                                                onChange={(e) =>
-                                                                    setForm({
-                                                                        ...form,
-                                                                        pajak: Number(
-                                                                            e
-                                                                                .target
-                                                                                .value,
-                                                                        ),
                                                                     })
                                                                 }
                                                                 className="w-28 px-2 py-1 border border-gray-200 rounded text-right outline-none focus:border-red-400 text-sm"

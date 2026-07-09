@@ -15,7 +15,8 @@ class InventoryService
         $qty,
         $harga_input = 0,
         $tanggal,
-        $keterangan = null
+        $keterangan = null,
+        $total_input = null // <--- TAMBAHAN PARAMETER BARU (Ke-10)
     ) {
         $kolom_id = ($tipe === 'bahan') ? 'id_bahan' : 'id_produk';
 
@@ -33,50 +34,38 @@ class InventoryService
         $qty_masuk = 0; $harga_masuk = 0; $total_masuk = 0;
         $qty_keluar = 0; $harga_keluar = 0; $total_keluar = 0;
 
-        // 2. LOGIKA BARU: Jika ini HANYA Penyesuaian Harga Nilai Uang (Kenaikan/Penurunan Harga Nota)
-        if ($sumber === 'penyesuaian_harga') {
-            $total_masuk = $harga_input; // Harga input diisi TOTAL NILAI SELISIHNYA
-
-            $newQty = $lastQty; // Qty TETAP tidak berubah
-            $newTotal = $lastTotal + $total_masuk; // Nilai uang di gudang disesuaikan
-            $newHargaAverage = $newQty > 0 ? ($newTotal / $newQty) : 0; // Hitung ulang rata-rata harga baru
-
-            $jenis = 'MASUK'; // Masuk ke kolom nilai uang masuk
-        }
-        // 3. Logika Normal Masuk Barang (Saat Penerimaan)
-        elseif (strtoupper($jenis) === 'MASUK') {
+        // 2. LOGIKA BARU UNTUK BARANG MASUK
+        if ($jenis === 'MASUK') {
             $qty_masuk = $qty;
-            $harga_masuk = $harga_input;
-            $total_masuk = $qty * $harga_input;
+
+            // KUNCI PERBAIKAN: Jika total_input dikirim dari controller, pakai itu!
+            $total_masuk = $total_input !== null ? $total_input : ($qty * $harga_input);
+            $harga_masuk = $qty > 0 ? ($total_masuk / $qty) : $harga_input; // Harga satuan menyesuaikan total
 
             $newQty = $lastQty + $qty_masuk;
             $newTotal = $lastTotal + $total_masuk;
             $newHargaAverage = $newQty > 0 ? ($newTotal / $newQty) : 0;
         }
-        // 4. Logika Normal Keluar Barang (Saat Produksi)
+        // 3. LOGIKA NORMAL KELUAR BARANG
         else {
             $qty_keluar = $qty;
 
-            // --- KUNCI PERBAIKAN: Pisahkan Harga Retur dan Harga Produksi ---
             if ($sumber === 'retur_pembelian') {
-                // Gunakan harga aktual spesifik dari Controller (Rp 25.250)
-                $harga_keluar = $harga_input;
+                // KUNCI PERBAIKAN UNTUK RETUR:
+                $total_keluar = $total_input !== null ? $total_input : ($qty * $harga_input);
+                $harga_keluar = $qty > 0 ? ($total_keluar / $qty) : $harga_input;
             } else {
-                // Gunakan harga Rata-rata Bergerak (Moving Average) untuk produksi
                 $harga_keluar = $lastHargaAverage;
+                $total_keluar = $qty * $harga_keluar;
             }
 
-            $total_keluar = $qty * $harga_keluar;
-
-            // Hitung sisa stok dan total nilai
             $newQty = $lastQty - $qty_keluar;
             $newTotal = $lastTotal - $total_keluar;
-
-            // --- PENTING ---
-            // Hitung ulang harga rata-rata secara dinamis.
-            // Karena barang diretur dengan harga spesifik, rata-rata stok yang tersisa di gudang akan otomatis bergeser menyesuaikan.
             $newHargaAverage = $newQty > 0 ? ($newTotal / $newQty) : 0;
         }
+
+        // 4. Simpan ke Database
+        // ... (Kode insert DB::table('t_kartu_persediaan') ke bawah biarkan sama persis seperti aslinya)
 
         // 3. Simpan ke Database
         DB::table('t_kartu_persediaan')->insert([

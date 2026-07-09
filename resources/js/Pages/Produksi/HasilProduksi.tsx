@@ -336,16 +336,14 @@ export default function HasilProduksi() {
                                                     item.bahan?.nama_bahan ||
                                                     item.namaBahan ||
                                                     "-";
-                                                const kalkulasi = Number(
-                                                    item.kalkulasi_standar || 0,
-                                                );
                                                 const aktual = Number(
                                                     item.qty_aktual || 0,
                                                 );
                                                 const selisih = Number(
-                                                    item.selisih ||
-                                                        aktual - kalkulasi,
+                                                    item.selisih || 0,
                                                 );
+                                                const kalkulasi =
+                                                    aktual - selisih;
                                                 const satuan =
                                                     item.satuan ||
                                                     item.bahan?.satuan_bahan ||
