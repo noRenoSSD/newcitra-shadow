@@ -40,7 +40,6 @@ class PenjualanController extends Controller
 
         $noInvoice = $request->no_invoice ?? ('INV-' . date('Ymd') . '-' . $idPesanan);
         $tglInvoice = $request->tgl_invoice ?? date('Y-m-d');
-        $totalHarga = $request->total_harga ?? 0;
         $metodePembayaran = $request->metode_pembayaran ?? 'Tunai';
 
         DB::beginTransaction();
@@ -49,34 +48,58 @@ class PenjualanController extends Controller
             $pesananAsli = DB::table('t_pesanan')->where('id_pesanan', $idPesanan)->first();
             $jenisPenjualan = $pesananAsli->jenis_transaksi ?? 'Grosir';
 
-            // 1. INSERT KE TABEL INDUK (t_jual)
+            // AMBIL DETAIL DARI t_pesanan_detail TERLEBIH DAHULU UNTUK HITUNG TOTAL DISKON & SUBTOTAL REAL
+            $items = DB::table('t_pesanan_detail')->where('id_pesanan', $idPesanan)->get();
+            
+            $akumulasiSubtotalKotor = 0;
+            $akumulasiTotalDiskonRupiah = 0;
+
+            // Hitung subtotal kotor dan diskon rupiah per baris item
+            foreach ($items as $item) {
+                $itemArray = (array) $item;
+                $qty = $itemArray['qty_pesanan'] ?? $itemArray['qty'] ?? 1;
+                $qty = $qty > 0 ? $qty : 1;
+
+                $hargaAsli = $itemArray['harga'] ?? $itemArray['harga_satuan'] ?? $itemArray['harga_jual'] ?? $itemArray['harga_pesanan'] ?? 0;
+                
+                // Cari total kotor per item sebelum diskon
+                $hargaKotorBaris = $hargaAsli * $qty;
+                
+                // Hitung rupiah diskon dari persen yang ada di item
+                $persenDiskon = $itemArray['diskon'] ?? 0;
+                $diskonRupiahBaris = $hargaKotorBaris * ($persenDiskon / 100);
+
+                $akumulasiSubtotalKotor += $hargaKotorBaris;
+                $akumulasiTotalDiskonRupiah += $diskonRupiahBaris;
+            }
+
+            // Hitung Grand Total Bersih
+            $calculatedGrandTotal = $akumulasiSubtotalKotor - $akumulasiTotalDiskonRupiah;
+
+            // 1. INSERT KE TABEL INDUK (t_jual) - Menggunakan data hitungan riil
             $idJual = DB::table('t_jual')->insertGetId([
                 'no_jual'           => $noInvoice,
                 'tgl_jual'          => $tglInvoice,
                 'id_pesanan'        => $idPesanan,
                 'jenis_penjualan'   => $jenisPenjualan,
                 'metode_pembayaran' => $metodePembayaran,
-                'subtotal'          => $totalHarga,
-                'total_diskon'      => 0,
-                'total_hpp'         => 0, // Akan diupdate di akhir
-                'grand_total'       => $totalHarga,
+                'subtotal'          => $akumulasiSubtotalKotor,      // 👈 Sekarang berisi subtotal SEBELUM diskon
+                'total_diskon'      => $akumulasiTotalDiskonRupiah, // 👈 Nilai Rupiah diskon terakumulasi (TIDAK 0 LAGI!)
+                'total_hpp'         => 0, // Akan diupdate di akhir loop
+                'grand_total'       => $calculatedGrandTotal,       // 👈 Nilai bersih setelah dipotong diskon
                 'created_at'        => now(),
                 'updated_at'        => now()
             ]);
 
-            // 2. AMBIL DETAIL DARI t_pesanan_detail
-            $items = DB::table('t_pesanan_detail')->where('id_pesanan', $idPesanan)->get();
             $totalHppInvoice = 0; // Variabel penampung akumulasi HPP
 
-            // ─── SATUKAN LOOPING DI SINI ───
+            // 2. INSERT KE TABEL DETAIL & POTONG STOK
             foreach ($items as $item) {
                 $itemArray = (array) $item;
 
-                // Ambil qty pesanan
                 $qty = $itemArray['qty_pesanan'] ?? $itemArray['qty'] ?? 1;
                 $qty = $qty > 0 ? $qty : 1;
 
-                // Ambil harga
                 $hargaAsli = $itemArray['harga'] ?? $itemArray['harga_satuan'] ?? $itemArray['harga_jual'] ?? $itemArray['harga_pesanan'] ?? 0;
                 $subtotal = $itemArray['subtotal'] ?? $itemArray['total_harga'] ?? ($hargaAsli * $qty);
 
@@ -95,14 +118,14 @@ class PenjualanController extends Controller
                 $subtotalHpp = $hppSatuan * $qty;
                 $totalHppInvoice += $subtotalHpp;
 
-                // B. Simpan ke t_jual_detail (CUKUP SATU KALI INSERT SAJA)
+                // B. Simpan ke t_jual_detail
                 DB::table('t_jual_detail')->insert([
                     'id_jual'    => $idJual,
                     'id_produk'  => $item->id_produk,
                     'harga'      => $hargaAsli,
                     'qty_jual'   => $qty,
-                    'hpp_satuan' => $hppSatuan, // Simpan HPP di sini
-                    'diskon'     => $itemArray['diskon'] ?? 0,
+                    'hpp_satuan' => $hppSatuan,
+                    'diskon'     => $itemArray['diskon'] ?? 0, // Tetap menyimpan persen di detail item
                     'subtotal'   => $subtotal,
                     'created_at' => now(),
                     'updated_at' => now()
@@ -143,9 +166,9 @@ class PenjualanController extends Controller
                     'no_piutang'     => $noPiutangOtomatis,
                     'id_jual'        => $idJual,
                     'tgl_piutang'    => $tglInvoice,
-                    'total_piutang'  => $totalHarga,
+                    'total_piutang'  => $calculatedGrandTotal, // 👈 Piutang dicatat sebesar Grand Total Bersih
                     'terbayar'       => 0,
-                    'sisa_piutang'   => $totalHarga,
+                    'sisa_piutang'   => $calculatedGrandTotal,
                     'jt_piutang'     => $calculatedJatuhTempo,
                     'status_piutang' => 'Belum Lunas',
                     'keterangan'     => 'Piutang otomatis dari invoice ' . $noInvoice,

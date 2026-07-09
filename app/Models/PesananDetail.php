@@ -20,7 +20,35 @@ class PesananDetail extends Model
         'harga',
         'qty',
         'subtotal',
+        'diskon',
     ];
+
+    // Otomatis update total diskon di tabel utama saat detail disimpan/dihapus
+    protected static function booted()
+    {
+        static::saved(function ($detail) {
+            $pesanan = $detail->pesanan;
+            if ($pesanan) {
+                // Menghitung total diskon dari semua detail pesanan ini
+                $totalDiskon = $pesanan->details()->sum('diskon');
+                
+                // Update ke tabel utama
+                $pesanan->update([
+                    'total_diskon' => $totalDiskon
+                ]);
+            }
+        });
+
+        static::deleted(function ($detail) {
+            $pesanan = $detail->pesanan;
+            if ($pesanan) {
+                $totalDiskon = $pesanan->details()->sum('diskon');
+                $pesanan->update([
+                    'total_diskon' => $totalDiskon
+                ]);
+            }
+        });
+    }
 
     public function pesanan()
     {

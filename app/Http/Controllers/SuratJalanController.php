@@ -30,7 +30,7 @@ class SuratJalanController extends Controller
                 // Data dari Jalur Konsinyasi (Alamat diambil dari tabel mitra_konsinyasi)
                 't_konsinyasi_keluar.no_konsinyasi as k_no_konsinyasi',
                 'mitra_konsinyasi.nama_mitra as nama_mitra_konsinyasi',
-                'mitra_konsinyasi.alamat as k_alamat', // <-- PERBAIKAN DI SINI
+                'mitra_konsinyasi.alamat as k_alamat', 
                 
                 // t_surat_jalan.* di paling bawah agar status pengiriman murni milik Surat Jalan
                 't_surat_jalan.*' 
@@ -54,14 +54,16 @@ class SuratJalanController extends Controller
                     // Jalur Produk 1: Jika dari Pesanan
                     $sj->items = DB::table('t_pesanan_detail')
                         ->leftJoin('t_produk', 't_pesanan_detail.id_produk', '=', 't_produk.id_produk')
-                        ->select('t_pesanan_detail.*', 't_produk.nama_produk')
+                        // 👇 PERBAIKAN: Menambahkan select kode_produk dan satuan_produk 👇
+                        ->select('t_pesanan_detail.*', 't_produk.nama_produk', 't_produk.kode_produk', 't_produk.satuan_produk')
                         ->where('t_pesanan_detail.id_pesanan', $sj->id_pesanan) 
                         ->get();
                 } else if ($sj->id_konsinyasi) {
                     // Jalur Produk 2: Jika dari Konsinyasi Keluar
                     $sj->items = DB::table('t_konsinyasi_keluar_detail')
                         ->leftJoin('t_produk', 't_konsinyasi_keluar_detail.id_produk', '=', 't_produk.id_produk')
-                        ->select('t_konsinyasi_keluar_detail.*', 't_produk.nama_produk')
+                        // 👇 PERBAIKAN: Menambahkan select kode_produk dan satuan_produk 👇
+                        ->select('t_konsinyasi_keluar_detail.*', 't_produk.nama_produk', 't_produk.kode_produk', 't_produk.satuan_produk')
                         ->where('t_konsinyasi_keluar_detail.id_konsinyasi_keluar', $sj->id_konsinyasi) 
                         ->get();
                 } else {

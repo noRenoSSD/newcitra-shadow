@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Models;
+use App\Models\PesananDetail;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,7 +19,9 @@ class Pesanan extends Model
         'id_mitra',
         'jenis_transaksi',
         'alamat',
-        'total_harga'
+        'total_harga',
+        'catatan',
+        'total_diskon',
     ];
 
     /**
@@ -38,5 +41,9 @@ class Pesanan extends Model
     {
         // Parameter kedua adalah foreign key di tabel pesanan_detail yang mengarah ke tabel ini
         return $this->hasMany(PesananDetail::class, 'id_pesanan', 'id_pesanan');
+    }
+    public function details()
+    {
+        return $this->hasMany(PesananDetail::class, 'id_pesanan');
     }
 }

@@ -19,7 +19,11 @@ class Produk extends Model
         'satuan_produk',
     ];
 
-    public function hargaProduk()
+    /**
+     * DIUBAH: Menggunakan snake_case 'harga_produk' 
+     * agar cocok dengan Eager Loading di Controller -> with('harga_produk')
+     */
+    public function harga_produk()
     {
         return $this->hasMany(
             \App\Models\HargaProduk::class,

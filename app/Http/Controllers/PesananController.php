@@ -21,21 +21,36 @@ class PesananController extends Controller
             ->select('id_mitra', 'kode_mitra', 'nama_mitra', 'alamat')
             ->get();
 
-        // Fallback jika hasil filter kosong, ambil semua
         if ($mitraList->isEmpty()) {
             $mitraList = Mitra::select('id_mitra', 'kode_mitra', 'nama_mitra', 'alamat')->get();
         }
 
-        // 2. Data produk beserta daftar harganya
-        $produkList = Produk::with(['hargaProduk' => function($query) {
-                $query->select('id_harga_produk as id_harga', 'id_produk', 'jenis_transaksi', 'harga');
-            }])
-            ->get(['id_produk', 'nama_produk'])
+        // 2. Data produk beserta daftar harganya + Mengambil saldo_qty terakhir dari kartu persediaan
+        $produkList = DB::table('t_produk as p')
+            ->leftJoin('t_kartu_persediaan as kp', function($join) {
+                $join->on('p.id_produk', '=', 'kp.id_produk')
+                     ->whereRaw('kp.id_kartu = (
+                         SELECT max(id_kartu) 
+                         FROM t_kartu_persediaan 
+                         WHERE t_kartu_persediaan.id_produk = p.id_produk
+                     )');
+            })
+            ->select('p.id_produk', 'p.nama_produk', 'p.kode_produk', 'p.satuan_produk', DB::raw('COALESCE(kp.saldo_qty, 0) as saldo_qty'))
+            ->get()
             ->map(function ($prod) {
+                // Mengambil relasi harga_produk menggunakan Eloquent Model agar struktur 'harga_produk' tetap sama untuk frontend
+                $hargaProduk = DB::table('t_harga_produk')
+                    ->where('id_produk', $prod->id_produk)
+                    ->select('id_harga_produk as id_harga', 'id_produk', 'jenis_transaksi', 'harga')
+                    ->get();
+
                 return [
                     'id_produk' => $prod->id_produk,
                     'nama_produk' => $prod->nama_produk,
-                    'harga_produk' => $prod->hargaProduk
+                    'kode_produk' => $prod->kode_produk,
+                    'satuan_produk' => $prod->satuan_produk,
+                    'saldo_qty' => (float) $prod->saldo_qty, // 👈 Nilai ini sekarang diambil dari kartu persediaan terbaru
+                    'harga_produk' => $hargaProduk
                 ];
             });
 
@@ -45,16 +60,13 @@ class PesananController extends Controller
             ->get()
             ->map(function ($order) {
                 
-                // --- LOGIKA STATUS OTOMATIS BERDASARKAN RELASI ---
                 $adaSJ = DB::table('t_surat_jalan')->where('id_pesanan', $order->id_pesanan)->exists();
                 $adaInvoice = DB::table('t_jual')->where('id_pesanan', $order->id_pesanan)->exists();
 
                 if ($adaInvoice) {
-                    $statusTiruan = 'Selesai / Invoice';
-                } elseif ($adaSJ) {
-                    $statusTiruan = 'Diproses / Surat Jalan';
+                    $statusTiruan = 'Selesai';
                 } else {
-                    $statusTiruan = 'Pesanan Baru';
+                    $statusTiruan = 'Diproses';
                 }
 
                 return [
@@ -65,10 +77,12 @@ class PesananController extends Controller
                     'nama_mitra' => $order->mitra ? $order->mitra->nama_mitra : 'Tidak Diketahui',
                     'jenis_transaksi' => $order->jenis_transaksi,
                     'alamat' => $order->alamat,
+                    'total_diskon' => (float) ($order->total_diskon ?? 0), 
                     'total_harga' => (float) $order->total_harga,
+                    'catatan' => $order->catatan,
                     'status' => $statusTiruan,
                     'sudah_ada_invoice' => $adaInvoice,
-                    'sudah_ada_sj' => $adaSJ,
+                    'status_surat_jalan' => $adaSJ, 
                     'items' => $order->items->map(function ($detail) {
                         return [
                             'id_pesanan_detail' => $detail->id_pesanan_detail,
@@ -77,23 +91,23 @@ class PesananController extends Controller
                             'nama_produk' => $detail->produk ? $detail->produk->nama_produk : 'Produk Terhapus',
                             'harga' => (float) $detail->harga,
                             'qty' => $detail->qty,
+                            'diskon' => (float) ($detail->diskon ?? 0), 
                             'subtotal' => (float) $detail->subtotal,
                         ];
                     }),
                 ];
             });
 
-        // Generate nomor pesanan otomatis (SO-YYYYMM-XXX)
-        $tahunBulan = date('Ym');
-        $lastPesanan = Pesanan::where('no_pesanan', 'like', "SO-$tahunBulan-%")
+        $tahunBulantanggal = date('Ymd');
+        $lastPesanan = Pesanan::where('no_pesanan', 'like', "SO-$tahunBulantanggal-%")
             ->orderBy('id_pesanan', 'desc')
             ->first();
 
         if (!$lastPesanan) {
-            $nextNomorSO = "SO-$tahunBulan-001";
+            $nextNomorSO = "SO-$tahunBulantanggal-001";
         } else {
             $lastNumber = (int) substr($lastPesanan->no_pesanan, -3);
-            $nextNomorSO = "SO-$tahunBulan-" . str_pad($lastNumber + 1, 3, '0', STR_PAD_LEFT);
+            $nextNomorSO = "SO-$tahunBulantanggal-" . str_pad($lastNumber + 1, 3, '0', STR_PAD_LEFT);
         }
 
         return Inertia::render('Penjualan/Pesanan', [
@@ -112,35 +126,50 @@ class PesananController extends Controller
             'idMitra' => 'required|integer|exists:t_mitra,id_mitra',
             'jenisTransaksi' => 'required|in:Penjualan Langsung,Konsinyasi,Maklon',
             'alamat' => 'required|string|max:100',
+            'catatan' => 'nullable|string',
             'items' => 'required|array|min:1',
             'items.*.id_produk' => 'required|integer|exists:t_produk,id_produk',
             'items.*.id_harga' => 'required|integer|exists:t_harga_produk,id_harga_produk',
             'items.*.harga' => 'required|numeric|min:0',
             'items.*.jumlah' => 'required|integer|min:1',
+            'items.*.diskon' => 'required|numeric|min:0|max:100', 
         ]);
 
-        $totalHarga = collect($request->items)->sum(function ($item) {
-            return $item['jumlah'] * $item['harga'];
-        });
+        $totalDiskon = 0;
+        $totalHargaBersih = 0;
 
-        DB::transaction(function () use ($request, $totalHarga) {
+        foreach ($request->items as $item) {
+            $gross = $item['jumlah'] * $item['harga'];
+            $potongan = $gross * ($item['diskon'] / 100);
+            
+            $totalDiskon += $potongan;
+            $totalHargaBersih += ($gross - $potongan);
+        }
+
+        DB::transaction(function () use ($request, $totalDiskon, $totalHargaBersih) {
             $pesanan = Pesanan::create([
                 'no_pesanan' => $request->nomorSO,
                 'tgl_pesanan' => $request->tanggalSO,
                 'id_mitra' => $request->idMitra,
                 'jenis_transaksi' => $request->jenisTransaksi,
                 'alamat' => $request->alamat,
-                'total_harga' => $totalHarga,
+                'total_diskon' => $totalDiskon, 
+                'total_harga' => $totalHargaBersih, 
+                'catatan' => $request->catatan,
             ]);
 
             foreach ($request->items as $item) {
+                $gross = $item['jumlah'] * $item['harga'];
+                $potongan = $gross * ($item['diskon'] / 100);
+
                 PesananDetail::create([
                     'id_pesanan' => $pesanan->id_pesanan,
                     'id_produk' => $item['id_produk'],
                     'id_harga' => $item['id_harga'],
                     'harga' => $item['harga'],
                     'qty' => $item['jumlah'],
-                    'subtotal' => $item['jumlah'] * $item['harga'],
+                    'diskon' => $item['diskon'], 
+                    'subtotal' => $gross - $potongan, 
                 ]);
             }
         });
@@ -150,24 +179,40 @@ class PesananController extends Controller
 
     public function update(Request $request, $id)
     {
+        $adaInvoice = DB::table('t_jual')->where('id_pesanan', $id)->exists();
+        $adaSJ = DB::table('t_surat_jalan')->where('id_pesanan', $id)->exists();
+
+        if ($adaInvoice || $adaSJ) {
+            return redirect()->back()->with('error', '⚠️ Gagal: Pesanan tidak bisa diubah karena Invoice atau Surat Jalan sudah digenerate!');
+        }
+
         $request->validate([
             'nomorSO' => 'required|string|max:20',
             'tanggalSO' => 'required|date',
             'idMitra' => 'required|integer|exists:t_mitra,id_mitra',
-            'jenisTransaksi' => 'required|in:Penjualan Langsung,Konsinyasi',
+            'jenisTransaksi' => 'required|in:Penjualan Langsung,Konsinyasi,Maklon',
             'alamat' => 'required|string|max:100',
+            'catatan' => 'nullable|string',
             'items' => 'required|array|min:1',
             'items.*.id_produk' => 'required|integer|exists:t_produk,id_produk',
             'items.*.id_harga' => 'required|integer|exists:t_harga_produk,id_harga_produk',
             'items.*.harga' => 'required|numeric|min:0',
             'items.*.jumlah' => 'required|integer|min:1',
+            'items.*.diskon' => 'required|numeric|min:0|max:100', 
         ]);
 
-        $totalHarga = collect($request->items)->sum(function ($item) {
-            return $item['jumlah'] * $item['harga'];
-        });
+        $totalDiskon = 0;
+        $totalHargaBersih = 0;
 
-        DB::transaction(function () use ($request, $id, $totalHarga) {
+        foreach ($request->items as $item) {
+            $gross = $item['jumlah'] * $item['harga'];
+            $potongan = $gross * ($item['diskon'] / 100);
+            
+            $totalDiskon += $potongan;
+            $totalHargaBersih += ($gross - $potongan);
+        }
+
+        DB::transaction(function () use ($request, $id, $totalDiskon, $totalHargaBersih) {
             $pesanan = Pesanan::findOrFail($id);
             $pesanan->update([
                 'no_pesanan' => $request->nomorSO,
@@ -175,18 +220,25 @@ class PesananController extends Controller
                 'id_mitra' => $request->idMitra,
                 'jenis_transaksi' => $request->jenisTransaksi,
                 'alamat' => $request->alamat,
-                'total_harga' => $totalHarga,
+                'total_diskon' => $totalDiskon, 
+                'total_harga' => $totalHargaBersih, 
+                'catatan' => $request->catatan,
             ]);
 
             PesananDetail::where('id_pesanan', $id)->delete();
+            
             foreach ($request->items as $item) {
+                $gross = $item['jumlah'] * $item['harga'];
+                $potongan = $gross * ($item['diskon'] / 100);
+
                 PesananDetail::create([
                     'id_pesanan' => $id,
                     'id_produk' => $item['id_produk'],
                     'id_harga' => $item['id_harga'],
                     'harga' => $item['harga'],
                     'qty' => $item['jumlah'],
-                    'subtotal' => $item['jumlah'] * $item['harga'],
+                    'diskon' => $item['diskon'], 
+                    'subtotal' => $gross - $potongan,
                 ]);
             }
          });
@@ -211,12 +263,15 @@ class PesananController extends Controller
                 'no_pesanan' => $pesanan->no_pesanan,
                 'nama_mitra' => $pesanan->mitra ? $pesanan->mitra->nama_mitra : 'Tidak Diketahui',
                 'alamat' => $pesanan->alamat,
+                'total_diskon' => (float) ($pesanan->total_diskon ?? 0), 
                 'total_harga' => $pesanan->total_harga,
+                'catatan' => $pesanan->catatan, 
                 'items' => $pesanan->items->map(function ($detail) {
                     return [
                         'nama_produk' => $detail->produk ? $detail->produk->nama_produk : 'Produk Terhapus',
                         'qty' => $detail->qty,
                         'harga' => $detail->harga,
+                        'diskon_persen' => $detail->diskon, 
                         'subtotal' => $detail->subtotal,
                     ];
                 }),
@@ -231,6 +286,7 @@ class PesananController extends Controller
             'no_invoice'   => 'required|string|max:20',
             'tgl_invoice'  => 'required|date',
             'total_harga'  => 'required|numeric',
+            'catatan'   => 'nullable|string', 
         ]);
 
         $sudahAdaInvoice = DB::table('t_jual')->where('id_pesanan', $request->id_pesanan)->exists();
@@ -241,39 +297,41 @@ class PesananController extends Controller
         DB::beginTransaction();
         try {
             $pesanan = Pesanan::with('items')->findOrFail($request->id_pesanan);
+            $catatanInvoice = $request->catatan ?? $pesanan->catatan;
 
-            // INSERT KE TABEL INDUK (t_jual)
             $idJual = DB::table('t_jual')->insertGetId([
                 'no_jual'           => $request->no_invoice,
                 'tgl_jual'          => $request->tgl_invoice,
                 'id_pesanan'        => $request->id_pesanan,
                 'jenis_penjualan'   => $pesanan->jenis_transaksi,      
                 'metode_pembayaran' => 'Tunai',       
-                'subtotal'          => $request->total_harga,
-                'total_diskon'      => 0,
+                'subtotal'          => $request->total_harga + ($pesanan->total_diskon ?? 0), 
+                'total_diskon'      => $pesanan->total_diskon ?? 0, 
                 'total_hpp'         => 0, 
-                'grand_total'       => $request->total_harga,
+                'grand_total'       => $request->total_harga, 
+                'catatan'           => $catatanInvoice, 
                 'created_at'        => now(),
                 'updated_at'        => now()
             ]);
 
-            // INSERT KE TABEL DETAIL (t_jual_detail) 
             foreach ($pesanan->items as $item) {
+                $grossItem = $item->qty * $item->harga;
+                $potonganItem = $grossItem * (($item->diskon ?? 0) / 100); 
+
                 DB::table('t_jual_detail')->insert([
                     'id_jual'    => $idJual,
                     'id_produk'  => $item->id_produk,
-                    'harga'      => $item->harga, // ✨ SEKARANG SUDAH BERHASIL DIISI!
+                    'harga'      => $item->harga,
                     'qty_jual'   => $item->qty,
                     'hpp_satuan' => 0, 
-                    'diskon'     => 0,
-                    'subtotal'   => $item->subtotal,
+                    'diskon'     => $potonganItem, 
+                    'subtotal'   => $item->subtotal, 
                     'created_at' => now(),
                     'updated_at' => now()
                 ]);
             }
 
             DB::commit();
-            
             return redirect()->route('transaksi-penjualan.index')->with('success', 'Transaksi Penjualan Berhasil Disimpan!');
 
         } catch (Exception $e) {
@@ -304,6 +362,7 @@ class PesananController extends Controller
                 'no_pesanan' => $pesanan->no_pesanan,
                 'nama_mitra' => $pesanan->mitra ? $pesanan->mitra->nama_mitra : 'Tidak Diketahui',
                 'alamat' => $pesanan->alamat,
+                'catatan' => $pesanan->catatan, 
                 'items' => $pesanan->items->map(function ($detail) {
                     return [
                         'nama_produk' => $detail->produk ? $detail->produk->nama_produk : 'Produk Terhapus',
@@ -321,6 +380,7 @@ class PesananController extends Controller
             'nama_pengirim' => 'required|string|max:50',
             'kendaraan'     => 'required|string|max:30',
             'no_plat'       => 'required|string|max:15',
+            'catatan'    => 'nullable|string', 
         ]);
 
         $sudahAdaSuratJalan = DB::table('t_surat_jalan')->where('id_pesanan', $request->id_pesanan)->exists();
@@ -336,6 +396,8 @@ class PesananController extends Controller
             $nomorUrut = str_pad($lastId + 1, 4, '0', STR_PAD_LEFT);
             $noSuratJalan = "SJ-{$tanggal}-{$nomorUrut}";
 
+            $catatanSJ = $request->catatan ?? $pesanan->catatan;
+
             DB::table('t_surat_jalan')->insert([
                 'no_surat_jalan'   => $noSuratJalan,
                 'tgl_surat_jalan'  => date('Y-m-d'),
@@ -346,12 +408,12 @@ class PesananController extends Controller
                 'kendaraan'        => $request->kendaraan,
                 'no_plat'          => $request->no_plat,
                 'status'           => 'Diproses', 
+                'catatan'          => $catatanSJ, 
                 'created_at'       => now(),
                 'updated_at'       => now()
             ]);
 
             DB::commit();
-            
             return redirect('/pesanan')->with('success', 'Surat Jalan berhasil disimpan.');
 
         } catch (Exception $e) {
@@ -361,14 +423,13 @@ class PesananController extends Controller
             ]);
         }
     }
+
     public function destroy($id)
     {
         DB::beginTransaction();
         try {
-            // 1. Cari data pesanan asli
             $pesanan = Pesanan::findOrFail($id);
 
-            // 2. Proteksi: Jangan biarkan pesanan dihapus jika sudah jadi Invoice atau Surat Jalan
             $adaInvoice = DB::table('t_jual')->where('id_pesanan', $id)->exists();
             $adaSJ = DB::table('t_surat_jalan')->where('id_pesanan', $id)->exists();
 
@@ -376,14 +437,10 @@ class PesananController extends Controller
                 return redirect()->back()->with('error', 'Pesanan tidak bisa dihapus karena sudah diproses menjadi Surat Jalan atau Invoice!');
             }
 
-            // 3. Hapus detail pesanan terlebih dahulu (t_pesanan_detail) untuk menghindari foreign key constraint
             PesananDetail::where('id_pesanan', $id)->delete();
-
-            // 4. Hapus data induk pesanan (t_pesanan)
             $pesanan->delete();
 
             DB::commit();
-
             return redirect('/pesanan')->with('success', 'Pesanan berhasil dihapus.');
 
         } catch (Exception $e) {

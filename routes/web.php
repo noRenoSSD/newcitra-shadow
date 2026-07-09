@@ -76,9 +76,9 @@ Route::middleware('auth')->group(function () {
     Route::resource('mitra', MitraController::class);
 
     Route::get('/produk', [ProdukController::class, 'index'])->name('produk.index');
-    Route::post('/produk', [ProdukController::class, 'store']);
-    Route::put('/produk/{id_produk}', [ProdukController::class, 'update']);
-    Route::delete('/produk/{id_produk}', [ProdukController::class, 'destroy']);
+    Route::post('/produk', [ProdukController::class, 'store'])->name('produk.store');
+    Route::put('/produk/{id}', [ProdukController::class, 'update'])->name('produk.update');
+    Route::delete('/produk/{id}', [ProdukController::class, 'destroy'])->name('produk.destroy');
 
     Route::post('/harga-produk', [HargaProdukController::class, 'store']);
     Route::delete('/harga-produk/{id}', [HargaProdukController::class, 'destroy']);

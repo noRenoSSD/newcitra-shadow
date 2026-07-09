@@ -6,7 +6,9 @@ interface SuratJalanItem {
   id_pesanan_detail?: number;
   id_konsinyasi_detail?: number;
   id_produk: number;
+  kode_produk?: string;   // 👈 Menambahkan properti kode_produk opsional
   nama_produk: string;
+  satuan_produk?: string; // 👈 Menambahkan properti satuan_produk opsional
   qty: number;
 }
 
@@ -24,6 +26,7 @@ interface DBStatusSuratJalan {
   no_plat: string;
   alamat: string | null; 
   status: 'Diproses' | 'Dikirim' | 'Terkirim';
+  catatan?: string; 
   items?: SuratJalanItem[];
   [key: string]: any; 
 }
@@ -67,7 +70,6 @@ export default function SuratJalan({ suratJalans }: Props) {
     });
   };
 
-  // Helper cerdas pembaca data dinamis
   const getNoReferensi = (sj: DBStatusSuratJalan) => {
     return sj.no_pesanan || sj.konsinyasi_no_order || '-';
   };
@@ -148,10 +150,17 @@ export default function SuratJalan({ suratJalans }: Props) {
               <p className="text-base font-medium text-gray-900">{viewingDetail.kendaraan} ({viewingDetail.no_plat})</p>
             </div>
             <div className="md:col-span-2">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Alamat Tujuan Pengiriman</p>
+              <p className="text-sm text-gray-500">Alamat Tujuan Pengiriman</p>
               <p className="text-sm font-medium text-gray-800 mt-1 leading-relaxed">
                {getAlamatKirim(viewingDetail) || <span className="text-gray-400 italic">Alamat tidak terdata</span>}
-               </p>
+              </p>
+            </div>
+
+            <div className="md:col-span-2 border-t border-gray-100 pt-4">
+              <p className="text-sm text-gray-500">Catatan Pengiriman</p>
+              <p className="text-sm font-medium text-gray-700 mt-1 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                {viewingDetail.catatan ? `${viewingDetail.catatan}` : 'Tidak ada catatan pengiriman.'}
+              </p>
             </div>
           </div>
         </div>
@@ -161,21 +170,27 @@ export default function SuratJalan({ suratJalans }: Props) {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead className="bg-gray-50 border-b border-gray-200">
-                <tr className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <tr className="text-xs font-semibold text-gray-600 tracking-wider">
+                  {/* ─── KEPALA TABEL TERBARU ─── */}
+                  <th className="px-6 py-3">Kode Produk</th>
                   <th className="px-6 py-3">Nama Produk</th>
                   <th className="px-6 py-3 text-center">Jumlah / Qty</th>
+                  <th className="px-6 py-3 text-center">Satuan</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
                 {listBarang.map((item: any, index: number) => (
                   <tr key={index} className="hover:bg-gray-50">
+                    {/* ─── BARIS ISI DATA TERBARU ─── */}
+                    <td className="px-6 py-4 text-sm text-gray-500 ">{item.kode_produk || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-900 font-medium">{item.nama_produk || 'Produk Tidak Diketahui'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900 text-center font-semibold">{item.qty || item.jumlah || 0} Pcs</td>
+                    <td className="px-6 py-4 text-sm text-gray-900 text-center font-semibold">{item.qty || item.jumlah || 0}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600 text-center">{item.satuan_produk || 'Pcs'}</td>
                   </tr>
                 ))}
                 {listBarang.length === 0 && (
                   <tr>
-                    <td colSpan={2} className="text-center py-6 text-sm text-gray-400 italic">
+                    <td colSpan={4} className="text-center py-6 text-sm text-gray-400 italic">
                       Tidak ada rincian produk untuk surat jalan ini
                     </td>
                   </tr>
@@ -193,8 +208,8 @@ export default function SuratJalan({ suratJalans }: Props) {
     <div className="py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <Head title="Daftar Surat Jalan" />
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-red-800 inline-flex items-center gap-2"> Daftar Surat Jalan </h1>
-        <p className="text-sm text-gray-500 mt-1">Kelola data surat jalan pengiriman</p>
+        <h1 className="text-2xl font-bold text-black-800 inline-flex items-center gap-2"> Daftar Surat Jalan </h1>
+        <p className="text-sm text-black-500 mt-1">Kelola data surat jalan pengiriman</p>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">

@@ -25,6 +25,7 @@ class SuratJalan extends Model
         'kendaraan',
         'no_plat',
         'status',
+        'catatan',
     ];
 
     // Hubungan ke tabel Pesanan (Asumsi nama Modelnya 'Pesanan' dan PK-nya 'id_pesanan')

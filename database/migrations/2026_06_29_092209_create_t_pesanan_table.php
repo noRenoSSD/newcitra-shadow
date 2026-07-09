@@ -30,6 +30,8 @@ return new class extends Migration
             $table->string('alamat', 100);
 
             $table->decimal('total_harga', 20, 0)->default(0);
+            $table->text('catatan')->nullable();
+            $table->decimal('total_diskon', 12, 0)->default(0);
 
             $table->timestamps();
 

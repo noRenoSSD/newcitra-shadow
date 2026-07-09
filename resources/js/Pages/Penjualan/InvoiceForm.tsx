@@ -24,8 +24,9 @@ export default function InvoiceForm({ pesanan }: any) {
     tgl_invoice: tanggalHariIni,      
     metode_pembayaran: 'Tunai',
     termin_hari: '',
-    jatuh_tempo_tanggal: '', // Ini yang akan dibaca oleh backend t_piutang
-    total_harga: pesanan.total_harga
+    jatuh_tempo_tanggal: '', 
+    total_harga: pesanan.total_harga,
+    catatan: pesanan.keterangan || '', // 👈 Mengunci catatan langsung dari keterangan SO
   });
 
   const handlePaymentChange = (method: string) => {
@@ -41,7 +42,6 @@ export default function InvoiceForm({ pesanan }: any) {
     }
   };
 
-  // ─── FILTER OTOMATIS: HITUNG TANGGAL JIKA INPUT TERMIN HARI ───
   const handleTerminHariChange = (hari: string) => {
     setData('termin_hari', hari);
     
@@ -58,7 +58,7 @@ export default function InvoiceForm({ pesanan }: any) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    post('/transaksi-penjualan-store', { // Mengarah ke named route store yang benar
+    post('/transaksi-penjualan-store', {
       onSuccess: () => {
          router.get('/transaksi-penjualan');
       }
@@ -94,6 +94,13 @@ export default function InvoiceForm({ pesanan }: any) {
         </h1>
         <p className="text-xs text-gray-500 mt-1">Referensi SO: {pesanan.no_pesanan} ({pesanan.nama_mitra})</p>
       </div>
+
+      {/* ─── INFO CATATAN REFERENSI SECARA STATIS (PREVIEW ONLY) ─── */}
+      {pesanan.keterangan && (
+        <div className="mb-5 p-3 bg-gray-50 rounded-lg border border-gray-100 text-xs text-gray-600">
+          Catatan dari SO: <span className="font-medium italic text-gray-800">"{pesanan.keterangan}"</span>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <input type="hidden" value={data.no_invoice} />

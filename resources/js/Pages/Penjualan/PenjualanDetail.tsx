@@ -1,5 +1,5 @@
 import { ArrowLeft } from 'lucide-react';
-import { router } from '@inertiajs/react'; // 1. Pastikan router di-import di sini
+import { router } from '@inertiajs/react';
 
 interface InvoiceDetailProps {
   invoice: {
@@ -11,30 +11,45 @@ interface InvoiceDetailProps {
     alamat_mitra?: string;
     jenis_penjualan: 'Grosir' | 'Eceran';
     metode_pembayaran: 'Tunai' | 'Kredit';
-    subtotal: number;
-    total_diskon: number;
+    subtotal: number; // Nilai dari DB (bisa diabaikan jika hitung manual lebih akurat)
     total_hpp: number; 
     grand_total: number;
+    keterangan?: string; 
     items: {
       nama_produk: string;
       qty_jual: number;
       hpp_satuan: number;
-      diskon: number;
-      subtotal: number;
+      diskon: number; // Persen diskon (ex: 5)
+      subtotal: number; // Biasanya ini subtotal setelah diskon per item dari DB
       harga_jual_satuan: number;
     }[];
   };
-  onBack?: () => void; // 2. Ubah jadi opsional pakai tanda tanya (?) agar tidak error saat dikosongkan
+  onBack?: () => void; 
 }
 
 export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
+  
+  // ─── RUMUS 1: HITUNG TOTAL SUBOTAL SEBELUM DISKON ───
+  // Menjumlahkan (Qty x Harga Jual Satuan) dari seluruh item produk
+  const hitungSubtotalSebelumDiskon = invoice.items.reduce((totalAkumulasi, item) => {
+    const hargaKotorBaris = item.qty_jual * item.harga_jual_satuan;
+    return totalAkumulasi + hargaKotorBaris;
+  }, 0);
+
+  // ─── RUMUS 2: HITUNG TOTAL NOMINAL DISKON 1 DOKUMEN ───
+  const hitungTotalDiskonDokumen = invoice.items.reduce((totalAkumulasi, item) => {
+    const persenDiskon = Number(item.diskon) || 0;
+    const hargaKotorBaris = item.qty_jual * item.harga_jual_satuan;
+    const nominalDiskonBaris = hargaKotorBaris * (persenDiskon / 100);
+    return totalAkumulasi + nominalDiskonBaris;
+  }, 0);
+
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
       {/* Header */}
       <div className="mb-6">
         <button
           onClick={() => {
-            // 3. KUNCI AMAN: Jika parent tidak kirim fungsi onBack, paksa redirect lewat URL Inertia
             if (onBack) {
               onBack();
             } else {
@@ -81,6 +96,14 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
             <p className="text-xs font-semibold text-gray-400 uppercase">Alamat Pengiriman</p>
             <p className="text-base font-medium text-gray-900 mt-0.5">{invoice.alamat_mitra || '-'}</p>
           </div>
+          
+          {/* Catatan Bawaan SO */}
+          <div className="md:col-span-2 border-t border-gray-100 pt-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase">Catatan / Keterangan Penjualan</p>
+            <p className="text-sm font-medium text-gray-700 italic mt-1 bg-gray-50 p-3 rounded-lg border border-gray-100">
+              {invoice.keterangan ? `"${invoice.keterangan}"` : 'Tidak ada catatan tambahan.'}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -101,37 +124,52 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 text-sm text-gray-700 bg-white">
-              {invoice.items.map((item, idx) => (
-                <tr key={idx} className="hover:bg-gray-50/50">
-                  <td className="px-6 py-4 font-medium text-gray-900">{item.nama_produk}</td>
-                  <td className="px-6 py-4 text-center whitespace-nowrap">{item.qty_jual} Unit</td>
-                  <td className="px-6 py-4 text-right">Rp {Number(item.harga_jual_satuan).toLocaleString('id-ID')}</td>
-                  <td className="px-6 py-4 text-center text-red-600 font-medium">
-                    {item.diskon > 0 ? `Rp ${Number(item.diskon).toLocaleString('id-ID')}` : '-'}
-                  </td>
-                  <td className="px-6 py-4 text-right font-bold text-gray-900">
-                    Rp {Number(item.subtotal).toLocaleString('id-ID')}
-                  </td>
-                </tr>
-              ))}
+              {invoice.items.map((item, idx) => {
+                const nilaiPersen = Number(item.diskon) || 0;
+
+                return (
+                  <tr key={idx} className="hover:bg-gray-50/50">
+                    <td className="px-6 py-4 font-medium text-gray-900">{item.nama_produk}</td>
+                    <td className="px-6 py-4 text-center whitespace-nowrap">{item.qty_jual} Unit</td>
+                    <td className="px-6 py-4 text-right">Rp {Number(item.harga_jual_satuan).toLocaleString('id-ID')}</td>
+                    
+                    {/* Diskon Persen Per Produk */}
+                    <td className="px-6 py-4 text-center text-red-600 font-semibold">
+                      {nilaiPersen > 0 ? `${nilaiPersen}%` : '-'}
+                    </td>
+                    
+                    <td className="px-6 py-4 text-right font-bold text-gray-900">
+                      Rp {Number(item.subtotal).toLocaleString('id-ID')}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Ringkasan Tagihan Pelanggan (HPP Bersih & Laba Sudah Dihapus Total) */}
+      {/* Ringkasan Tagihan Pelanggan */}
       <div className="flex justify-end">
         <div className="w-full md:w-1/2 bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-3">
+          
+          {/* ─── PEMANGGILAN SUBOTAL SEBELUM DISKON (MANUAL) ─── */}
           <div className="flex justify-between text-sm text-gray-600">
             <span>Subtotal Transaksi:</span>
-            <span className="font-semibold text-gray-900">Rp {Number(invoice.subtotal).toLocaleString('id-ID')}</span>
+            <span className="font-semibold text-gray-900">
+              Rp {hitungSubtotalSebelumDiskon.toLocaleString('id-ID')}
+            </span>
           </div>
+          
+          {/* Potongan Diskon Master */}
           <div className="flex justify-between text-sm text-gray-600">
             <span>Potongan Diskon Master:</span>
             <span className="font-semibold text-red-600">
-              {invoice.total_diskon > 0 ? `- Rp ${Number(invoice.total_diskon).toLocaleString('id-ID')}` : 'Rp 0'}
+              {hitungTotalDiskonDokumen > 0 ? `- Rp ${hitungTotalDiskonDokumen.toLocaleString('id-ID')}` : 'Rp 0'}
             </span>
           </div>
+          
+          {/* Grand Total */}
           <div className="flex justify-between text-base font-bold text-gray-900 border-t border-gray-200 pt-3">
             <span>Grand Total:</span>
             <span className="text-xl text-red-800">Rp {Number(invoice.grand_total).toLocaleString('id-ID')}</span>

@@ -20,7 +20,7 @@ export default function SuratJalanForm({ pesanan, konsinyasi, onBack }: Props) {
         ? konsinyasi?.nama_toko
         : pesanan?.nama_mitra;
 
-    // Ambil keterangan awal untuk dikirim ke backend tanpa ditampilkan di input
+    // Ambil keterangan awal dari SO atau Konsinyasi sebagai nilai default
     const keteranganBackground = isKonsinyasi
         ? konsinyasi?.keterangan
         : pesanan?.keterangan;
@@ -30,14 +30,13 @@ export default function SuratJalanForm({ pesanan, konsinyasi, onBack }: Props) {
         nama_pengirim: "",
         kendaraan: "",
         no_plat: "",
-        catatan_pengiriman: keteranganBackground || "", // Disimpan di background
+        catatan: keteranganBackground || "", // 👈 Sekarang bisa diedit via UI
     });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
         if (isKonsinyasi) {
-            // PERBAIKAN: Ambil id secara fleksibel & pastikan tidak string 'undefined'
             const finalId =
                 konsinyasi?.id_konsinyasi || konsinyasi?.id_konsinyasi_keluar;
 
@@ -53,7 +52,7 @@ export default function SuratJalanForm({ pesanan, konsinyasi, onBack }: Props) {
                 {
                     pengirim: data.nama_pengirim,
                     kendaraan: `${data.kendaraan} (${data.no_plat})`,
-                    catatan_pengiriman: data.catatan_pengiriman,
+                    catatan: data.catatan,
                 },
                 {
                     onSuccess: () => {
@@ -73,7 +72,7 @@ export default function SuratJalanForm({ pesanan, konsinyasi, onBack }: Props) {
                 nama_pengirim: data.nama_pengirim,
                 kendaraan: data.kendaraan,
                 no_plat: data.no_plat,
-                catatan_pengiriman: data.catatan_pengiriman,
+                catatan: data.catatan, // Ikut terkirim ke route /surat-jalan
             });
         }
     };
@@ -139,7 +138,7 @@ export default function SuratJalanForm({ pesanan, konsinyasi, onBack }: Props) {
                             onChange={(e) =>
                                 setData("nama_pengirim", e.target.value)
                             }
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-800 outline-none"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-800 outline-none animate-none"
                         />
                     </div>
 
@@ -153,7 +152,7 @@ export default function SuratJalanForm({ pesanan, konsinyasi, onBack }: Props) {
                             placeholder="Contoh: H 1234 AB"
                             value={data.no_plat}
                             onChange={(e) => setData("no_plat", e.target.value)}
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-800 outline-none"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-800 outline-none animate-none"
                         />
                     </div>
 
@@ -169,7 +168,23 @@ export default function SuratJalanForm({ pesanan, konsinyasi, onBack }: Props) {
                             onChange={(e) =>
                                 setData("kendaraan", e.target.value)
                             }
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-800 outline-none"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-800 outline-none animate-none"
+                        />
+                    </div>
+
+                    {/* ─── INPUT FIELD CATATAN BARU (MUNCUL DI UI) ─── */}
+                    <div className="space-y-2 md:col-span-2">
+                        <label className="text-sm font-semibold text-gray-700">
+                            Catatan Pengiriman / Keterangan
+                        </label>
+                        <textarea
+                            rows={3}
+                            placeholder="Tambahkan catatan rute, instruksi kirim, atau info tambahan..."
+                            value={data.catatan}
+                            onChange={(e) =>
+                                setData("catatan", e.target.value)
+                            }
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-800 outline-none text-sm resize-none"
                         />
                     </div>
                 </div>

@@ -29,6 +29,7 @@ return new class extends Migration
             $table->integer('qty');
 
             $table->decimal('subtotal', 20, 0);
+            $table->decimal('diskon', 12, 0)->default(0);
 
             $table->timestamps();
 
