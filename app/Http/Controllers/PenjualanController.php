@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Exception;
+use App\Services\InventoryService;
 
 class PenjualanController extends Controller
 {
@@ -18,8 +19,8 @@ class PenjualanController extends Controller
             ->join('t_pesanan', 't_jual.id_pesanan', '=', 't_pesanan.id_pesanan')
             ->join('t_mitra', 't_pesanan.id_mitra', '=', 't_mitra.id_mitra')
             ->select(
-                't_jual.*', 
-                't_pesanan.no_pesanan', 
+                't_jual.*',
+                't_pesanan.no_pesanan',
                 't_mitra.nama_mitra'
             )
             ->orderBy('t_jual.id_jual', 'desc')
@@ -36,7 +37,7 @@ class PenjualanController extends Controller
     public function storeInvoice(Request $request)
     {
         $idPesanan = $request->id_pesanan;
-        
+
         $noInvoice = $request->no_invoice ?? ('INV-' . date('Ymd') . '-' . $idPesanan);
         $tglInvoice = $request->tgl_invoice ?? date('Y-m-d');
         $totalHarga = $request->total_harga ?? 0;
@@ -46,8 +47,6 @@ class PenjualanController extends Controller
         try {
             // AMBIL DATA PESANAN TERLEBIH DAHULU UNTUK MENGETAHUI JENIS PENJUALANNYA
             $pesananAsli = DB::table('t_pesanan')->where('id_pesanan', $idPesanan)->first();
-            
-            // Fallback ke 'Grosir' jika karena suatu hal kolom jenis_penjualan di t_pesanan kosong
             $jenisPenjualan = $pesananAsli->jenis_transaksi ?? 'Grosir';
 
             // 1. INSERT KE TABEL INDUK (t_jual)
@@ -55,11 +54,11 @@ class PenjualanController extends Controller
                 'no_jual'           => $noInvoice,
                 'tgl_jual'          => $tglInvoice,
                 'id_pesanan'        => $idPesanan,
-                'jenis_penjualan'   => $jenisPenjualan, // Sekarang dinamis mengambil dari t_pesanan
-                'metode_pembayaran' => $metodePembayaran,       
+                'jenis_penjualan'   => $jenisPenjualan,
+                'metode_pembayaran' => $metodePembayaran,
                 'subtotal'          => $totalHarga,
                 'total_diskon'      => 0,
-                'total_hpp'         => 0,
+                'total_hpp'         => 0, // Akan diupdate di akhir
                 'grand_total'       => $totalHarga,
                 'created_at'        => now(),
                 'updated_at'        => now()
@@ -67,82 +66,98 @@ class PenjualanController extends Controller
 
             // 2. AMBIL DETAIL DARI t_pesanan_detail
             $items = DB::table('t_pesanan_detail')->where('id_pesanan', $idPesanan)->get();
-            
+            $totalHppInvoice = 0; // Variabel penampung akumulasi HPP
+
+            // ─── SATUKAN LOOPING DI SINI ───
             foreach ($items as $item) {
-                // Konversi objek ke array untuk mengantisipasi variasi pemanggilan data
                 $itemArray = (array) $item;
 
-                // Ambil qty pesanan (mencari field qty_pesanan atau qty)
+                // Ambil qty pesanan
                 $qty = $itemArray['qty_pesanan'] ?? $itemArray['qty'] ?? 1;
                 $qty = $qty > 0 ? $qty : 1;
 
-                // Ambil harga murni langsung dari t_pesanan_detail 
-                $hargaAsli = $itemArray['harga'] 
-                    ?? $itemArray['harga_satuan'] 
-                    ?? $itemArray['harga_jual'] 
-                    ?? $itemArray['harga_pesanan'] 
-                    ?? 0;
-
-                // Ambil subtotal baris
+                // Ambil harga
+                $hargaAsli = $itemArray['harga'] ?? $itemArray['harga_satuan'] ?? $itemArray['harga_jual'] ?? $itemArray['harga_pesanan'] ?? 0;
                 $subtotal = $itemArray['subtotal'] ?? $itemArray['total_harga'] ?? ($hargaAsli * $qty);
 
-                // Jika hargaAsli masih 0 tapi subtotal ada, kita hitung manual
                 if ($hargaAsli == 0 && $subtotal > 0) {
                     $hargaAsli = $subtotal / $qty;
                 }
 
+                // A. Ambil saldo_harga (HPP) terakhir dari kartu persediaan
+                $lastSaldo = DB::table('t_kartu_persediaan')
+                    ->where('id_produk', $item->id_produk)
+                    ->orderBy('tanggal_transaksi', 'desc')
+                    ->orderBy('id_kartu', 'desc')
+                    ->first();
+
+                $hppSatuan = $lastSaldo ? (float) $lastSaldo->saldo_harga : 0;
+                $subtotalHpp = $hppSatuan * $qty;
+                $totalHppInvoice += $subtotalHpp;
+
+                // B. Simpan ke t_jual_detail (CUKUP SATU KALI INSERT SAJA)
                 DB::table('t_jual_detail')->insert([
                     'id_jual'    => $idJual,
                     'id_produk'  => $item->id_produk,
-                    'harga'      => $hargaAsli, 
+                    'harga'      => $hargaAsli,
                     'qty_jual'   => $qty,
-                    'hpp_satuan' => 0, 
+                    'hpp_satuan' => $hppSatuan, // Simpan HPP di sini
                     'diskon'     => $itemArray['diskon'] ?? 0,
                     'subtotal'   => $subtotal,
                     'created_at' => now(),
                     'updated_at' => now()
                 ]);
+
+                // C. Potong stok lewat InventoryService
+                InventoryService::catatMutasi(
+                    $item->id_produk,
+                    'produk',
+                    'KELUAR',
+                    'penjualan',
+                    $noInvoice,
+                    $qty,
+                    0,
+                    $tglInvoice,
+                    "Penjualan Produk (No. Invoice: {$noInvoice})"
+                );
             }
 
-            // ─── 3. LOGIKA OTOMATIS GENERATE KARTU PIUTANG JIKA KREDIT ───
-            if ($metodePembayaran === 'Kredit') {
-                if ($pesananAsli) {
-                    // Generate nomor piutang otomatis
-                    $noPiutangOtomatis = 'PUT-' . date('Ymd') . '-' . $idJual;
+            // 3. Update kolom total_hpp di tabel induk t_jual
+            DB::table('t_jual')->where('id_jual', $idJual)->update([
+                'total_hpp' => $totalHppInvoice
+            ]);
 
-                    // HITUNG JATUH TEMPO DINAMIS BERDASARKAN HARI (Contoh: 20 hari dari tgl_jual)
-                    // Jika frontend mengirim 'termin_hari' (misal: 20), pakai itu. Jika kosong, default 30 hari.
-                    if ($request->has('termin_hari') && !empty($request->termin_hari)) {
-                        $terminHari = (int) $request->termin_hari;
-                        $calculatedJatuhTempo = date('Y-m-d', strtotime($tglInvoice . " + {$terminHari} days"));
-                    } else {
-                        // Backup fallback jika tidak pakai jumlah hari, melainkan langsung input tanggal mentah
-                        $calculatedJatuhTempo = $request->jatuh_tempo_tanggal ?? date('Y-m-d', strtotime($tglInvoice . ' + 30 days'));
-                    }
+            // 4. LOGIKA OTOMATIS GENERATE KARTU PIUTANG JIKA KREDIT
+            if ($metodePembayaran === 'Kredit' && $pesananAsli) {
+                $noPiutangOtomatis = 'PUT-' . date('Ymd') . '-' . $idJual;
 
-                    DB::table('t_piutang')->insert([
-                        'id_mitra'       => $pesananAsli->id_mitra,
-                        'no_piutang'     => $noPiutangOtomatis,
-                        'id_jual'        => $idJual,
-                        'tgl_piutang'    => $tglInvoice,
-                        'total_piutang'  => $totalHarga,
-                        'terbayar'       => 0,
-                        'sisa_piutang'   => $totalHarga,
-                        'jt_piutang' => $request->jatuh_tempo_tanggal ?? date('Y-m-d', strtotime($tglInvoice . ' + 30 days')),
-                        'status_piutang' => 'Belum Lunas', 
-                        'keterangan'     => 'Piutang otomatis dari invoice ' . $noInvoice,
-                    ]);
+                if ($request->has('termin_hari') && !empty($request->termin_hari)) {
+                    $terminHari = (int) $request->termin_hari;
+                    $calculatedJatuhTempo = date('Y-m-d', strtotime($tglInvoice . " + {$terminHari} days"));
+                } else {
+                    $calculatedJatuhTempo = $request->jatuh_tempo_tanggal ?? date('Y-m-d', strtotime($tglInvoice . ' + 30 days'));
                 }
+
+                DB::table('t_piutang')->insert([
+                    'id_mitra'       => $pesananAsli->id_mitra,
+                    'no_piutang'     => $noPiutangOtomatis,
+                    'id_jual'        => $idJual,
+                    'tgl_piutang'    => $tglInvoice,
+                    'total_piutang'  => $totalHarga,
+                    'terbayar'       => 0,
+                    'sisa_piutang'   => $totalHarga,
+                    'jt_piutang'     => $calculatedJatuhTempo,
+                    'status_piutang' => 'Belum Lunas',
+                    'keterangan'     => 'Piutang otomatis dari invoice ' . $noInvoice,
+                ]);
             }
-            // ─────────────────────────────────────────────────────────────
 
             DB::commit();
-
             return redirect('/transaksi-penjualan')->with('success', 'Transaksi Penjualan Berhasil Disimpan!');
 
         } catch (Exception $e) {
             DB::rollback();
-            dd('Waduh database crash lagi: ' . $e->getMessage()); 
+            dd('Waduh database crash lagi: ' . $e->getMessage());
         }
     }
 
@@ -168,8 +183,8 @@ class PenjualanController extends Controller
                 't_produk.nama_produk',
                 't_jual_detail.id_produk',
                 't_jual_detail.qty_jual',
-                't_jual_detail.harga', 
-                't_jual_detail.harga as harga_jual_satuan', 
+                't_jual_detail.harga',
+                't_jual_detail.harga as harga_jual_satuan',
                 't_jual_detail.hpp_satuan',
                 't_jual_detail.diskon',
                 't_jual_detail.subtotal'

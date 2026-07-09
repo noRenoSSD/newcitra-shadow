@@ -104,6 +104,10 @@ const menuItems: MenuItem[] = [
                 label: "Persetujuan Pemakaian Bahan",
                 path: "/approval-pemakaian-bahan",
             },
+            {
+                label: "Persediaan Konsinyasi",
+                path: "/persediaan/konsinyasi",
+            },
         ],
     },
     {

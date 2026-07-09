@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { router } from "@inertiajs/react";
 import { Plus, Search, Eye, Trash2, X, Printer } from "lucide-react";
-import axios from "axios"; // <-- WAJIB IMPORT AXIOS
+import axios from "axios";
 
 // --- INTERFACES DARI BACKEND ---
 interface Bahan {
@@ -43,7 +43,7 @@ interface PermintaanPembelian {
     };
 }
 
-// --- INTERFACE TAMBAHAN (Sesuai Instruksi) ---
+// --- INTERFACE TAMBAHAN ---
 interface KebutuhanMingguanItem {
     id_bahan: number;
     kode_bahan: string;
@@ -52,18 +52,15 @@ interface KebutuhanMingguanItem {
     qty_kebutuhan: number;
 }
 
-type TabType = "baku" | "penolong" | "tambahan";
+type TabType = "baku" | "tambahan";
 
 export default function PermintaanPembelian({
     permintaans = [],
     jadwals = [],
     bahans = [],
     nextNoPp = {},
+    stokBahan = {}, // <-- UPDATE: Tangkap props stokBahan dari Backend
 }: any) {
-    console.log("Data Permintaan:", permintaans);
-    console.log("Data Jadwal:", jadwals);
-    console.log("Data Semua Bahan:", bahans);
-
     const [activeTab, setActiveTab] = useState<TabType>("baku");
     const [showForm, setShowForm] = useState(false);
     const [showDetail, setShowDetail] = useState(false);
@@ -103,7 +100,6 @@ export default function PermintaanPembelian({
     const handleTabChange = (tab: TabType) => {
         setActiveTab(tab);
         setSearchTerm("");
-        // Reset mode pembelian ke default saat ganti tab
         if (tab !== "baku") {
             setModePembelian("per_produksi");
         }
@@ -111,7 +107,6 @@ export default function PermintaanPembelian({
 
     const handleModePembelianChange = (mode: "per_produksi" | "mingguan") => {
         setModePembelian(mode);
-        // Reset list kebutuhan dan form terkait produksi
         setKebutuhanList([]);
         setFormData({ ...formData, id_produksi: "", catatan: "" });
         setTglMulaiPeriode("");
@@ -136,7 +131,6 @@ export default function PermintaanPembelian({
             satuan_bahan: "",
         });
 
-        // Reset state mingguan
         setModePembelian("per_produksi");
         setTglMulaiPeriode("");
         setTglAkhirPeriode("");
@@ -165,7 +159,6 @@ export default function PermintaanPembelian({
 
         setFormData({ ...formData, id_produksi: idProduksi });
 
-        // Filter kebutuhan_bahan berdasarkan tab aktif
         const filteredMaterial =
             jadwalDetail.kebutuhan_bahan?.filter(
                 (m: any) => m.detail_bom?.bahan?.jenis_bahan === activeTab,
@@ -178,7 +171,8 @@ export default function PermintaanPembelian({
             nama_bahan: m.detail_bom.bahan.nama_bahan,
             jenis_bahan: m.detail_bom.bahan.jenis_bahan,
             kebutuhan: m.qty_kebutuhan,
-            stok_gudang: 0,
+            // UPDATE: Otomatis membaca dictionary stokBahan, fallback 0 jika tidak ada
+            stok_gudang: stokBahan[m.detail_bom.bahan.id_bahan] || 0,
             diminta: 0,
             satuan_bahan: m.detail_bom.bahan.satuan_bahan,
         }));
@@ -223,7 +217,6 @@ export default function PermintaanPembelian({
             setKodeProduksiCovered(data.kodeProduksi || []);
             setIdProduksiAnchor(data.idProduksiAnchor || null);
 
-            // Mapping kebutuhan dari API ke format state lokal form
             const kebutuhanData = data.kebutuhan.map(
                 (item: KebutuhanMingguanItem, idx: number) => ({
                     id_list: `mingguan-${Date.now()}-${idx}`,
@@ -232,15 +225,15 @@ export default function PermintaanPembelian({
                     nama_bahan: item.nama_bahan,
                     jenis_bahan: "baku",
                     kebutuhan: item.qty_kebutuhan,
-                    stok_gudang: 0,
-                    diminta: 0, // di-set manual atau bisa disamakan dgn kebutuhan
+                    // UPDATE: Sama, baca dari props untuk Mingguan
+                    stok_gudang: stokBahan[item.id_bahan] || 0,
+                    diminta: 0,
                     satuan_bahan: item.satuan_bahan,
                 }),
             );
 
             setKebutuhanList(kebutuhanData);
 
-            // Set id anchor sebagai id_produksi untuk FK relasi dan catatan cover
             setFormData({
                 ...formData,
                 id_produksi: data.idProduksiAnchor?.toString() || "",
@@ -259,14 +252,6 @@ export default function PermintaanPembelian({
     const handleDetail = (permintaan: PermintaanPembelian) => {
         setSelectedPermintaan(permintaan);
         setShowDetail(true);
-    };
-
-    const handleDelete = (id: number) => {
-        if (
-            window.confirm("Apakah Anda yakin ingin menghapus permintaan ini?")
-        ) {
-            router.delete(`/pembelian/permintaan/${id}`);
-        }
     };
 
     const handleAddKebutuhan = () => {
@@ -291,7 +276,8 @@ export default function PermintaanPembelian({
                 id_list: Date.now().toString(),
                 ...newKebutuhan,
                 kebutuhan: 0,
-                stok_gudang: 0,
+                // UPDATE: Menarik stok gudang saat input manual di tab Bahan Tambahan
+                stok_gudang: stokBahan[newKebutuhan.id_bahan] || 0,
                 diminta: 0,
             },
         ]);
@@ -334,7 +320,6 @@ export default function PermintaanPembelian({
                 catatan: formData.catatan,
                 id_produksi:
                     activeTab === "tambahan" ? null : formData.id_produksi,
-                // Parameter tambahan khusus mode mingguan yang akan ditangkap validasi backend
                 tgl_mulai_periode:
                     activeTab === "baku" && modePembelian === "mingguan"
                         ? tglMulaiPeriode
@@ -396,7 +381,7 @@ export default function PermintaanPembelian({
           ${isTambahan ? `<td style="border:1px solid #ccc;padding:6px 10px;">${item.bahan?.jenis_bahan || "-"}</td>` : ""}
           <td style="border:1px solid #ccc;padding:6px 10px;">${item.bahan?.nama_bahan || "-"}</td>
           ${!isTambahan ? `<td style="border:1px solid #ccc;padding:6px 10px;text-align:right;">${item.qty_kebutuhan ?? "-"}</td>` : ""}
-          <td style="border:1px solid #ccc;padding:6px 10px;text-align:right;">0</td>
+          <td style="border:1px solid #ccc;padding:6px 10px;text-align:right;">${stokBahan[item.id_bahan] || 0}</td>
           <td style="border:1px solid #ccc;padding:6px 10px;text-align:right;">${item.qty_diminta}</td>
           <td style="border:1px solid #ccc;padding:6px 10px;text-align:center;">${item.bahan?.satuan_bahan || "-"}</td>
         </tr>`,
@@ -451,7 +436,6 @@ export default function PermintaanPembelian({
         win.document.close();
     };
 
-    // Filter List Utama
     const currentList = permintaans.filter(
         (p: PermintaanPembelian) => p.jenis_bahan === activeTab,
     );
@@ -468,7 +452,6 @@ export default function PermintaanPembelian({
         );
     });
 
-    // Filter Dropdown Jadwal & Bahan
     const availableJadwals = jadwals.filter((j: any) =>
         j.kebutuhan_bahan?.some(
             (kb: any) => kb.detail_bom?.bahan?.jenis_bahan === activeTab,
@@ -494,9 +477,7 @@ export default function PermintaanPembelian({
         const formTitle =
             activeTab === "baku"
                 ? "Permintaan Bahan Baku"
-                : activeTab === "penolong"
-                  ? "Permintaan Bahan Penolong"
-                  : "Permintaan Bahan Tambahan";
+                : "Permintaan Bahan Tambahan";
 
         return (
             <div className="p-6">
@@ -508,7 +489,6 @@ export default function PermintaanPembelian({
                     </div>
 
                     <form onSubmit={handleSubmit} className="p-6">
-                        {/* --- TAB SWITCHER KHUSUS MODE PEMBELIAN (BAKU SAJA) --- */}
                         {activeTab === "baku" && (
                             <div className="mb-6 flex p-1 bg-gray-100 rounded-lg w-fit">
                                 <button
@@ -586,7 +566,6 @@ export default function PermintaanPembelian({
                                 <>
                                     {activeTab !== "baku" ||
                                     modePembelian === "per_produksi" ? (
-                                        // TAMPILAN NORMAL (Per Produksi / Penolong)
                                         <>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -658,7 +637,6 @@ export default function PermintaanPembelian({
                                             </div>
                                         </>
                                     ) : (
-                                        // TAMPILAN KHUSUS MINGGUAN (Baku)
                                         <>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -737,7 +715,6 @@ export default function PermintaanPembelian({
                                 </div>
                             )}
 
-                            {/* TEXTAREA KHUSUS CATATAN KODE PRODUKSI TERCOVER - MINGGUAN */}
                             {activeTab === "baku" &&
                                 modePembelian === "mingguan" && (
                                     <div className="md:col-span-2 lg:col-span-4">
@@ -768,7 +745,7 @@ export default function PermintaanPembelian({
                                                   "per_produksi"
                                                     ? "Bahan Mudah Rusak"
                                                     : "Bahan Tahan Lama"
-                                                : "Bahan Penolong"}
+                                                : ""}
                                         </span>
                                     )}
                                 </h4>
@@ -888,22 +865,16 @@ export default function PermintaanPembelian({
                                             <th className="px-6 py-3 text-center">
                                                 Satuan
                                             </th>
-                                            {activeTab === "tambahan" && (
-                                                <th className="px-6 py-3 text-center">
-                                                    Aksi
-                                                </th>
-                                            )}
+                                            <th className="px-6 py-3 text-center">
+                                                Aksi
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
                                         {kebutuhanList.length === 0 ? (
                                             <tr>
                                                 <td
-                                                    colSpan={
-                                                        activeTab === "tambahan"
-                                                            ? 7
-                                                            : 6
-                                                    }
+                                                    colSpan={7}
                                                     className="px-6 py-8 text-center text-gray-500"
                                                 >
                                                     Tidak ada data kebutuhan
@@ -941,24 +912,8 @@ export default function PermintaanPembelian({
                                                             value={
                                                                 item.stok_gudang
                                                             }
-                                                            onChange={(e) => {
-                                                                const newList =
-                                                                    [
-                                                                        ...kebutuhanList,
-                                                                    ];
-                                                                newList[
-                                                                    index
-                                                                ].stok_gudang =
-                                                                    parseFloat(
-                                                                        e.target
-                                                                            .value,
-                                                                    ) || 0;
-                                                                setKebutuhanList(
-                                                                    newList,
-                                                                );
-                                                            }}
-                                                            className="w-20 px-2 py-1 border border-gray-300 rounded text-right focus:border-red-500"
-                                                            disabled
+                                                            className="w-20 px-2 py-1 border border-gray-300 rounded text-right bg-gray-100"
+                                                            disabled // Dibuat disabled karena data sudah ditarik otomatis dari database persediaan
                                                         />
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
@@ -989,22 +944,19 @@ export default function PermintaanPembelian({
                                                     <td className="px-6 py-4 text-center">
                                                         {item.satuan_bahan}
                                                     </td>
-                                                    {activeTab ===
-                                                        "tambahan" && (
-                                                        <td className="px-6 py-4 text-center">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    handleRemoveKebutuhan(
-                                                                        item.id_list,
-                                                                    )
-                                                                }
-                                                                className="text-red-500 hover:text-red-700"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
-                                                        </td>
-                                                    )}
+                                                    <td className="px-6 py-4 text-center">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                handleRemoveKebutuhan(
+                                                                    item.id_list,
+                                                                )
+                                                            }
+                                                            className="text-red-500 hover:text-red-700"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </td>
                                                 </tr>
                                             ))
                                         )}
@@ -1209,7 +1161,10 @@ export default function PermintaanPembelian({
                                                     </td>
                                                 )}
                                                 <td className="px-6 py-4 text-right text-gray-600">
-                                                    0
+                                                    {/* UPDATE: Stok real time juga di detail modal (ditarik dari array) */}
+                                                    {stokBahan[
+                                                        detail.id_bahan
+                                                    ] || 0}
                                                 </td>
                                                 <td className="px-6 py-4 text-right font-bold text-red-700">
                                                     {detail.qty_diminta}
@@ -1253,26 +1208,20 @@ export default function PermintaanPembelian({
             <div className="bg-white rounded-lg shadow overflow-hidden">
                 <div className="border-b border-gray-200">
                     <div className="flex space-x-8 px-6">
-                        {(["baku", "penolong", "tambahan"] as TabType[]).map(
-                            (tab) => (
-                                <button
-                                    key={tab}
-                                    onClick={() => handleTabChange(tab)}
-                                    className={`py-4 px-1 inline-flex items-center border-b-2 font-medium text-sm transition-colors ${
-                                        activeTab === tab
-                                            ? "border-red-800 text-red-800"
-                                            : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                                    }`}
-                                >
-                                    Permintaan Bahan{" "}
-                                    {tab === "baku"
-                                        ? "Baku"
-                                        : tab === "penolong"
-                                          ? "Penolong"
-                                          : "Tambahan"}
-                                </button>
-                            ),
-                        )}
+                        {(["baku", "tambahan"] as TabType[]).map((tab) => (
+                            <button
+                                key={tab}
+                                onClick={() => handleTabChange(tab)}
+                                className={`py-4 px-1 inline-flex items-center border-b-2 font-medium text-sm transition-colors ${
+                                    activeTab === tab
+                                        ? "border-red-800 text-red-800"
+                                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                                }`}
+                            >
+                                Permintaan Bahan{" "}
+                                {tab === "baku" ? "Baku" : "Tambahan"}
+                            </button>
+                        ))}
                     </div>
                 </div>
 
@@ -1400,17 +1349,6 @@ export default function PermintaanPembelian({
                                                             title="Cetak PDF"
                                                         >
                                                             <Printer className="w-4 h-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() =>
-                                                                handleDelete(
-                                                                    permintaan.id_pp,
-                                                                )
-                                                            }
-                                                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                            title="Hapus"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     </div>
                                                 </td>

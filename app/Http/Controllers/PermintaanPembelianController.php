@@ -42,8 +42,19 @@ class PermintaanPembelianController extends Controller
             'tambahan' => PermintaanPembelian::generateNoPp('tambahan'),
         ];
 
+        // PINDAHKAN QUERY INI KE ATAS RETURN
+        // Mengambil record dengan id_kartu (transaksi) terakhir untuk setiap id_bahan
+        $stokBahan = DB::table('t_kartu_persediaan')
+            ->whereIn('id_kartu', function($query) {
+                $query->select(DB::raw('MAX(id_kartu)'))
+                      ->from('t_kartu_persediaan')
+                      ->groupBy('id_bahan');
+            })
+            ->pluck('saldo_qty', 'id_bahan');
+
+        // RETURN BERADA DI PALING BAWAH
         return Inertia::render('Pembelian/PermintaanPembelian', compact(
-            'permintaans', 'jadwals', 'bahans', 'nextNoPp'
+            'permintaans', 'jadwals', 'bahans', 'nextNoPp', 'stokBahan'
         ));
     }
 
@@ -110,7 +121,8 @@ class PermintaanPembelianController extends Controller
                 'jadwalProduksi',
                 'kebutuhanBahan' => function($query) {
                     $query->whereHas('detailBom.bahan', function($q) {
-                        $q->where('kategori_simpan', 'non_perishable');
+                        $q->where('kategori_simpan', 'non_perishable')
+                          ->where('jenis_bahan', 'baku'); // <-- TAMBAHKAN BARIS INI
                     });
                 },
                 'kebutuhanBahan.detailBom.bahan'

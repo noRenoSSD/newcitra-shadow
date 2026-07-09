@@ -86,8 +86,7 @@ class BahanSeeder extends Seeder
                 'kode_bahan'   => $kodeBahan,
                 'nama_bahan'   => $bahan['nama'],
                 'satuan_bahan' => $bahan['satuan'],
-                'harga_beli'   => $bahan['harga'], // <--- Kolom harga_beli dimasukkan ke sini
-                'stok_min'     => 10.00,
+                'harga_beli'   => $bahan['harga'], // <--- Kolom harga_beli dimasukkan ke sin
                 'created_at'   => now(),
                 'updated_at'   => now(),
             ]);

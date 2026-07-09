@@ -56,12 +56,26 @@ class InventoryService
         // 4. Logika Normal Keluar Barang (Saat Produksi)
         else {
             $qty_keluar = $qty;
-            $harga_keluar = $lastHargaAverage;
-            $total_keluar = $qty * $lastHargaAverage;
 
+            // --- KUNCI PERBAIKAN: Pisahkan Harga Retur dan Harga Produksi ---
+            if ($sumber === 'retur_pembelian') {
+                // Gunakan harga aktual spesifik dari Controller (Rp 25.250)
+                $harga_keluar = $harga_input;
+            } else {
+                // Gunakan harga Rata-rata Bergerak (Moving Average) untuk produksi
+                $harga_keluar = $lastHargaAverage;
+            }
+
+            $total_keluar = $qty * $harga_keluar;
+
+            // Hitung sisa stok dan total nilai
             $newQty = $lastQty - $qty_keluar;
             $newTotal = $lastTotal - $total_keluar;
-            $newHargaAverage = $lastHargaAverage;
+
+            // --- PENTING ---
+            // Hitung ulang harga rata-rata secara dinamis.
+            // Karena barang diretur dengan harga spesifik, rata-rata stok yang tersisa di gudang akan otomatis bergeser menyesuaikan.
+            $newHargaAverage = $newQty > 0 ? ($newTotal / $newQty) : 0;
         }
 
         // 3. Simpan ke Database

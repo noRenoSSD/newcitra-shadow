@@ -75,7 +75,10 @@ $listHutang = $hutangRaw->map(function ($h) {
                 'totalHutang'       => (float) $h->total_hutang,
                 'terbayar'          => (float) $h->terbayar,
                 'kurangBayar'       => (float) $h->kurang_bayar,
-
+            // === TAMBAHAN DATA KEUANGAN DI SINI ===
+                'ongkosKirim'       => $pembelian ? (float) $pembelian->ongkos_kirim : 0,
+                'diskon'            => $pembelian ? (float) $pembelian->diskon : 0,
+                'pajak'             => $pembelian ? (float) $pembelian->pajak : 0,
                 // === DI SINI TANGGAL JATUH TEMPO DIKIRIMKAN KE REACT ===
                 'tanggalJatuhTempo' => $pembelian && $pembelian->jatuh_tempo ? \Carbon\Carbon::parse($pembelian->jatuh_tempo)->format('Y-m-d') : '-',
 

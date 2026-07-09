@@ -45,7 +45,7 @@ use App\Http\Controllers\JurnalUmumController;
 use App\Http\Controllers\JurnalPenyesuaianController;
 use App\Http\Controllers\BukuBesarController;
 use App\Http\Controllers\HutangUsahaController;
-
+use App\Http\Controllers\PersediaanKonsinyasiController;
 // Dasar Autentikasi Redirection
 Route::get('/', function () {
     return redirect('/login');
@@ -163,8 +163,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('/surat-jalan/{id}', [SuratJalanController::class, 'destroy']);
 
     Route::get('/retur-penjualan', [ReturJualController::class, 'index'])->name('retur-penjualan.index');
-    Route::post('/retur-penjualan', [ReturJualController::class, 'store']);
-    Route::get('/retur-penjualan/invoice-items/{id_jual}', [ReturJualController::class, 'getInvoiceItems']);
+Route::post('/retur-penjualan', [ReturJualController::class, 'store'])->name('retur-penjualan.store');
+Route::get('/retur-penjualan/invoice-items/{id_jual}', [ReturJualController::class, 'getInvoiceItems']);
     Route::get('/retur-penjualan/detail-items/{id_retur_jual}', [ReturJualController::class, 'getReturDetails']);
 
     // Konsinyasi
@@ -173,7 +173,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/konsinyasi-keluar/update/{id}', [KonsinyasiKeluarController::class, 'update']);
     Route::post('/konsinyasi-keluar/delete/{id}', [KonsinyasiKeluarController::class, 'delete']);
     Route::post('/konsinyasi-keluar/generate-sj/{id}', [KonsinyasiKeluarController::class, 'generateSj']);
-    
+
     Route::get('/konsinyasi-penjualan', [PenjualanKonsinyasiController::class, 'index'])->name('konsinyasi-penjualan.index');
     Route::post('/konsinyasi-penjualan/store', [PenjualanKonsinyasiController::class, 'store'])->name('konsinyasi-penjualan.store');
     Route::put('/konsinyasi-penjualan/update/{id}', [PenjualanKonsinyasiController::class, 'update'])->name('konsinyasi-penjualan.update');
@@ -264,7 +264,9 @@ Route::prefix('persediaan')->group(function () {
     // 3. Halaman Produk Jadi -> URL: /persediaan/produk-jadi
     Route::get('/produk-jadi', [KartuPersediaanController::class, 'indexProdukJadi'])
         ->name('persediaan.produk');
-
+    // 4. Halaman Persediaan Konsinyasi -> URL: /persediaan/konsinyasi
+    Route::get('/konsinyasi', [PersediaanKonsinyasiController::class, 'index'])
+        ->name('persediaan.konsinyasi');
 });
 Route::prefix('keuangan/hutang-usaha')->name('hutang-usaha.')->group(function () {
     Route::get('/', [HutangUsahaController::class, 'index'])->name('index');

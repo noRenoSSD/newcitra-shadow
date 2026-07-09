@@ -73,17 +73,17 @@ class HasilProduksiController extends Controller
                 // Data ini akan muncul dengan status 'pending' di menu Approval
                 ApprovalPemakaianBahan::create([
                     'id_pemakaian'          => $pemakaianBahan->id_pemakaian, // ID yg barusan dibuat
-                    
-                    // Untuk saat ini di set 1 karena tidak ada field id_kartupers_bahan 
+
+                    // Untuk saat ini di set 1 karena tidak ada field id_kartupers_bahan
                     // di frontend kamu. Sesuaikan jika relasinya berubah.
-                    'id_kartupers_bahan'    => 1, 
-                    
+                    'id_kartupers_bahan'    => 1,
+
                     // Kita simpan standar dari tabel kebutuhan bahan / input react
-                    'qty_standar'           => $item['kalkulasi_standar'], 
-                    
+                    'qty_standar'           => $item['kalkulasi_standar'],
+
                     // Harga dibiarkan 0 jika belum ada logika harga saat produksi
                     'harga_standar'         => 0,
-                    
+
                     'qty_aktual'            => $item['qty_aktual'],
                     'harga_ratarata_aktual' => 0,
                     'total_aktual'          => 0,

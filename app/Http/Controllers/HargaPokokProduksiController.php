@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -11,7 +11,7 @@ use Exception;
 
 class HargaPokokProduksiController extends Controller
 {
-    
+
     public function index()
     {
         // 1. Tarik Master Divisi (Untuk dropdown tenaga kerja)
@@ -32,24 +32,24 @@ class HargaPokokProduksiController extends Controller
         }
 
         $qtyColumn = 'hp.output_aktual as qty_rencana';
-        
+
         // 3. INI LOGIC KUNCINYA: Tarik Produksi yang Pemakaian Bahannya sudah 'approved'
         $rawData = DB::table('t_hasil_produksi as hp')
             ->join('t_detail_jadwal_produksi as djp', 'hp.id_produksi', '=', 'djp.id_produksi')
             ->join('t_produk as p', 'djp.id_produk', '=', 'p.id_produk')
             ->join('t_pemakaian_bahan as pb', 'hp.id_hasil_produksi', '=', 'pb.id_hasil_produksi')
-            
+
             // JOIN KE APPROVAL UNTUK CEK STATUSNYA
             ->join('t_approval_pemakaian_bahan as apb', 'pb.id_pemakaian', '=', 'apb.id_pemakaian')
-            
+
             ->join('t_bahan as b', 'pb.id_bahan', '=', 'b.id_bahan')
-            
+
             // LEFT JOIN ke COGM untuk mengecek apakah HPP-nya "Sudah Input" atau "Belum"
             ->leftJoin('t_cogm as c', 'hp.id_produksi', '=', 'c.id_produksi')
-            
+
             // FILTER HANYA YANG APPROVED
             ->where('apb.status_approval', 'approved')
-            
+
             ->select(
                 'hp.id_produksi',
                 'djp.kode_produksi',
@@ -70,7 +70,7 @@ class HargaPokokProduksiController extends Controller
         // 4. Mapping data raw ke format JSON yang dipahami oleh Front-End React
         $hppData = $rawData->groupBy('id_produksi')->map(function ($items, $idProduksi) {
             $first = $items->first();
-            
+
             // Jika ada id_cogm, berarti data COGM-nya sudah pernah disimpan
             $statusHpp = $first->id_cogm ? 'Sudah Input' : 'Belum Input';
 
@@ -97,7 +97,7 @@ class HargaPokokProduksiController extends Controller
                     ->join('t_divisi as div', 'dbk.id_divisi', '=', 'div.id_divisi')
                     ->where('bk.id_produksi', $idProduksi)
                     ->get();
-                
+
                 foreach($tkData as $tk) {
                     $tenagaKerja[] = [
                         'id'             => 'tk_'.$tk->id_detail_btkl,
@@ -152,7 +152,7 @@ class HargaPokokProduksiController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'id'             => 'required', 
+            'id'             => 'required',
             'bahan_baku'     => 'required|array',
             'tenaga_kerja'   => 'required|array',
             'overhead'       => 'required|array',
@@ -176,7 +176,7 @@ class HargaPokokProduksiController extends Controller
                         ->join('t_pemakaian_bahan as pb', 'apb.id_pemakaian', '=', 'pb.id_pemakaian')
                         ->join('t_bahan as b', 'pb.id_bahan', '=', 'b.id_bahan')
                         ->where('pb.id_hasil_produksi', $idProduksi)
-                        ->where('b.kode_bahan', $bb['kode_material']) 
+                        ->where('b.kode_bahan', $bb['kode_material'])
                         ->value('apb.id_approval') ?? 1;
 
                     $detailBBB[] = [
@@ -206,12 +206,12 @@ class HargaPokokProduksiController extends Controller
                     $jumlahOrang = (float) $tk['jumlah_orang'];
                     $tarifPerHari = (float) $tk['tarif_per_hari'];
                     $subtotalBTKL = $jumlahOrang * $tarifPerHari;
-                    
+
                     $totalBTKL += $subtotalBTKL;
 
                     $idDivisi = DB::table('t_divisi')
                         ->where('nama_divisi', $tk['nama_divisi'])
-                        ->value('id_divisi') ?? 1; 
+                        ->value('id_divisi') ?? 1;
 
                     $detailBTKL[] = [
                         'id_divisi'      => $idDivisi,
@@ -277,13 +277,43 @@ class HargaPokokProduksiController extends Controller
                     'created_at'  => now(),
                     'updated_at'  => now(),
                 ]);
+            // =========================================================================
+                // ===== BARANG JADI BARU MASUK GUDANG SETELAH HPP DIHITUNG =====
+                // =========================================================================
+                // Ambil data produk dan Qty Aktual dari tabel hasil produksi
+                $infoProduksi = DB::table('t_hasil_produksi as hp')
+                    ->join('t_detail_jadwal_produksi as djp', 'hp.id_produksi', '=', 'djp.id_produksi')
+                    ->where('hp.id_produksi', $idProduksi)
+                    // TAMBAHKAN hp.output_aktual untuk mengambil jumlah barangnya!
+                    ->select('djp.id_produk', 'djp.kode_produksi', 'hp.output_aktual')
+                    ->first();
 
+                if ($infoProduksi && $infoProduksi->output_aktual > 0) {
+
+                    // Hitung Harga Per Unit = Total COGM / Jumlah Barang
+                    $hargaPerUnit = $totalCOGM / $infoProduksi->output_aktual;
+
+                    // Masukkan barang ke kartu persediaan dengan Qty dan Harga yang sudah valid!
+                    \App\Services\InventoryService::catatMutasi(
+                        $infoProduksi->id_produk,
+                        'produk',
+                        'MASUK',
+                        'produksi_masuk', // Ganti sumbernya jadi penerimaan normal produksi
+                        $infoProduksi->kode_produksi ?? 'PRD-'.$idProduksi,
+                        $infoProduksi->output_aktual, // Qty Aktual
+                        $hargaPerUnit,                // Harga per satuan
+                        $tanggalHitung,
+                        "Penerimaan produk jadi setelah perhitungan HPP/COGM selesai"
+                    );
+
+            }
             });
+
 
             return redirect()->back()->with('success', 'Harga Pokok Produksi (COGM) berhasil dikalkulasi dan disimpan secara permanen.');
 
         } catch (Exception $e) {
-            \Log::error('Kegagalan kalkulasi COGM: ' . $e->getMessage());
+            Log::error('Kegagalan kalkulasi COGM: ' . $e->getMessage());
             return redirect()->back()->withErrors([
                 'error' => 'Gagal memproses Harga Pokok Produksi. Pastikan master data divisi dan overhead sudah lengkap.'
             ]);

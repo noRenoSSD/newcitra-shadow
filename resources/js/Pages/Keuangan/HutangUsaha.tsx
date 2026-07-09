@@ -42,6 +42,8 @@ interface HutangUsahaType {
     status: "Belum Lunas" | "Lunas";
     items: ItemBeli[];
     riwayatPembayaran: Pembayaran[];
+    ongkosKirim?: number;
+    diskon?: number;
 }
 
 const formatCurrency = (v: number) =>
@@ -59,6 +61,9 @@ function ModalDetailMutasi({
     hutang: HutangUsahaType;
     onClose: () => void;
 }) {
+    // Menghitung subtotal semua item barang
+    const totalItemSubtotal = hutang.items.reduce((s, i) => s + i.subtotal, 0);
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6 overflow-y-auto">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-auto flex flex-col max-h-[90vh]">
@@ -174,16 +179,52 @@ function ModalDetailMutasi({
                                             Total
                                         </td>
                                         <td className="px-4 py-2 text-sm font-bold text-gray-800 text-right">
-                                            {formatCurrency(
-                                                hutang.items.reduce(
-                                                    (s, i) => s + i.subtotal,
-                                                    0,
-                                                ),
-                                            )}
+                                            {formatCurrency(totalItemSubtotal)}
                                         </td>
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+
+                        {/* ── RINCIAN BIAYA NOTA PEMBELIAN ── */}
+                        <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100 flex flex-col justify-end items-end space-y-2 text-sm">
+                            <div className="flex justify-between w-64 text-gray-600">
+                                <span>Subtotal Barang:</span>
+                                <span className="font-medium text-gray-900">
+                                    {formatCurrency(totalItemSubtotal)}
+                                </span>
+                            </div>
+
+                            {/* Tampilkan Diskon jika ada */}
+                            {(hutang.diskon ? hutang.diskon : 0) > 0 && (
+                                <div className="flex justify-between w-64 text-gray-600">
+                                    <span>Potongan Diskon:</span>
+                                    <span className="font-medium text-gray-900">
+                                        {formatCurrency(hutang.diskon || 0)}
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* Tampilkan Ongkir jika ada */}
+                            {(hutang.ongkosKirim ? hutang.ongkosKirim : 0) >
+                                0 && (
+                                <div className="flex justify-between w-64 text-gray-600">
+                                    <span>Ongkos Kirim:</span>
+                                    <span className="font-medium text-gray-900">
+                                        {formatCurrency(
+                                            hutang.ongkosKirim || 0,
+                                        )}
+                                    </span>
+                                </div>
+                            )}
+                            <div className="border-t border-gray-200 my-1 w-64"></div>
+
+                            <div className="flex justify-between w-64 text-base font-bold text-gray-600">
+                                <span>Total Tagihan:</span>
+                                <span className="font-medium text-gray-900">
+                                    {formatCurrency(hutang.totalHutang)}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -524,8 +565,8 @@ function KartuSupplier({
                                     <span
                                         className={
                                             h.kurangBayar > 0
-                                                ? "text-red-600"
-                                                : "text-green-600"
+                                                ? "text-gray-700"
+                                                : "text-gray-700"
                                         }
                                     >
                                         {formatCurrency(h.kurangBayar)}
@@ -597,7 +638,7 @@ function KartuSupplier({
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
                     Total Sisa Hutang:{" "}
-                    <span className="font-semibold text-red-700">
+                    <span className="font-semibold text-gray-700">
                         {formatCurrency(totalSisa)}
                     </span>
                     {" · "}Total Hutang:{" "}

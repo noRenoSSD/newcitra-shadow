@@ -4,7 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\KonsinyasiKeluar;
 use App\Models\KonsinyasiKeluarDetail;
-use App\Models\Mitra; 
+use App\Services\InventoryService;
+use App\Models\Mitra;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -35,12 +36,12 @@ class KonsinyasiKeluarController extends Controller
         $dataProduk = DB::table('t_produk')
             ->join('t_harga_produk', 't_produk.id_produk', '=', 't_harga_produk.id_produk')
             ->select(
-                't_produk.id_produk', 
-                't_produk.kode_produk', 
-                't_produk.nama_produk', 
-                't_produk.satuan_produk as satuan', 
+                't_produk.id_produk',
+                't_produk.kode_produk',
+                't_produk.nama_produk',
+                't_produk.satuan_produk as satuan',
                 't_harga_produk.harga as harga_konsinyasi',
-                't_harga_produk.id_harga_produk as id_harga' 
+                't_harga_produk.id_harga_produk as id_harga'
             )
             ->where('t_harga_produk.jenis_transaksi', 'Konsinyasi')
             ->get();
@@ -50,21 +51,21 @@ class KonsinyasiKeluarController extends Controller
         $dataKonsinyasi = DB::table('t_konsinyasi_keluar')
             ->join('t_mitra', 't_konsinyasi_keluar.id_mitra', '=', 't_mitra.id_mitra')
             ->select(
-                't_konsinyasi_keluar.id_konsinyasi_keluar as id_konsinyasi_keluar', 
+                't_konsinyasi_keluar.id_konsinyasi_keluar as id_konsinyasi_keluar',
                 't_konsinyasi_keluar.no_konsinyasi as no_order',
                 't_konsinyasi_keluar.tgl_konsinyasi as tgl_keluar',
                 't_konsinyasi_keluar.id_mitra',
                 't_konsinyasi_keluar.total_estimasi',
-                't_konsinyasi_keluar.keterangan', 
+                't_konsinyasi_keluar.keterangan',
                 't_mitra.nama_mitra as nama_toko',
                 't_mitra.alamat',
-                DB::raw("CASE 
+                DB::raw("CASE
                     WHEN t_konsinyasi_keluar.status = 'Titip' THEN 'Draf'
                     WHEN t_konsinyasi_keluar.status = 'SJ' THEN 'Surat Jalan'
-                    ELSE 'Selesai' 
+                    ELSE 'Selesai'
                 END as status")
             )
-            ->orderBy('t_konsinyasi_keluar.id_konsinyasi_keluar', 'desc') 
+            ->orderBy('t_konsinyasi_keluar.id_konsinyasi_keluar', 'desc')
             ->get();
 
         foreach ($dataKonsinyasi as $k) {
@@ -73,9 +74,9 @@ class KonsinyasiKeluarController extends Controller
                 // PERBAIKAN: Menggunakan nama kolom baru id_konsinyasi_keluar
                 ->where('t_konsinyasi_keluar_detail.id_konsinyasi_keluar', $k->id_konsinyasi_keluar)
                 ->select(
-                    't_konsinyasi_keluar_detail.id_produk', 
-                    't_produk.nama_produk', 
-                    't_konsinyasi_keluar_detail.qty', 
+                    't_konsinyasi_keluar_detail.id_produk',
+                    't_produk.nama_produk',
+                    't_konsinyasi_keluar_detail.qty',
                     't_konsinyasi_keluar_detail.harga_titip',
                     't_konsinyasi_keluar_detail.id_harga'
                 )
@@ -101,7 +102,7 @@ class KonsinyasiKeluarController extends Controller
 
         try {
             DB::beginTransaction();
-            
+
             $totalEstimasi = 0;
             foreach ($request->items as $item) {
                 $totalEstimasi += $item['harga_titip'] * $item['qty'];
@@ -113,7 +114,7 @@ class KonsinyasiKeluarController extends Controller
                 'tgl_konsinyasi' => $request->tgl_keluar,
                 'id_mitra'       => $request->id_mitra,
                 'total_estimasi' => $totalEstimasi,
-                'status'         => 'Titip', 
+                'status'         => 'Titip',
                 'keterangan'     => $request->keterangan,
                 'created_at'     => now(),
                 'updated_at'     => now(),
@@ -144,7 +145,7 @@ class KonsinyasiKeluarController extends Controller
     {
         try {
             DB::beginTransaction();
-            
+
             $totalEstimasiBaru = 0;
             foreach ($request->items as $item) {
                 $totalEstimasiBaru += $item['harga_titip'] * $item['qty'];
@@ -162,8 +163,8 @@ class KonsinyasiKeluarController extends Controller
                 ]);
 
             // Hapus detail lama dan pasang yang baru secara bersih
-            DB::table('t_konsinyasi_keluar_detail')->where('id_konsinyasi_keluar', $id)->delete(); 
-            
+            DB::table('t_konsinyasi_keluar_detail')->where('id_konsinyasi_keluar', $id)->delete();
+
             foreach ($request->items as $item) {
                 DB::table('t_konsinyasi_keluar_detail')->insert([
                     'id_konsinyasi_keluar' => $id,
@@ -194,11 +195,10 @@ class KonsinyasiKeluarController extends Controller
 
         try {
             DB::beginTransaction();
-            
+
             $konsinyasi = DB::table('t_konsinyasi_keluar')
                 ->join('t_mitra', 't_konsinyasi_keluar.id_mitra', '=', 't_mitra.id_mitra')
-                ->select('t_konsinyasi_keluar.*', 't_mitra.alamat')
-                ->where('t_konsinyasi_keluar.id_konsinyasi_keluar', $id) // PERBAIKAN: id_konsinyasi_keluar
+                ->select('t_konsinyasi_keluar.*', 't_mitra.alamat', 't_mitra.nama_mitra as nama_toko')                ->where('t_konsinyasi_keluar.id_konsinyasi_keluar', $id) // PERBAIKAN: id_konsinyasi_keluar
                 ->first();
 
             if (!$konsinyasi) {
@@ -215,7 +215,7 @@ class KonsinyasiKeluarController extends Controller
 
             $hariIni = date('Ymd');
             $prefixSj = "SJ-CSG-" . $hariIni . "-";
-            
+
             $terakhirSj = DB::table('t_surat_jalan')
                 ->where('no_surat_jalan', 'LIKE', $prefixSj . '%')
                 ->orderBy('no_surat_jalan', 'desc')
@@ -239,25 +239,45 @@ class KonsinyasiKeluarController extends Controller
             DB::table('t_surat_jalan')->insert([
                 'no_surat_jalan'   => $noSuratJalan,
                 'tgl_surat_jalan'  => date('Y-m-d'),
-                'id_pesanan'       => null, 
-                'id_konsinyasi'    => $id, 
+                'id_pesanan'       => null,
+                'id_konsinyasi'    => $id,
                 'alamat'           => $konsinyasi->alamat,
                 'nama_pengirim'    => $request->pengirim,
                 'kendaraan'        => $kendaraanFull,
                 'no_plat'          => $noPlat,
-                'status'           => 'Diproses', 
+                'status'           => 'Diproses',
                 'created_at'       => now(),
                 'updated_at'       => now(),
             ]);
 
+            // 2. Update Status Konsinyasi
             DB::table('t_konsinyasi_keluar')
-                ->where('id_konsinyasi_keluar', $id) // PERBAIKAN: id_konsinyasi_keluar
+                ->where('id_konsinyasi_keluar', $id)
                 ->update([
-                    'status' => 'SJ',
-                    'keterangan' => $request->keterangan,
+                    'status' => 'Surat Jalan', // <-- REVISI: Ubah dari 'SJ' menjadi 'Surat Jalan' agar sesuai DB-mu
+                    'keterangan' => $request->catatan_pengiriman, // <-- REVISI: Samakan dengan nama di SuratJalanForm.tsx
                     'updated_at' => now()
                 ]);
+            // =====================================================================
+            // 3. POTONG STOK KARTU PERSEDIAAN GUDANG (BARANG KELUAR)
+            // =====================================================================
+            $detailItems = DB::table('t_konsinyasi_keluar_detail')
+                ->where('id_konsinyasi_keluar', $id)
+                ->get();
 
+            foreach ($detailItems as $item) {
+                InventoryService::catatMutasi(
+                    $item->id_produk,           // ID Produk
+                    'produk',                   // Kategori Barang
+                    'KELUAR',                   // Tipe Mutasi
+                    'konsinyasi_keluar',        // Sumber Transaksi
+                    $noSuratJalan,              // No Referensi (Pakai SJ agar valid fisiknya)
+                    $item->qty,                 // Jumlah Barang
+                    0,                          // Harga (Saat barang keluar, InventoryService yang akan menarik HPP terbaru)
+                    date('Y-m-d'),              // Tanggal keluar
+                    "Pengiriman Konsinyasi ke Mitra: " . $konsinyasi->nama_toko . " (SJ: $noSuratJalan)"
+                );
+            }
             DB::commit();
             return redirect()->back();
         } catch (\Exception $e) {
@@ -270,7 +290,7 @@ class KonsinyasiKeluarController extends Controller
     {
         try {
             DB::beginTransaction();
-            
+
             // Menggunakan query builder murni agar cascade penghapusan berjalan mulus
             DB::table('t_konsinyasi_keluar_detail')->where('id_konsinyasi_keluar', $id)->delete();
             DB::table('t_konsinyasi_keluar')->where('id_konsinyasi_keluar', $id)->delete();

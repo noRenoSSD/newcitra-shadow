@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('kode_bahan', 20)->unique();
             $table->string('nama_bahan', 100);
             $table->string('satuan_bahan', 20);
-            $table->decimal('stok_min', 10, 2);
+           $table->decimal('harga_beli', 15, 2)->default(0);
             $table->timestamps();
         });
     }

@@ -8,7 +8,6 @@ interface Bahan {
     nama_bahan: string;
     satuan_bahan: string;
     kategori_simpan: "perishable" | "non_perishable"; // <-- Ditambahkan field kategori_simpan
-    stok_min: number;
     harga_beli: number;
     jenis_bahan: "baku";
 }
@@ -65,7 +64,6 @@ export default function BahanBaku({ bahans }: Props) {
             nama_bahan: bahan.nama_bahan,
             satuan_bahan: bahan.satuan_bahan,
             kategori_simpan: bahan.kategori_simpan || "perishable", // <-- Mengisi form edit
-            stok_min: bahan.stok_min.toString(),
             harga_beli: bahan.harga_beli ? bahan.harga_beli.toString() : "0",
         });
         setSelectedBahan(bahan);
@@ -205,25 +203,6 @@ export default function BahanBaku({ bahans }: Props) {
                                     </option>
                                 </select>
                             </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Stok Minimal{" "}
-                                    <span className="text-red-600">*</span>
-                                </label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    required
-                                    min="0"
-                                    value={data.stok_min}
-                                    onChange={(e) =>
-                                        setData("stok_min", e.target.value)
-                                    }
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                                    placeholder="0"
-                                />
-                            </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Harga Beli Satuan (Rp){" "}
@@ -334,14 +313,6 @@ export default function BahanBaku({ bahans }: Props) {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-500 mb-1">
-                                Stok Minimal
-                            </label>
-                            <p className="text-gray-800 font-medium">
-                                {selectedBahan.stok_min}
-                            </p>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-500 mb-1">
                                 Harga Beli Satuan
                             </label>
                             <p className="text-green-700 font-semibold">
@@ -423,9 +394,6 @@ export default function BahanBaku({ bahans }: Props) {
                                 <th className="px-6 py-3 font-semibold">
                                     Harga Beli
                                 </th>
-                                <th className="px-6 py-3 font-semibold">
-                                    Stok Min
-                                </th>
                                 <th className="px-6 py-3 font-semibold text-center">
                                     Aksi
                                 </th>
@@ -471,9 +439,6 @@ export default function BahanBaku({ bahans }: Props) {
                                         </td>
                                         <td className="px-6 py-4 font-medium text-green-700">
                                             {formatRupiah(bahan.harga_beli)}
-                                        </td>
-                                        <td className="px-6 py-4 text-gray-900">
-                                            {bahan.stok_min}
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center justify-center gap-2">

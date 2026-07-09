@@ -125,36 +125,46 @@ class TransaksiPembelianController extends Controller
                 'total_tagihan'     => $request->total_tagihan,
             ]);
 
-            // 2. Simpan Detail & Catat Kartu Persediaan Secara Penuh
-            foreach ($request->items as $item) {
-                // Simpan ke detail transaksi pembelian
-                DetailTransaksiPembelian::create([
-                    'id_transaksi'         => $transaksi->id_transaksi,
-                    'id_detail_penerimaan' => $item['id_detail_penerimaan'],
-                    'harga_aktual'         => $item['harga_aktual'],
-                    'subtotal'             => $item['subtotal'],
-                ]);
+           // =================================================================
+// 2. SIMPAN DETAIL TRANSAKSI & CATAT MUTASI MASUK PERSEDIAAN
+// =================================================================
+// Hitung faktor penyesuaian di luar perulangan agar performa cepat
+$subtotalBarang = $request->subtotal_barang;
+$totalTagihan = $request->total_tagihan;
 
-                // ===== HUBUNGKAN KE KARTU PERSEDIAAN (BAHAN BAKU MASUK) =====
+// Rumus faktor: Total Tagihan / Subtotal Kotor
+$faktorPenyesuaian = $subtotalBarang > 0 ? ($totalTagihan / $subtotalBarang) : 1;
 
-           // Hubungkan ke form penerimaan untuk mengambil Qty yang benar-benar diterima
-                $detailPenerimaan = DetailPenerimaanBahan::find($item['id_detail_penerimaan']);
+foreach ($request->items as $item) {
+    $detailPenerimaan = DetailPenerimaanBahan::find($item['id_detail_penerimaan']);
 
-                if ($detailPenerimaan) {
-                    // LANGSUNG CATAT STOK MASUK SECARA UTUH (Tidak ada lagi penyesuaian selisih)
-                    InventoryService::catatMutasi(
-                        $detailPenerimaan->id_bahan,
-                        'bahan',
-                        'MASUK',                     // Jenis Transaksi
-                        'pembelian',                 // Sumber Transaksi
-                        $request->no_faktur,         // Nomor Referensi
-                        $detailPenerimaan->qty_diterima, // Qty utuh sesuai fisik gudang
-                        $item['harga_aktual'],       // Harga final dari faktur
-                        $request->tanggal_transaksi,
-                        "Pembelian bahan baku berdasarkan faktur: " . $request->no_faktur
-                    );
-        }
+    if ($detailPenerimaan) {
+        // 1. Simpan detail transaksi pembelian (Tetap simpan harga asli faktur agar cocok dengan fisik nota supplier)
+        DetailTransaksiPembelian::create([
+            'id_transaksi'         => $transaksi->id_transaksi,
+            'id_detail_penerimaan' => $item['id_detail_penerimaan'],
+            'harga_aktual'         => $item['harga_aktual'],
+            'subtotal'             => $item['subtotal'],
+        ]);
+
+        // 2. HITUNG HARGA BERSIH UNTUK KARTU PERSEDIAAN (Landed Cost)
+        // Harga Bersih = Harga Faktur x Faktor Penyesuaian (Sudah include proporsi ongkir & diskon)
+        $hargaBersih = round($item['harga_aktual'] * $faktorPenyesuaian);
+
+        // 3. CATAT MUTASI KE KARTU PERSEDIAAN MENGGUNAKAN HARGA BERSIH
+        InventoryService::catatMutasi(
+            $item['id_bahan'],
+            'bahan',
+            'MASUK',                     // Tipe Mutasi
+            'pembelian',                 // Sumber Transaksi
+            $request->no_faktur,         // Nomor Referensi
+            $detailPenerimaan->qty_diterima,
+            $hargaBersih,                // <--- KUNCI PERBAIKAN: Menggunakan harga bersih yang sudah proporsional
+            $request->tanggal_transaksi,
+            "Pembelian bahan baku berdasarkan faktur: " . $request->no_faktur
+        );
     }
+}
 // =================================================================
         // 3. OTOMATIS CATAT HUTANG JIKA METODE PEMBAYARAN "KREDIT"
         // =================================================================

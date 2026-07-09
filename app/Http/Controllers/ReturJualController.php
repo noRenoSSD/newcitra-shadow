@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\ReturJual;
+use App\Services\InventoryService;
 use App\Models\ReturJualDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -62,8 +63,8 @@ class ReturJualController extends Controller
             ->leftJoin('t_pesanan', 't_jual.id_pesanan', '=', 't_pesanan.id_pesanan')
             ->leftJoin('t_mitra', 't_pesanan.id_mitra', '=', 't_mitra.id_mitra')
             ->select([
-                't_jual.id_jual', 
-                't_jual.no_jual', 
+                't_jual.id_jual',
+                't_jual.no_jual',
                 't_jual.grand_total',
                 't_mitra.nama_mitra as pelanggan'
             ])
@@ -72,7 +73,7 @@ class ReturJualController extends Controller
 
         //EAGER LOADING SELESAI: Query dibersihkan total dari t_pesanan_detail karena harga sudah ada langsung di t_jual_detail
         $invoiceIds = $listInvoice->pluck('id_jual')->toArray();
-        $allInvoiceItems = DB::table('t_jual_detail') 
+        $allInvoiceItems = DB::table('t_jual_detail')
             ->join('t_produk', 't_jual_detail.id_produk', '=', 't_produk.id_produk')
             ->whereIn('t_jual_detail.id_jual', $invoiceIds)
             ->select([
@@ -107,60 +108,99 @@ class ReturJualController extends Controller
         $noReturOtomatis = "RTJ-{$tahun}-{$nomorUrutPad}";
 
         return Inertia::render('Penjualan/ReturJual', [
-            'listRetur'       => $listReturFormatted, 
-            'listInvoice'     => $listInvoiceFormatted, 
+            'listRetur'       => $listReturFormatted,
+            'listInvoice'     => $listInvoiceFormatted,
             'noReturOtomatis' => $noReturOtomatis
         ]);
     }
 
     public function store(Request $request)
-    {
-        $request->validate([
-            'id_jual'    => 'required|integer',
-            'grand_total'=> 'required|numeric',
-            'items'      => 'required|array|min:1',
+{
+    $request->validate([
+        'id_jual'          => 'required',
+        'tgl_retur_jual'   => 'required|date',
+        'items'            => 'required|array',
+    ]);
+
+    DB::beginTransaction();
+    try {
+        $noRetur = $request->no_retur_jual ?? ('RTJ-' . date('Ymd') . '-' . rand(100, 999));
+
+        // 1. Simpan ke tabel induk t_retur_jual
+        $idReturJual = DB::table('t_retur_jual')->insertGetId([
+            'no_retur_jual'   => $noRetur,
+            'tgl_retur_jual'  => $request->tgl_retur_jual,
+            'id_jual'         => $request->id_jual,
+            'subtotal'        => $request->subtotal ?? 0,
+            'total_hpp'       => 0, // Akan diupdate setelah loop
+            'total_perbaikan' => $request->total_perbaikan ?? 0,
+            'total_kerugian'  => $request->total_kerugian ?? 0,
+            'grand_total'     => $request->grand_total ?? 0,
+            'created_at'      => now(),
+            'updated_at'      => now(),
         ]);
 
-        DB::beginTransaction();
-        try {
-            $tahun = Carbon::now()->format('Y');
-            $totalRetur = ReturJual::whereYear('tgl_retur_jual', $tahun)->count();
-            $noReturOtomatis = "RTJ-{$tahun}-" . str_pad($totalRetur + 1, 4, '0', STR_PAD_LEFT);
+        $totalHppRetur = 0;
 
-            // Simpan Induk Retur
-            $retur = ReturJual::create([
-                'no_retur_jual'   => $noReturOtomatis,
-                'tgl_retur_jual'  => Carbon::now()->toDateString(),
-                'id_jual'         => $request->id_jual,
-                'subtotal'        => $request->subtotal,
-                'ppn'             => 0,
-                'total_perbaikan' => $request->total_perbaikan,
-                'total_kerugian'  => $request->total_kerugian,
-                'grand_total'     => $request->grand_total,
+        // 2. Loop Detail Retur
+        foreach ($request->items as $item) {
+
+            // Lacak HPP asli dari penjualan sebelumnya
+            $jualDetail = DB::table('t_jual_detail')
+                ->where('id_jual', $request->id_jual)
+                ->where('id_produk', $item['id_produk'])
+                ->first();
+
+            $hppSatuanAsli = $jualDetail ? (float) $jualDetail->hpp_satuan : 0;
+            $subtotalHppItem = $hppSatuanAsli * $item['qty_retur'];
+
+            // 3. Simpan ke tabel t_retur_jual_detail
+            DB::table('t_retur_jual_detail')->insert([
+                'id_retur_jual'   => $idReturJual,
+                'id_produk'       => $item['id_produk'],
+                'harga'           => $item['harga'],
+                'hpp'             => $hppSatuanAsli,
+                'qty'             => $item['qty_retur'],
+                'subtotal'        => $item['subtotal_retur'],
+                'kondisi_barang'  => $item['kondisi_barang'],
+                'biaya_perbaikan' => $item['biaya_perbaikan'] ?? 0,
+                'nilai_kerugian'  => $item['nilai_kerugian'] ?? 0,
+                'keterangan'      => $item['keterangan'] ?? null,
+                'created_at'      => now(),
+                'updated_at'      => now(),
             ]);
 
-            // Simpan Detail Retur
-            foreach ($request->items as $item) {
-                ReturJualDetail::create([
-                    'id_retur_jual'   => $retur->id_retur_jual,
-                    'id_produk'       => $item['id_produk'],
-                    'harga'           => $item['harga'], // Menyimpan nominal harga langsung
-                    'qty'             => $item['qty_retur'],
-                    'subtotal'        => $item['subtotal_retur'],
-                    'kondisi_barang'  => $item['kondisi_barang'],
-                    'biaya_perbaikan' => $item['biaya_perbaikan'] ?? 0,
-                    'nilai_kerugian'  => $item['nilai_kerugian'] ?? 0,
-                    'keterangan'      => $item['keterangan'],
-                ]);
+            // 4. HUBUNGKAN KE KARTU PERSEDIAAN (Jika Layak ATAU Perbaikan)
+            if (in_array($item['kondisi_barang'], ['Layak', 'Perbaikan'])) {
+                $totalHppRetur += $subtotalHppItem;
+
+                \App\Services\InventoryService::catatMutasi(
+                    $item['id_produk'],
+                    'produk',
+                    'MASUK',
+                    'retur_penjualan',
+                    $noRetur,
+                    $item['qty_retur'],
+                    $hppSatuanAsli, // Menggunakan HPP saat barang keluar
+                    $request->tgl_retur_jual,
+                    "Retur Penjualan (" . $item['kondisi_barang'] . ") dari Invoice: " . $noRetur
+                );
             }
-
-            DB::commit();
-            // Pastikan nama route ini sudah sesuai dengan route list kamu (web.php)
-            return redirect()->route('retur-penjualan.index')->with('success', 'Retur penjualan berhasil disimpan.');
-
-        } catch (Exception $e) {
-            DB::rollback();
-            return redirect()->back()->with('error', 'Gagal simpan retur: ' . $e->getMessage());
+            // Jika kondisi 'Rusak', otomatis diabaikan dari Kartu Persediaan
         }
+
+        // 5. Update total_hpp di tabel induk
+        DB::table('t_retur_jual')->where('id_retur_jual', $idReturJual)->update([
+            'total_hpp' => $totalHppRetur
+        ]);
+
+        DB::commit();
+        return redirect()->route('retur-penjualan.index')->with('success', 'Retur penjualan berhasil disimpan.');
+
+    } catch (Exception $e) {
+        DB::rollback();
+        return redirect()->back()->with('error', 'Gagal simpan retur: ' . $e->getMessage());
     }
 }
+    }
+

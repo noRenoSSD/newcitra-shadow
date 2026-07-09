@@ -17,7 +17,6 @@ class Bahan extends Model
         'kode_bahan',
         'nama_bahan',
         'satuan_bahan',
-        'stok_min',
         'harga_beli',
     ];
 

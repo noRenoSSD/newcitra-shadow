@@ -91,20 +91,18 @@ export default function ReturPembelian() {
                 items: (p.detail_penerimaan || [])
                     .filter((d: any) => Number(d.qty_retur) > 0)
                     .map((d: any) => {
-                        const poItem = p.purchase_order?.details?.find(
-                            (po: any) => po.id_bahan === d.id_bahan,
-                        );
                         return {
                             idBahan: d.id_bahan,
                             kodeBahan: d.bahan?.kode_bahan || "",
                             namaBahan: d.bahan?.nama_bahan || "",
-                            jenisBahan: "Bahan", // Sesuaikan jika ada kolom jenis di tabel bahan
+                            jenisBahan: "Bahan",
                             qtyDiterima: Number(d.qty_diterima || 0),
                             qtyRetur: Number(d.qty_retur || 0),
                             satuan: d.bahan?.satuan || "",
                             kondisi: d.kondisi || "Retur",
                             catatan: d.catatan || "",
-                            harga: Number(poItem?.harga_satuan || 0),
+                            // 🔥 KUNCI PERBAIKAN UTAMA: Menggunakan harga_aktual dari controller
+                            harga: Number(d.harga_aktual || 0),
                         };
                     }),
             }),
@@ -228,7 +226,7 @@ export default function ReturPembelian() {
                 items: itemsWithRetur.map((item) => ({
                     idBahan: item.idBahan,
                     qtyRetur: item.qtyRetur,
-                    harga: item.harga,
+                    harga: item.harga, // Ini otomatis mengirimkan harga aktual (178)
                     alasan: item.alasan,
                 })),
             },

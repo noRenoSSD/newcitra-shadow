@@ -19,7 +19,7 @@ return new class extends Migration
         $table->string('no_referensi', 50);
         // Mengubah string biasa menjadi ENUM agar sesuai kesepakatan struktur database yang konsisten
         $table->enum('jenis_transaksi', ['MASUK', 'KELUAR']);
-        $table->enum('sumber_transaksi', ['pembelian', 'produksi_masuk', 'produksi_keluar', 'retur_pembelian', 'retur_penjualan', 'penjualan','penyesuaian_harga','stock_opname']);
+        $table->enum('sumber_transaksi', ['pembelian', 'produksi_masuk', 'produksi_keluar', 'retur_pembelian', 'retur_penjualan', 'penjualan','penyesuaian_harga','stock_opname','konsinyasi_keluar','retur_konsinyasi']);
         $table->string('keterangan')->nullable();
 
         // Blok MASUK (In) - Tambahan kolom Harga & Total

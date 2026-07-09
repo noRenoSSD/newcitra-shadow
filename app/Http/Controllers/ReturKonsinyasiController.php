@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use App\Models\ReturKonsinyasi;
 use App\Models\ReturKonsinyasiDetail;
-use App\Models\Produk; // -> TAMBAHKAN IMPORT INI
+use App\Models\Produk;
+use App\Services\InventoryService; // -> TAMBAHKAN IMPORT SERVICE INI
 
 class ReturKonsinyasiController extends Controller
 {
@@ -96,11 +97,11 @@ class ReturKonsinyasiController extends Controller
             $accumulatedKerugian   = 0;
 
             foreach ($request->items as $item) {
-                $produk = Produk::findOrFail($item['id_produk']); 
+                $produk = Produk::findOrFail($item['id_produk']);
                 $hppProduk = $produk->hpp ?? 0;
-                
+
                 // Mengambil field master biaya_perbaikan dari tabel produk Anda
-                $estBiayaPerbaikan = $produk->biaya_perbaikan ?? 0; 
+                $estBiayaPerbaikan = $produk->biaya_perbaikan ?? 0;
 
                 // 1. Hitung total HPP masuk (semua kondisi barang)
                 $accumulatedHppRetur += ($hppProduk * $item['qty']);
@@ -114,7 +115,7 @@ class ReturKonsinyasiController extends Controller
                     $accumulatedPerbaikan += ($estBiayaPerbaikan * $item['qty']);
                 }
 
-                // Simpan menggunakan nama Model yang sudah di-import di atas (ReturKonsinyasiDetail)
+                // Simpan detail retur
                 ReturKonsinyasiDetail::create([
                     'id_retur_konsinyasi' => $retur->getKey(), // Mengambil primary key secara dinamis & aman
                     'id_produk'           => $item['id_produk'],
@@ -125,9 +126,24 @@ class ReturKonsinyasiController extends Controller
                     'nilai_kerugian'      => $item['kondisi_barang'] === 'Rusak' ? $hppProduk : 0,
                     'keterangan'          => $item['keterangan'] ?? null,
                 ]);
+
+                // 3. LOGIKA BARU: KEMBALIKAN BARANG KE GUDANG UTAMA JIKA LAYAK/PERLU PERBAIKAN
+                if (in_array($item['kondisi_barang'], ['Layak', 'Perlu Perbaikan'])) {
+                    InventoryService::catatMutasi(
+                        $item['id_produk'],                      // id_item
+                        'produk',                                // tipe
+                        'MASUK',                                 // jenis (menambah stok)
+                        'retur_konsinyasi',                      // sumber
+                        $request->no_retur_konsinyasi,           // no_bukti
+                        $item['qty'],                            // qty
+                        $hppProduk,                              // harga_input (masuk senilai HPP)
+                        $request->tgl_retur_konsinyasi,          // tanggal
+                        'Retur Konsinyasi dari Mitra - Kondisi: ' . $item['kondisi_barang'] // Keterangan
+                    );
+                }
             }
 
-            // 3. Update data induk dengan nama kolom yang sudah sinkron 100%
+            // 4. Update data induk dengan nama kolom yang sudah sinkron 100%
             $retur->update([
                 'total_hpp_retur' => $accumulatedHppRetur,
                 'total_perbaikan' => $accumulatedPerbaikan,
@@ -135,9 +151,8 @@ class ReturKonsinyasiController extends Controller
             ]);
 
             DB::commit();
-            
-            // UBAH BARIS INI: Dari redirect()->back() menjadi redirect()->route()
-            return redirect()->route('konsinyasi-retur.index')->with('success', 'Retur konsinyasi sukses diproses!');
+
+            return redirect()->route('konsinyasi-retur.index')->with('success', 'Retur konsinyasi sukses diproses dan stok gudang telah diperbarui!');
 
         } catch (\Exception $e) {
             DB::rollBack();

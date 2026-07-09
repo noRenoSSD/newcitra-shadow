@@ -15,7 +15,7 @@ return new class extends Migration
             $table->decimal('harga', 20, 0)->default(0);
             $table->integer('qty');
             $table->decimal('subtotal', 20, 0)->default(0);
-            $table->enum('kondisi_barang', ['Layak', 'Rusak', 'Perbaikan'])->default('Layak');
+            $table->enum('kondisi_barang', ['Layak', 'Rusak', 'Perlu Perbaikan'])->default('Layak');
             $table->decimal('hpp_saat_ini', 15, 2)->default(0);
             $table->decimal('biaya_perbaikan', 20, 0)->default(0);
             $table->decimal('nilai_kerugian', 20, 0)->default(0);

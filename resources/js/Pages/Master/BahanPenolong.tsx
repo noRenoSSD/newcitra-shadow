@@ -27,7 +27,6 @@ export default function BahanPenolong({ bahans }: Props) {
         kode_bahan: "",
         nama_bahan: "",
         satuan_bahan: "",
-        stok_min: 0,
         harga_beli: 0, // <-- Tambahkan state harga_beli
     });
 
@@ -45,7 +44,6 @@ export default function BahanPenolong({ bahans }: Props) {
             kode_bahan: "",
             nama_bahan: "",
             satuan_bahan: "",
-            stok_min: 0,
             harga_beli: 0,
         });
         setEditMode(false);
@@ -57,7 +55,6 @@ export default function BahanPenolong({ bahans }: Props) {
             kode_bahan: bahan.kode_bahan,
             nama_bahan: bahan.nama_bahan,
             satuan_bahan: bahan.satuan_bahan,
-            stok_min: bahan.stok_min,
             harga_beli: bahan.harga_beli, // <-- Isi data harga saat edit
         });
         setSelectedBahan(bahan);
@@ -202,30 +199,6 @@ export default function BahanPenolong({ bahans }: Props) {
                                         placeholder="Contoh: Kg, Liter, Pcs"
                                     />
                                 </div>
-
-                                <div>
-                                    <label className="block mb-2 text-sm font-medium text-gray-700">
-                                        Stok Minimal{" "}
-                                        <span className="text-red-600">*</span>
-                                    </label>
-                                    <input
-                                        type="number"
-                                        required
-                                        min="0"
-                                        value={formData.stok_min}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                stok_min: Number(
-                                                    e.target.value,
-                                                ),
-                                            })
-                                        }
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-900 focus:border-transparent"
-                                        placeholder="0"
-                                    />
-                                </div>
-
                                 {/* INPUT HARGA BELI */}
                                 <div>
                                     <label className="block mb-2 text-sm font-medium text-gray-700">
@@ -323,14 +296,6 @@ export default function BahanPenolong({ bahans }: Props) {
                             </div>
                             <div>
                                 <label className="block mb-1 text-sm font-medium text-gray-500">
-                                    Stok Minimal
-                                </label>
-                                <p className="font-medium text-gray-800">
-                                    {selectedBahan.stok_min}
-                                </p>
-                            </div>
-                            <div>
-                                <label className="block mb-1 text-sm font-medium text-gray-500">
                                     Harga Beli Satuan
                                 </label>
                                 <p className="font-semibold text-green-700">
@@ -412,9 +377,6 @@ export default function BahanPenolong({ bahans }: Props) {
                                         Harga Beli
                                     </th>
                                     <th className="px-6 py-3 font-semibold text-center">
-                                        Stok Min
-                                    </th>
-                                    <th className="px-6 py-3 font-semibold text-center">
                                         Aksi
                                     </th>
                                 </tr>
@@ -446,9 +408,6 @@ export default function BahanPenolong({ bahans }: Props) {
                                             </td>
                                             <td className="px-6 py-4 font-medium text-green-700">
                                                 {formatRupiah(bahan.harga_beli)}
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                {bahan.stok_min}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-center gap-2">
