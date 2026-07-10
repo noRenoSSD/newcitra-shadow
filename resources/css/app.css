@@ -1,10 +1,16 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* ─── PENGGANTI TAILWIND.CONFIG.JS ───────────────────────────────────────── */
+@source "../storage/framework/views/*.php";
+@source "../resources/views/**/*.blade.php";
+@source "../resources/js/**/*.tsx";
+@source "../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php";
+
+@plugin "@tailwindcss/forms";
 
 @custom-variant dark (&:is(.dark *));
 
-/* ─── 1. VARIABEL ASLI FIGMA (BENSIN) ────────────────────────────────────── */
+/* ─── 1. VARIABEL ASLI FIGMA (BENSIN - DIBIARKAN AGAR DARK MODE JALAN) ───── */
 :root {
   --font-size: 16px;
   --background: #ffffff;
@@ -90,8 +96,6 @@
   --border: oklch(0.269 0 0);
   --input: oklch(0.269 0 0);
   --ring: oklch(0.439 0 0);
-  --font-weight-medium: 500;
-  --font-weight-normal: 400;
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -107,8 +111,12 @@
   --sidebar-ring: oklch(0.439 0 0);
 }
 
-/* ─── 2. PEMETAAN TAILWIND V4 (MESIN) ────────────────────────────────────── */
-@theme inline {
+/* ─── 2. PEMETAAN TAILWIND V4 (MESIN OXIDE) ──────────────────────────────── */
+@theme {
+  /* Font Family */
+  --font-sans: "Figtree", var(--font-sans);
+
+  /* Mapping Tema Default */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -130,15 +138,13 @@
   --color-input-background: var(--input-background);
   --color-switch-background: var(--switch-background);
   --color-ring: var(--ring);
+  
+  /* Mapping Charts & Sidebar */
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -148,73 +154,60 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Mapping Warna Custom Figma ke Class Tailwind */
+  /* Radius Config */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Mapping Warna Custom Figma (Brand) */
   --color-brand-red-50: var(--brand-red-50);
   --color-brand-red-100: var(--brand-red-100);
+  --color-brand-red-200: var(--brand-red-200);
+  --color-brand-red-300: var(--brand-red-300);
+  --color-brand-red-400: var(--brand-red-400);
   --color-brand-red-500: var(--brand-red-500);
   --color-brand-red-600: var(--brand-red-600);
+  --color-brand-red-700: var(--brand-red-700);
   --color-brand-red-800: var(--brand-red-800);
   --color-brand-red-900: var(--brand-red-900);
+  --color-brand-red-950: var(--brand-red-950);
+
+  --color-brand-gold-50: var(--brand-gold-50);
+  --color-brand-gold-100: var(--brand-gold-100);
+  --color-brand-gold-200: var(--brand-gold-200);
+  --color-brand-gold-300: var(--brand-gold-300);
+  --color-brand-gold-400: var(--brand-gold-400);
   --color-brand-gold-500: var(--brand-gold-500);
   --color-brand-gold-600: var(--brand-gold-600);
+  --color-brand-gold-700: var(--brand-gold-700);
+  --color-brand-gold-800: var(--brand-gold-800);
+  --color-brand-gold-900: var(--brand-gold-900);
 }
 
 /* ─── 3. TIPOGRAFI STANDAR FIGMA ─────────────────────────────────────────── */
 @layer base {
-  * {
-    border-color: var(--border);
+  *, ::after, ::before, ::backdrop, ::file-selector-button {
+    border-color: var(--border, currentColor);
   }
 
   body {
     background-color: var(--background);
     color: var(--foreground);
+    font-family: var(--font-sans);
   }
   
   html {
     font-size: var(--font-size);
   }
 
-  h1 {
-    font-size: var(--text-2xl);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
-  }
-
-  h2 {
-    font-size: var(--text-xl);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
-  }
-
-  h3 {
-    font-size: var(--text-lg);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
-  }
-
-  h4 {
-    font-size: var(--text-base);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
-  }
-
-  label {
-    font-size: var(--text-base);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
-  }
-
-  button {
-    font-size: var(--text-base);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
-  }
-
-  input {
-    font-size: var(--text-base);
-    font-weight: var(--font-weight-normal);
-    line-height: 1.5;
-  }
+  h1 { font-size: var(--text-2xl); font-weight: var(--font-weight-medium); line-height: 1.5; }
+  h2 { font-size: var(--text-xl); font-weight: var(--font-weight-medium); line-height: 1.5; }
+  h3 { font-size: var(--text-lg); font-weight: var(--font-weight-medium); line-height: 1.5; }
+  h4 { font-size: var(--text-base); font-weight: var(--font-weight-medium); line-height: 1.5; }
+  label { font-size: var(--text-base); font-weight: var(--font-weight-medium); line-height: 1.5; }
+  button { font-size: var(--text-base); font-weight: var(--font-weight-medium); line-height: 1.5; }
+  input { font-size: var(--text-base); font-weight: var(--font-weight-normal); line-height: 1.5; }
 }
 
 /* ─── 4. KOMPONEN KUSTOM MILIKMU ─────────────────────────────────────────── */
@@ -245,7 +238,6 @@
   /* Standard Input Text */
   .input-form {
     @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent;
-    /* Outline fokus pakai red-900 dari figma */
     --tw-ring-color: var(--brand-red-800);
   }
 }
