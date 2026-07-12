@@ -9,26 +9,28 @@ class TransaksiPengeluaran extends Model
 {
     use HasFactory;
 
-    // Kasih tau Laravel nama tabel aslinya
     protected $table = 't_transaksi_pengeluaran';
-
-    // Kasih tau Laravel nama Primary Key-nya
     protected $primaryKey = 'id_transaksi';
 
-    // Field apa saja yang boleh diisi (Mass Assignment)
     protected $fillable = [
-        'id_pengeluaran',
+        'id_akun',
+        'id_cogm',
+        'jenis_pengeluaran',
+        'jenis_utang',
         'no_transaksi',
         'tgl_transaksi',
-        'total_transaksi',
+        'nominal_bayar',
         'metode_bayar',
-        'catatan'
+        'catatan',
     ];
 
-    // Relasi ke Master Pengeluaran (Kebalikannya)
-    public function masterPengeluaran()
+    public function akun()
     {
-        // Parameter: (NamaModelMaster::class, 'foreign_key', 'owner_key')
-        return $this->belongsTo(Pengeluaran::class, 'id_pengeluaran', 'id_pengeluaran');
+        return $this->belongsTo(Akun::class, 'id_akun', 'id_akun');
+    }
+
+    public function cogm()
+    {
+        return $this->belongsTo(Cogm::class, 'id_cogm', 'id_cogm');
     }
 }

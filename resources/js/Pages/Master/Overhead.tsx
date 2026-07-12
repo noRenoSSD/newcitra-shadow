@@ -14,6 +14,9 @@ export default function DataOverhead({ overheads, nextCode }: any) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
+  // STATE UNTUK ERROR NAMA OVERHEAD
+  const [nameError, setNameError] = useState('');
+
   // Inertia Form
   const { data, setData, post, put, reset, errors } = useForm({
     kode_overhead: '',
@@ -22,13 +25,14 @@ export default function DataOverhead({ overheads, nextCode }: any) {
   });
 
   const openFormTambah = () => {
-  setIsEdit(false);
-  reset(); 
-  setData('kode_overhead', nextCode); 
-  setData('nama_overhead', '');      
-  setData('keterangan', '');       
-  setView('form');
-};
+    setIsEdit(false);
+    reset(); 
+    setData('kode_overhead', nextCode); 
+    setData('nama_overhead', '');      
+    setData('keterangan', ''); 
+    setNameError(''); // Reset error saat buka form
+    setView('form');
+  };
 
   const openFormEdit = (item: any) => {
     setIsEdit(true);
@@ -38,11 +42,19 @@ export default function DataOverhead({ overheads, nextCode }: any) {
       nama_overhead: item.nama_overhead,
       keterangan: item.keterangan || '',
     });
+    setNameError(''); // Reset error saat buka form
     setView('form');
   };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validasi Ekstra saat klik simpan (Pencegahan Ganda)
+    if (!/^[a-zA-Z\s]+$/.test(data.nama_overhead)) {
+      setNameError('Nama overhead tidak valid, pastikan tidak ada angka atau simbol.');
+      return;
+    }
+
     if (isEdit) {
       put(`/overhead/${selectedItem.id_overhead}`, { onSuccess: () => setView('list') });
     } else {
@@ -85,15 +97,33 @@ export default function DataOverhead({ overheads, nextCode }: any) {
                 value={data.kode_overhead} 
               />
             </div>
+            
+            {/* Input NAMA OVERHEAD dengan Validasi */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">Nama Overhead *</label>
               <input 
                 required
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-red-400" 
+                className={`w-full px-3 py-2 text-sm border rounded-lg outline-none transition-colors ${nameError ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500 bg-red-50/30' : 'border-gray-200 focus:border-red-400 focus:ring-1 focus:ring-red-400'}`} 
                 placeholder="Masukkan nama komponen overhead" 
                 value={data.nama_overhead} 
-                onChange={e => setData('nama_overhead', e.target.value)} 
+                onChange={e => {
+                  const val = e.target.value;
+                  setData('nama_overhead', val);
+                  
+                  // Regex Pengecekan: Hanya izinkan huruf besar/kecil dan spasi
+                  if (val.length > 0 && !/^[a-zA-Z\s]+$/.test(val)) {
+                    setNameError('Hanya boleh berisi teks/huruf dan spasi. Angka & simbol tidak diizinkan.');
+                  } else {
+                    setNameError('');
+                  }
+                }} 
               />
+              {/* Pesan Error Muncul Disini */}
+              {nameError && (
+                <p className="text-red-500 text-[11px] mt-1.5 flex items-start gap-1">
+                  <span className="font-bold">Peringatan:</span> {nameError}
+                </p>
+              )}
             </div>
           </div>
           <div>
@@ -107,8 +137,14 @@ export default function DataOverhead({ overheads, nextCode }: any) {
             />
           </div>
           <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
-            <button type="button" onClick={() => setView('list')} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Batal</button>
-            <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-red-800 rounded-lg hover:bg-red-900">Simpan</button>
+            <button type="button" onClick={() => setView('list')} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Batal</button>
+            <button 
+              type="submit" 
+              disabled={!!nameError} // Tombol mati otomatis jika ada pesan error
+              className="px-4 py-2 text-sm font-medium text-white bg-red-800 rounded-lg hover:bg-red-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              Simpan
+            </button>
           </div>
         </form>
       </div>
@@ -145,7 +181,7 @@ export default function DataOverhead({ overheads, nextCode }: any) {
             <p className="text-sm text-gray-700">{selectedItem.keterangan || <span className="italic text-gray-400">Tidak ada keterangan</span>}</p>
           </div>
           <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
-            <button onClick={() => setView('list')} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Tutup</button>
+            <button onClick={() => setView('list')} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Tutup</button>
           </div>
         </div>
       </div>

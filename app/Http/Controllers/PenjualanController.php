@@ -32,7 +32,7 @@ class PenjualanController extends Controller
     }
 
     /**
-     * 2. Menyimpan Data Hasil Generate Invoice ke t_jual & t_jual_detail
+     * 2. Menyimpan Data Hasil Generate Invoice ke t_jual & t_jual_detail BESERTA JURNALNYA
      */
     public function storeInvoice(Request $request)
     {
@@ -44,15 +44,27 @@ class PenjualanController extends Controller
 
         DB::beginTransaction();
         try {
-            // AMBIL DATA PESANAN TERLEBIH DAHULU UNTUK MENGETAHUI JENIS PENJUALANNYA
+            // AMBIL DATA PESANAN UNTUK MENGETAHUI JENIS PENJUALANNYA
             $pesananAsli = DB::table('t_pesanan')->where('id_pesanan', $idPesanan)->first();
             $jenisPenjualan = $pesananAsli->jenis_transaksi ?? 'Grosir';
 
-            // AMBIL DETAIL DARI t_pesanan_detail TERLEBIH DAHULU UNTUK HITUNG TOTAL DISKON & SUBTOTAL REAL
-            $items = DB::table('t_pesanan_detail')->where('id_pesanan', $idPesanan)->get();
+            // AMBIL DETAIL DARI t_pesanan_detail (Di-join dengan produk agar tahu nama produknya untuk Jurnal)
+            $items = DB::table('t_pesanan_detail')
+                ->join('t_produk', 't_pesanan_detail.id_produk', '=', 't_produk.id_produk')
+                ->where('id_pesanan', $idPesanan)
+                ->select('t_pesanan_detail.*', 't_produk.nama_produk')
+                ->get();
             
             $akumulasiSubtotalKotor = 0;
             $akumulasiTotalDiskonRupiah = 0;
+
+            // Wadah Rekap Jurnal Pendapatan Berdasarkan Kategori Produk
+            $akunPendapatan = [
+                '4001001' => 0, // PENJUALAN - TAHU BAKSO
+                '4001002' => 0, // PENJUALAN - BANDENG
+                '4001003' => 0, // PENJUALAN - OTAK-OTAK
+                '4001004' => 0, // PENJUALAN - PEPES
+            ];
 
             // Hitung subtotal kotor dan diskon rupiah per baris item
             foreach ($items as $item) {
@@ -71,27 +83,42 @@ class PenjualanController extends Controller
 
                 $akumulasiSubtotalKotor += $hargaKotorBaris;
                 $akumulasiTotalDiskonRupiah += $diskonRupiahBaris;
+
+                // -----------------------------------------------------------
+                // LOGIKA DETEKSI KODE AKUN PENJUALAN BERDASARKAN NAMA PRODUK
+                // -----------------------------------------------------------
+                $namaProd = strtolower($item->nama_produk);
+                if (str_contains($namaProd, 'bandeng')) {
+                    $akunPendapatan['4001002'] += $hargaKotorBaris;
+                } elseif (str_contains($namaProd, 'otak')) {
+                    $akunPendapatan['4001003'] += $hargaKotorBaris;
+                } elseif (str_contains($namaProd, 'pepes')) {
+                    $akunPendapatan['4001004'] += $hargaKotorBaris;
+                } else {
+                    // Default masuk ke Tahu Bakso jika tidak terdeteksi
+                    $akunPendapatan['4001001'] += $hargaKotorBaris; 
+                }
             }
 
             // Hitung Grand Total Bersih
             $calculatedGrandTotal = $akumulasiSubtotalKotor - $akumulasiTotalDiskonRupiah;
 
-            // 1. INSERT KE TABEL INDUK (t_jual) - Menggunakan data hitungan riil
+            // 1. INSERT KE TABEL INDUK (t_jual)
             $idJual = DB::table('t_jual')->insertGetId([
                 'no_jual'           => $noInvoice,
                 'tgl_jual'          => $tglInvoice,
                 'id_pesanan'        => $idPesanan,
                 'jenis_penjualan'   => $jenisPenjualan,
                 'metode_pembayaran' => $metodePembayaran,
-                'subtotal'          => $akumulasiSubtotalKotor,      // 👈 Sekarang berisi subtotal SEBELUM diskon
-                'total_diskon'      => $akumulasiTotalDiskonRupiah, // 👈 Nilai Rupiah diskon terakumulasi (TIDAK 0 LAGI!)
+                'subtotal'          => $akumulasiSubtotalKotor,      // Subtotal SEBELUM diskon
+                'total_diskon'      => $akumulasiTotalDiskonRupiah,  // Nilai Rupiah diskon
                 'total_hpp'         => 0, // Akan diupdate di akhir loop
-                'grand_total'       => $calculatedGrandTotal,       // 👈 Nilai bersih setelah dipotong diskon
+                'grand_total'       => $calculatedGrandTotal,        // Nilai bersih setelah diskon
                 'created_at'        => now(),
                 'updated_at'        => now()
             ]);
 
-            $totalHppInvoice = 0; // Variabel penampung akumulasi HPP
+            $totalHppInvoice = 0;
 
             // 2. INSERT KE TABEL DETAIL & POTONG STOK
             foreach ($items as $item) {
@@ -125,7 +152,7 @@ class PenjualanController extends Controller
                     'harga'      => $hargaAsli,
                     'qty_jual'   => $qty,
                     'hpp_satuan' => $hppSatuan,
-                    'diskon'     => $itemArray['diskon'] ?? 0, // Tetap menyimpan persen di detail item
+                    'diskon'     => $itemArray['diskon'] ?? 0, 
                     'subtotal'   => $subtotal,
                     'created_at' => now(),
                     'updated_at' => now()
@@ -166,7 +193,7 @@ class PenjualanController extends Controller
                     'no_piutang'     => $noPiutangOtomatis,
                     'id_jual'        => $idJual,
                     'tgl_piutang'    => $tglInvoice,
-                    'total_piutang'  => $calculatedGrandTotal, // 👈 Piutang dicatat sebesar Grand Total Bersih
+                    'total_piutang'  => $calculatedGrandTotal, // Piutang dicatat sebesar Grand Total Bersih
                     'terbayar'       => 0,
                     'sisa_piutang'   => $calculatedGrandTotal,
                     'jt_piutang'     => $calculatedJatuhTempo,
@@ -175,8 +202,111 @@ class PenjualanController extends Controller
                 ]);
             }
 
+            // =================================================================
+            // 5. OTOMATISASI JURNAL PENJUALAN & HPP
+            // =================================================================
+            
+            // Kode Akun dari Seeder
+            $kodeKas            = '1001001'; // KAS
+            $kodePiutang        = '1001003'; // PIUTANG USAHA
+            $kodeDiskonJual     = '4001006'; // DISKON PENJUALAN
+            $kodeHPP            = '5001001'; // HARGA POKOK PENJUALAN (HPP)
+            $kodePersediaanJadi = '1001006'; // PERSEDIAAN BARANG JADI
+
+            // Ambil ID Akun Utama
+            $idAkunKas      = DB::table('t_akun')->where('kode_akun', $kodeKas)->value('id_akun');
+            $idAkunPiutang  = DB::table('t_akun')->where('kode_akun', $kodePiutang)->value('id_akun');
+            $idAkunDiskon   = DB::table('t_akun')->where('kode_akun', $kodeDiskonJual)->value('id_akun');
+            $idAkunHPP      = DB::table('t_akun')->where('kode_akun', $kodeHPP)->value('id_akun');
+            $idAkunBdgJadi  = DB::table('t_akun')->where('kode_akun', $kodePersediaanJadi)->value('id_akun');
+
+            // Tentukan apakah masuk ke KAS atau PIUTANG (berdasarkan metode)
+            $isTunai = (strtolower($metodePembayaran) === 'tunai' || strtolower($metodePembayaran) === 'cash');
+            $idAkunDebitUtama = $isTunai ? $idAkunKas : $idAkunPiutang;
+
+            // A. BUAT HEADER JURNAL UMUM
+            $idJurnal = DB::table('t_jurnal')->insertGetId([
+                'kode_jurnal'    => 'JU-PJ' . date('ymd') . rand(100, 999),
+                'tanggal'        => $tglInvoice,
+                'keterangan'     => 'Penjualan Barang Jadi (' . $noInvoice . ')',
+                'jenis_jurnal'   => 'umum',
+                'kode_referensi' => $noInvoice,
+                'created_at'     => now(),
+                'updated_at'     => now(),
+            ]);
+
+            // --- BAGIAN 1: JURNAL PENJUALAN ---
+            
+            // B. DEBIT: Kas / Piutang Usaha (Sebesar Uang Bersih yg diterima/ditagih)
+            if ($calculatedGrandTotal > 0 && $idAkunDebitUtama) {
+                DB::table('t_jurnal_detail')->insert([
+                    'id_jurnal' => $idJurnal,
+                    'id_akun'   => $idAkunDebitUtama,
+                    'debit'     => $calculatedGrandTotal,
+                    'kredit'    => 0,
+                    'created_at'=> now(),
+                    'updated_at'=> now(),
+                ]);
+            }
+
+            // C. DEBIT: Diskon Penjualan (Jika Ada Diskon)
+            if ($akumulasiTotalDiskonRupiah > 0 && $idAkunDiskon) {
+                DB::table('t_jurnal_detail')->insert([
+                    'id_jurnal' => $idJurnal,
+                    'id_akun'   => $idAkunDiskon,
+                    'debit'     => $akumulasiTotalDiskonRupiah,
+                    'kredit'    => 0,
+                    'created_at'=> now(),
+                    'updated_at'=> now(),
+                ]);
+            }
+
+            // D. KREDIT: Pendapatan Penjualan (Di-loop sesuai akumulasi Kategori Produk tadi)
+            foreach ($akunPendapatan as $kodeAkunPenjualan => $totalKreditPenjualan) {
+                if ($totalKreditPenjualan > 0) {
+                    $idAkunPdpt = DB::table('t_akun')->where('kode_akun', $kodeAkunPenjualan)->value('id_akun');
+                    if ($idAkunPdpt) {
+                        DB::table('t_jurnal_detail')->insert([
+                            'id_jurnal' => $idJurnal,
+                            'id_akun'   => $idAkunPdpt,
+                            'debit'     => 0,
+                            'kredit'    => $totalKreditPenjualan,
+                            'created_at'=> now(),
+                            'updated_at'=> now(),
+                        ]);
+                    }
+                }
+            }
+
+            // --- BAGIAN 2: JURNAL HPP ---
+            if ($totalHppInvoice > 0) {
+                // E. DEBIT: Harga Pokok Penjualan (HPP)
+                if ($idAkunHPP) {
+                    DB::table('t_jurnal_detail')->insert([
+                        'id_jurnal' => $idJurnal,
+                        'id_akun'   => $idAkunHPP,
+                        'debit'     => $totalHppInvoice,
+                        'kredit'    => 0,
+                        'created_at'=> now(),
+                        'updated_at'=> now(),
+                    ]);
+                }
+
+                // F. KREDIT: Persediaan Barang Jadi Berkurang
+                if ($idAkunBdgJadi) {
+                    DB::table('t_jurnal_detail')->insert([
+                        'id_jurnal' => $idJurnal,
+                        'id_akun'   => $idAkunBdgJadi,
+                        'debit'     => 0,
+                        'kredit'    => $totalHppInvoice,
+                        'created_at'=> now(),
+                        'updated_at'=> now(),
+                    ]);
+                }
+            }
+
             DB::commit();
-            return redirect('/transaksi-penjualan')->with('success', 'Transaksi Penjualan Berhasil Disimpan!');
+            return redirect('/transaksi-penjualan')->with('success', 'Transaksi Penjualan & Jurnal Otomatis Berhasil Disimpan!');
 
         } catch (Exception $e) {
             DB::rollback();

@@ -15,25 +15,23 @@ class HutangUsahaController extends Controller
         // Ambil data hutang dengan relasi yang BENAR sesuai file Model-mu:
         // Hutang -> Transaksi Pembelian -> Details (Item) & PenerimaanBahan -> Supplier
         $hutangRaw = HutangUsaha::with([
-    'transaksiPembelian.details.detailPenerimaan.bahan',
-    // UBAH BARIS INI: Ambil supplier melalui purchaseOrder
-    'transaksiPembelian.penerimaanBahan.purchaseOrder.supplier',
-    'riwayatPembayaran'
-])->get();
+            'transaksiPembelian.details.detailPenerimaan.bahan',
+            // UBAH BARIS INI: Ambil supplier melalui purchaseOrder
+            'transaksiPembelian.penerimaanBahan.purchaseOrder.supplier',
+            'riwayatPembayaran'
+        ])->get();
 
-$listHutang = $hutangRaw->map(function ($h) {
-    $pembelian = $h->transaksiPembelian;
-    $penerimaan = $pembelian ? $pembelian->penerimaanBahan : null;
+        $listHutang = $hutangRaw->map(function ($h) {
+            $pembelian = $h->transaksiPembelian;
+            $penerimaan = $pembelian ? $pembelian->penerimaanBahan : null;
 
-    // CARI SUPPLIER LEWAT PO:
-    $po = $penerimaan ? $penerimaan->purchaseOrder : null;
+            // CARI SUPPLIER LEWAT PO:
+            $po = $penerimaan ? $penerimaan->purchaseOrder : null;
 
-    // Jika ada PO, ambil supplier dari PO. Kalau tidak, coba ambil langsung dari penerimaan (jaga-jaga)
-    $supplier = $po ? $po->supplier : ($penerimaan ? $penerimaan->supplier : null);
+            // Jika ada PO, ambil supplier dari PO. Kalau tidak, coba ambil langsung dari penerimaan (jaga-jaga)
+            $supplier = $po ? $po->supplier : ($penerimaan ? $penerimaan->supplier : null);
 
-    $namaSupplier = $supplier ? $supplier->nama_supplier : 'Supplier Tidak Diketahui';
-
-    // ... (kode mapping items dan return sisanya biarkan sama seperti sebelumnya) ...
+            $namaSupplier = $supplier ? $supplier->nama_supplier : 'Supplier Tidak Diketahui';
 
             // 1. Mengambil list item barang yang dibeli dari detail transaksi pembelian
             $items = [];
@@ -71,17 +69,16 @@ $listHutang = $hutangRaw->map(function ($h) {
                 'id'                => (string) $h->id_hutang,
                 'noHutang'          => $h->no_hutang,
                 'noTransaksi'       => $pembelian->no_faktur ?? '-',
-                'supplier'          => $supplier->nama_supplier ?? 'Supplier Tidak Diketahui',
+                'supplier'          => $namaSupplier,
                 'totalHutang'       => (float) $h->total_hutang,
                 'terbayar'          => (float) $h->terbayar,
                 'kurangBayar'       => (float) $h->kurang_bayar,
-            // === TAMBAHAN DATA KEUANGAN DI SINI ===
+                // === TAMBAHAN DATA KEUANGAN DI SINI ===
                 'ongkosKirim'       => $pembelian ? (float) $pembelian->ongkos_kirim : 0,
                 'diskon'            => $pembelian ? (float) $pembelian->diskon : 0,
                 'pajak'             => $pembelian ? (float) $pembelian->pajak : 0,
                 // === DI SINI TANGGAL JATUH TEMPO DIKIRIMKAN KE REACT ===
                 'tanggalJatuhTempo' => $pembelian && $pembelian->jatuh_tempo ? \Carbon\Carbon::parse($pembelian->jatuh_tempo)->format('Y-m-d') : '-',
-
                 'status'            => $h->status === 'Lunas' ? 'Lunas' : 'Belum Lunas',
                 'items'             => $items,
                 'riwayatPembayaran' => $riwayat,
@@ -108,6 +105,7 @@ $listHutang = $hutangRaw->map(function ($h) {
             $count = PembayaranHutang::where('tipe', 'Bayar')->count() + 1;
             $noBayar = 'PMB-HU-' . date('Ymd') . '-' . str_pad($count, 3, '0', STR_PAD_LEFT);
 
+            // 1. Catat Riwayat Pembayaran Hutang
             PembayaranHutang::create([
                 'id_hutang'          => $hutang->id_hutang,
                 'no_pembayaran'      => $noBayar,
@@ -118,6 +116,7 @@ $listHutang = $hutangRaw->map(function ($h) {
                 'catatan'            => $request->catatan,
             ]);
 
+            // 2. Update Saldo Hutang
             $newTerbayar = $hutang->terbayar + $request->jumlah_dibayar;
             $newKurangBayar = $hutang->total_hutang - $newTerbayar;
 
@@ -126,8 +125,62 @@ $listHutang = $hutangRaw->map(function ($h) {
                 'kurang_bayar' => $newKurangBayar,
                 'status'       => $newKurangBayar <= 0 ? 'Lunas' : 'Belum Lunas'
             ]);
+
+            // =================================================================
+            // 3. OTOMATISASI JURNAL PEMBAYARAN HUTANG
+            // =================================================================
+
+            // A. Tentukan Kode Akun berdasarkan Seeder
+            $kodeAkunHutang = '2001001'; // HUTANG USAHA
+            $kodeAkunKas    = '1001001'; // KAS
+            $kodeAkunBank   = '1001002'; // BANK
+
+            $idAkunHutang = DB::table('t_akun')->where('kode_akun', $kodeAkunHutang)->value('id_akun');
+            $idAkunKas    = DB::table('t_akun')->where('kode_akun', $kodeAkunKas)->value('id_akun');
+            $idAkunBank   = DB::table('t_akun')->where('kode_akun', $kodeAkunBank)->value('id_akun');
+
+            // B. Tentukan Akun Kredit berdasarkan metode pembayaran
+            // Jika kata kunci Cash/Tunai/Kas ada di input metode_pembayaran, pakai Kas. Selain itu pakai Bank.
+            $metode = strtolower($request->metode_pembayaran);
+            $idAkunKredit = (str_contains($metode, 'kas') || str_contains($metode, 'tunai') || str_contains($metode, 'cash')) 
+                            ? $idAkunKas 
+                            : $idAkunBank;
+
+            // Pastikan ID akunnya valid ditemukan di database
+            if ($idAkunHutang && $idAkunKredit) {
+                // C. Buat Header Jurnal
+                $idJurnal = DB::table('t_jurnal')->insertGetId([
+                    'kode_jurnal'    => 'JU-PH' . date('ymd') . rand(100, 999),
+                    'tanggal'        => $request->tanggal_pembayaran,
+                    'keterangan'     => 'Pembayaran Hutang Usaha (Ref: ' . $noBayar . ')',
+                    'jenis_jurnal'   => 'umum',
+                    'kode_referensi' => $noBayar,
+                    'created_at'     => now(),
+                    'updated_at'     => now(),
+                ]);
+
+                // D. SISI DEBIT: Hutang Usaha (Berkurang)
+                DB::table('t_jurnal_detail')->insert([
+                    'id_jurnal'  => $idJurnal,
+                    'id_akun'    => $idAkunHutang,
+                    'debit'      => $request->jumlah_dibayar,
+                    'kredit'     => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                // E. SISI KREDIT: Kas / Bank (Berkurang)
+                DB::table('t_jurnal_detail')->insert([
+                    'id_jurnal'  => $idJurnal,
+                    'id_akun'    => $idAkunKredit,
+                    'debit'      => 0,
+                    'kredit'     => $request->jumlah_dibayar,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
         });
 
-        return redirect()->back()->with('success', 'Pembayaran hutang berhasil dicatat.');
+        return redirect()->back()->with('success', 'Pembayaran hutang berhasil dicatat dan Jurnal telah dibuat otomatis.');
     }
 }

@@ -15,10 +15,11 @@ class AkunSeeder extends Seeder
             ['kode_akun' => '1001002', 'nama_akun' => 'BANK', 'kategori' => 'Aset Lancar', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
             ['kode_akun' => '1001003', 'nama_akun' => 'PIUTANG USAHA', 'kategori' => 'Aset Lancar', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
             ['kode_akun' => '1001004', 'nama_akun' => 'PERSEDIAAN BAHAN BAKU', 'kategori' => 'Aset Lancar', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
-            ['kode_akun' => '1001005', 'nama_akun' => 'PERSEDIAAN BAHAN KEMASAN', 'kategori' => 'Aset Lancar', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
+            ['kode_akun' => '1001005', 'nama_akun' => 'PERSEDIAAN BAHAN PENOLONG', 'kategori' => 'Aset Lancar', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
             ['kode_akun' => '1001006', 'nama_akun' => 'PERSEDIAAN BARANG JADI', 'kategori' => 'Aset Lancar', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
             ['kode_akun' => '1001007', 'nama_akun' => 'PERSEDIAAN BARANG KONSINYASI', 'kategori' => 'Aset Lancar', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
-
+            ['kode_akun' => '1001008', 'nama_akun' => 'PERSEDIAAN BARANG DALAM PROSES', 'kategori' => 'Aset Lancar', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
+            
             // Aset Tetap (Debit)
             ['kode_akun' => '1002001', 'nama_akun' => 'ASET TETAP - PERALATAN', 'kategori' => 'Aset Tetap', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
             ['kode_akun' => '1002002', 'nama_akun' => 'ASET TETAP - MESIN', 'kategori' => 'Aset Tetap', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
@@ -32,6 +33,8 @@ class AkunSeeder extends Seeder
 
             // Liabilitas & Ekuitas (Kredit)
             ['kode_akun' => '2001001', 'nama_akun' => 'HUTANG USAHA', 'kategori' => 'Liabilitas', 'saldo_normal' => 'Kredit', 'saldo_awal' => 0],
+            ['kode_akun' => '2001002', 'nama_akun' => 'HUTANG GAJI PRODUKSI', 'kategori' => 'Liabilitas', 'saldo_normal' => 'Kredit', 'saldo_awal' => 0],
+            ['kode_akun' => '2001003', 'nama_akun' => 'HUTANG OVERHEAD PRODUKSI', 'kategori' => 'Liabilitas', 'saldo_normal' => 'Kredit', 'saldo_awal' => 0],
             ['kode_akun' => '3001001', 'nama_akun' => 'MODAL PEMILIK', 'kategori' => 'Ekuitas', 'saldo_normal' => 'Kredit', 'saldo_awal' => 0],
             ['kode_akun' => '3002001', 'nama_akun' => 'LABA DITAHAN', 'kategori' => 'Ekuitas', 'saldo_normal' => 'Kredit', 'saldo_awal' => 0],
 
@@ -41,6 +44,7 @@ class AkunSeeder extends Seeder
             ['kode_akun' => '4001003', 'nama_akun' => 'PENJUALAN - OTAK-OTAK', 'kategori' => 'Pendapatan', 'saldo_normal' => 'Kredit', 'saldo_awal' => 0],
             ['kode_akun' => '4001004', 'nama_akun' => 'PENJUALAN - PEPES', 'kategori' => 'Pendapatan', 'saldo_normal' => 'Kredit', 'saldo_awal' => 0],
             ['kode_akun' => '4001005', 'nama_akun' => 'RETUR PENJUALAN', 'kategori' => 'Pendapatan', 'saldo_normal' => 'Kredit', 'saldo_awal' => 0],
+            ['kode_akun' => '4001006', 'nama_akun' => 'DISKON PENJUALAN', 'kategori' => 'Pendapatan', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
 
             // Beban Pokok Penjualan (Debit)
             ['kode_akun' => '5001001', 'nama_akun' => 'HPP', 'kategori' => 'Beban Pokok Penjualan', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
@@ -53,7 +57,8 @@ class AkunSeeder extends Seeder
             ['kode_akun' => '6001004', 'nama_akun' => 'BEBAN BBM TOL PARKIR', 'kategori' => 'Beban Operasional', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
             ['kode_akun' => '6001005', 'nama_akun' => 'BEBAN PEMELIHARAAN KENDARAAN', 'kategori' => 'Beban Operasional', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
             ['kode_akun' => '6001006', 'nama_akun' => 'BEBAN KERUSAKAN BARANG', 'kategori' => 'Beban Operasional', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
-            ['kode_akun' => '6001007', 'nama_akun' => 'BEBAN SELISIH PERSEDIAAN', 'kategori' => 'Beban Operasional', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
+            ['kode_akun' => '6001007', 'nama_akun' => 'BEBAN PERBAIKAN PRODUK', 'kategori' => 'Beban Operasional', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
+            ['kode_akun' => '6001008', 'nama_akun' => 'BEBAN SELISIH PERSEDIAAN', 'kategori' => 'Beban Operasional', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
             ['kode_akun' => '6002001', 'nama_akun' => 'BEBAN GAJI MARKETING', 'kategori' => 'Beban Operasional', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
             ['kode_akun' => '6002002', 'nama_akun' => 'BEBAN PROMOSI, SAMPEL', 'kategori' => 'Beban Operasional', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
             ['kode_akun' => '6003001', 'nama_akun' => 'BEBAN GAJI DIREKSI', 'kategori' => 'Beban Operasional', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
@@ -72,7 +77,8 @@ class AkunSeeder extends Seeder
             ['kode_akun' => '6006009', 'nama_akun' => 'BEBAN OPERASIONAL LAIN-LAIN', 'kategori' => 'Beban Operasional', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],
             
             // Penghasilan Lain-lain (Kredit)
-            ['kode_akun' => '8001000', 'nama_akun' => 'BEBAN ADMINISTRASI BANK', 'kategori' => 'Penghasilan Lain-lain', 'saldo_normal' => 'Kredit', 'saldo_awal' => 0], // Catatan: Namanya 'Beban' tapi di kategori 'Penghasilan Lain-lain', tetap Kredit sesuai request
+            ['kode_akun' => '8001000', 'nama_akun' => 'PENDAPATAN SELISIH PERSEDIAAN', 'kategori' => 'Penghasilan Lain-lain', 'saldo_normal' => 'Kredit', 'saldo_awal' => 0], 
+            ['kode_akun' => '8002000', 'nama_akun' => 'PENDAPATAN ADMINISTRASI BANK', 'kategori' => 'Penghasilan Lain-lain', 'saldo_normal' => 'Kredit', 'saldo_awal' => 0],
             
             // Beban Lain-lain (Debit)
             ['kode_akun' => '9001000', 'nama_akun' => 'BEBAN PAJAK BUMI DAN BANGUNAN', 'kategori' => 'Beban Lain-lain', 'saldo_normal' => 'Debit', 'saldo_awal' => 0],

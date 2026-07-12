@@ -35,7 +35,11 @@ export default function DataAkun({ akuns }: any) {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [page, setPage] = useState(1);
 
-  // Inertia Form (diperbarui dengan kolom baru)
+  // STATE UNTUK ERROR NAMA DAN KODE AKUN
+  const [nameError, setNameError] = useState('');
+  const [codeError, setCodeError] = useState('');
+
+  // Inertia Form
   const { data, setData, post, put, reset, transform } = useForm({
     kode_akun_suffix: '', 
     nama_akun: '',
@@ -74,12 +78,16 @@ export default function DataAkun({ akuns }: any) {
   const openFormTambah = () => {
     setIsEdit(false);
     reset();
+    setNameError(''); // Reset error
+    setCodeError(''); // Reset error
     setView('form');
   };
 
   const openFormEdit = (item: any) => {
     setIsEdit(true);
     setSelectedItem(item);
+    setNameError(''); // Reset error
+    setCodeError(''); // Reset error
     
     const prefix = PREFIX_MAP[item.kategori] || '';
     let suffix = item.kode_akun;
@@ -101,6 +109,18 @@ export default function DataAkun({ akuns }: any) {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validasi Ganda Saat Klik Simpan (Keamanan Tambahan)
+    if (!/^[0-9]+$/.test(data.kode_akun_suffix)) {
+      setCodeError('Kode akun hanya boleh berisi angka.');
+      return;
+    }
+    
+    if (!/^[a-zA-Z\s]+$/.test(data.nama_akun)) {
+      setNameError('Nama akun tidak valid, pastikan tidak ada angka atau simbol.');
+      return;
+    }
+
     if (isEdit) {
       put(`/akun/${selectedItem.id_akun}`, { onSuccess: () => setView('list') });
     } else {
@@ -158,6 +178,7 @@ export default function DataAkun({ akuns }: any) {
 
           {/* Baris Kode & Nama Akun */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            {/* Input KODE AKUN dengan Validasi */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">Kode Akun *</label>
               <div className="flex">
@@ -169,22 +190,56 @@ export default function DataAkun({ akuns }: any) {
                 <input 
                   required
                   disabled={isEdit || !data.kategori} 
-                  className={`flex-1 min-w-0 block w-full px-3 py-2 text-sm border border-gray-200 outline-none ${currentPrefix ? 'rounded-none rounded-r-lg' : 'rounded-lg'} ${isEdit || !data.kategori ? 'bg-gray-100 cursor-not-allowed' : 'focus:border-red-400 focus:ring-1 focus:ring-red-400'}`} 
+                  className={`flex-1 min-w-0 block w-full px-3 py-2 text-sm border outline-none ${currentPrefix ? 'rounded-none rounded-r-lg' : 'rounded-lg'} ${isEdit || !data.kategori ? 'bg-gray-100 cursor-not-allowed border-gray-200' : codeError ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500 bg-red-50/30' : 'border-gray-200 focus:border-red-400 focus:ring-1 focus:ring-red-400'}`} 
                   placeholder={data.kategori ? "xxxx" : "Pilih kategori dulu"}
                   value={data.kode_akun_suffix} 
-                  onChange={e => setData('kode_akun_suffix', e.target.value)} 
+                  onChange={e => {
+                    const val = e.target.value;
+                    setData('kode_akun_suffix', val);
+                    
+                    // Regex Pengecekan: Hanya izinkan angka 0-9
+                    if (val.length > 0 && !/^[0-9]+$/.test(val)) {
+                      setCodeError('Hanya boleh berisi angka.');
+                    } else {
+                      setCodeError('');
+                    }
+                  }} 
                 />
               </div>
+              {/* Pesan Error Kode Akun Muncul Disini */}
+              {codeError && (
+                <p className="text-red-500 text-[11px] mt-1.5 flex items-start gap-1">
+                  <span className="font-bold">Peringatan:</span> {codeError}
+                </p>
+              )}
             </div>
+            
+            {/* Input NAMA AKUN dengan Validasi */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">Nama Akun *</label>
               <input 
                 required
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400" 
+                className={`w-full px-3 py-2 text-sm border rounded-lg outline-none ${nameError ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500 bg-red-50/30' : 'border-gray-200 focus:border-red-400 focus:ring-1 focus:ring-red-400'}`} 
                 placeholder="Misal: Kas" 
                 value={data.nama_akun} 
-                onChange={e => setData('nama_akun', e.target.value)} 
+                onChange={e => {
+                  const val = e.target.value;
+                  setData('nama_akun', val);
+                  
+                  // Regex Pengecekan: Hanya izinkan huruf besar/kecil dan spasi
+                  if (val.length > 0 && !/^[a-zA-Z\s]+$/.test(val)) {
+                    setNameError('Hanya boleh berisi teks/huruf dan spasi. Angka & simbol tidak diizinkan.');
+                  } else {
+                    setNameError('');
+                  }
+                }} 
               />
+              {/* Pesan Error Nama Akun Muncul Disini */}
+              {nameError && (
+                <p className="text-red-500 text-[11px] mt-1.5 flex items-start gap-1">
+                  <span className="font-bold">Peringatan:</span> {nameError}
+                </p>
+              )}
             </div>
           </div>
 
@@ -218,7 +273,13 @@ export default function DataAkun({ akuns }: any) {
           
           <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
             <button type="button" onClick={() => setView('list')} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Batal</button>
-            <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-red-800 rounded-lg hover:bg-red-900">Simpan</button>
+            <button 
+              type="submit" 
+              disabled={!!nameError || !!codeError} // Tombol mati jika salah satu form error
+              className="px-4 py-2 text-sm font-medium text-white bg-red-800 rounded-lg hover:bg-red-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              Simpan
+            </button>
           </div>
         </form>
       </div>

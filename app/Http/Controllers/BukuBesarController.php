@@ -11,11 +11,12 @@ class BukuBesarController extends Controller
 {
     public function index()
     {
-        // 1. Tarik Master Akun
+        // 1. Tarik Master Akun (TAMBAHAN: Mengambil kolom 'kategori')
         $masterAkun = DB::table('t_akun')
             ->select(
                 'kode_akun as kode', 
                 'nama_akun as nama', 
+                'kategori', // <-- Diperlukan untuk memisahkan Akun Riil & Nominal di React
                 DB::raw("IF(saldo_normal = 'Debit', true, false) as normalDebit"),
                 'saldo_awal as saldoAwal'
             )
@@ -24,7 +25,7 @@ class BukuBesarController extends Controller
 
         // 2. Tarik Transaksi Jurnal (Header + Detail)
         $transaksiRaw = DB::table('t_jurnal as j')
-            ->join('t_jurnal_detail as dj', 'j.id_jurnal', '=', 'dj.id_jurnal') // Menggunakan t_jurnal_detail
+            ->join('t_jurnal_detail as dj', 'j.id_jurnal', '=', 'dj.id_jurnal') 
             ->join('t_akun as a', 'dj.id_akun', '=', 'a.id_akun')
             ->select(
                 'a.kode_akun',

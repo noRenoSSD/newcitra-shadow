@@ -183,7 +183,7 @@ function JurnalModal({ periode, asetData, onClose, onSave, isSaving }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
-        <div className="bg-gradient-to-r from-red-700 to-red-800 px-6 py-5 rounded-t-2xl flex items-center gap-3">
+        <div className="bg-linear-to-r from-red-700 to-red-800 px-6 py-5 rounded-t-2xl flex items-center gap-3">
           <div className="p-2 rounded-lg bg-white/20">
             <BookOpen className="w-5 h-5 text-yellow-300" />
           </div>
@@ -298,10 +298,9 @@ export default function PenyusutanAsetTetap() {
     a => a.penyusutan_per_bulan > 0
   );
 
+  // Perhitungan total tanpa kolom akumulasi dan nilai buku
   const totalHarga      = activeAsetData.reduce((s, a) => s + a.harga_perolehan, 0);
   const totalPenyusutan = activeAsetData.reduce((s, a) => s + a.penyusutan_per_bulan, 0);
-  const totalAkumulasi  = activeAsetData.reduce((s, a) => s + a.akumulasi_penyusutan, 0);
-  const totalNilaiBuku  = activeAsetData.reduce((s, a) => s + a.nilai_buku, 0);
 
   const handleGenerate = () => {
     setIsGenerating(true);
@@ -311,7 +310,6 @@ export default function PenyusutanAsetTetap() {
     });
   };
 
-  // Fungsi pengiriman Jurnal ke Controller
   const handleSaveJurnal = (entries: JurnalEntry[]) => {
     setIsSavingJurnal(true);
     router.post('/penyusutan/simpan-jurnal', { 
@@ -345,7 +343,7 @@ export default function PenyusutanAsetTetap() {
 
       {flash?.success && (
         <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-3.5 flex items-center gap-3">
-          <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+          <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
           <p className="text-sm text-green-800">{flash.success}</p>
         </div>
       )}
@@ -470,8 +468,6 @@ export default function PenyusutanAsetTetap() {
                       'Harga Perolehan',
                       'Umur Ekonomis',
                       'Penyusutan/Bulan',
-                      'Akumulasi Penyusutan',
-                      'Nilai Buku',
                     ].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide whitespace-nowrap">
                         {h}
@@ -482,7 +478,7 @@ export default function PenyusutanAsetTetap() {
                 <tbody className="divide-y divide-gray-100">
                   {activeAsetData.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="text-center py-12 text-gray-400">
+                      <td colSpan={5} className="text-center py-12 text-gray-400">
                         Tidak ada aset aktif yang bisa disusutkan pada periode ini.
                       </td>
                     </tr>
@@ -493,8 +489,6 @@ export default function PenyusutanAsetTetap() {
                       <td className="px-4 py-3 text-sm text-right text-gray-700 whitespace-nowrap">{rp(a.harga_perolehan)}</td>
                       <td className="px-4 py-3 text-sm text-right text-gray-700 whitespace-nowrap">{a.umur_ekonomis} bln</td>
                       <td className="px-4 py-3 text-sm text-right font-medium whitespace-nowrap bg-red-50/30">{rp(a.penyusutan_per_bulan)}</td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-700 whitespace-nowrap">{rp(a.akumulasi_penyusutan)}</td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-700 whitespace-nowrap">{rp(a.nilai_buku)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -507,8 +501,6 @@ export default function PenyusutanAsetTetap() {
                       <td className="px-4 py-3 text-sm text-right font-bold text-gray-800 whitespace-nowrap">{rp(totalHarga)}</td>
                       <td className="px-4 py-3" />
                       <td className="px-4 py-3 text-sm text-right font-bold text-red-700 whitespace-nowrap">{rp(totalPenyusutan)}</td>
-                      <td className="px-4 py-3 text-sm text-right font-bold text-gray-800 whitespace-nowrap">{rp(totalAkumulasi)}</td>
-                      <td className="px-4 py-3 text-sm text-right font-bold text-gray-800 whitespace-nowrap">{rp(totalNilaiBuku)}</td>
                     </tr>
                   </tfoot>
                 )}

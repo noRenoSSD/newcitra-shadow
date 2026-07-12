@@ -13,7 +13,6 @@ use App\Http\Controllers\MitraController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProdukController;
 use App\Http\Controllers\HargaProdukController;
-use App\Http\Controllers\PengeluaranController;
 use App\Http\Controllers\PesananController;
 use App\Http\Controllers\PenjualanController;
 use App\Http\Controllers\ReturJualController;
@@ -46,6 +45,13 @@ use App\Http\Controllers\JurnalPenyesuaianController;
 use App\Http\Controllers\BukuBesarController;
 use App\Http\Controllers\HutangUsahaController;
 use App\Http\Controllers\PersediaanKonsinyasiController;
+use App\Http\Controllers\LaporanProduksiController;
+use App\Http\Controllers\LaporanHppController;
+use App\Http\Controllers\LaporanAsetTetapController;
+use App\Http\Controllers\LaporanPosisiKeuanganController;
+use App\Http\Controllers\LaporanLabaRugiController;
+use App\Http\Controllers\LaporanCalkController;
+
 // Dasar Autentikasi Redirection
 Route::get('/', function () {
     return redirect('/login');
@@ -102,11 +108,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/akun', [AkunController::class, 'store']);
     Route::put('/akun/{id}', [AkunController::class, 'update']);
     Route::delete('/akun/{id}', [AkunController::class, 'destroy']);
-
-    Route::get('/jenis-pengeluaran', [PengeluaranController::class, 'index'])->name('pengeluaran.index');
-    Route::post('/jenis-pengeluaran', [PengeluaranController::class, 'store']);
-    Route::put('/jenis-pengeluaran/{id_pengeluaran}', [PengeluaranController::class, 'update']);
-    Route::delete('/jenis-pengeluaran/{id_pengeluaran}', [PengeluaranController::class, 'destroy']);
 
     // --- Approval Pemakaian Bahan ---
     Route::get('/approval-pemakaian-bahan', [ApprovalPemakaianBahanController::class, 'index'])->name('approval-pemakaian-bahan.index');
@@ -212,6 +213,12 @@ Route::get('/retur-penjualan/invoice-items/{id_jual}', [ReturJualController::cla
         Route::post('/', [HasilProduksiController::class, 'store'])->name('store');
     });
 
+    Route::get('/laporan-produksi', [LaporanProduksiController::class, 'index'])->name('laporan-produksi.index');
+    Route::get('/laporan-hpp', [LaporanHppController::class, 'index'])->name('laporan-hpp.index');
+    Route::get('/laporan/aset-tetap', [LaporanAsetTetapController::class, 'index'])->name('laporan.aset-tetap.index');
+    Route::get('/laporan/posisi-keuangan', [LaporanPosisiKeuanganController::class, 'index'])->name('laporan.posisi-keuangan.index');
+    Route::get('/laporan/laba-rugi', [LaporanLabaRugiController::class, 'index'])->name('laporan.laba-rugi.index');
+    Route::get('/laporan/calk', [LaporanCalkController::class, 'index'])->name('laporan.calk.index');
 
     // --- Pembelian (Purchasing) ---
     Route::prefix('pembelian/permintaan')->name('pp.')->group(function () {

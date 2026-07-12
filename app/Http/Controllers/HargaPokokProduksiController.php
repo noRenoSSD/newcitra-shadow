@@ -38,18 +38,10 @@ class HargaPokokProduksiController extends Controller
             ->join('t_detail_jadwal_produksi as djp', 'hp.id_produksi', '=', 'djp.id_produksi')
             ->join('t_produk as p', 'djp.id_produk', '=', 'p.id_produk')
             ->join('t_pemakaian_bahan as pb', 'hp.id_hasil_produksi', '=', 'pb.id_hasil_produksi')
-
-            // JOIN KE APPROVAL UNTUK CEK STATUSNYA
             ->join('t_approval_pemakaian_bahan as apb', 'pb.id_pemakaian', '=', 'apb.id_pemakaian')
-
             ->join('t_bahan as b', 'pb.id_bahan', '=', 'b.id_bahan')
-
-            // LEFT JOIN ke COGM untuk mengecek apakah HPP-nya "Sudah Input" atau "Belum"
             ->leftJoin('t_cogm as c', 'hp.id_produksi', '=', 'c.id_produksi')
-
-            // FILTER HANYA YANG APPROVED
             ->where('apb.status_approval', 'approved')
-
             ->select(
                 'hp.id_produksi',
                 'djp.kode_produksi',
@@ -63,7 +55,7 @@ class HargaPokokProduksiController extends Controller
                 'apb.harga_ratarata_aktual',
                 'apb.total_aktual',
                 'apb.komentar_admin',
-                'c.id_cogm' // Kunci penentu status HPP
+                'c.id_cogm' 
             )
             ->get();
 
@@ -71,10 +63,8 @@ class HargaPokokProduksiController extends Controller
         $hppData = $rawData->groupBy('id_produksi')->map(function ($items, $idProduksi) {
             $first = $items->first();
 
-            // Jika ada id_cogm, berarti data COGM-nya sudah pernah disimpan
             $statusHpp = $first->id_cogm ? 'Sudah Input' : 'Belum Input';
 
-            // Mapping Material (Bahan Baku)
             $bahanBaku = $items->map(function ($item) {
                 return [
                     'kode_material' => $item->kode_bahan ?? '-',
@@ -89,9 +79,7 @@ class HargaPokokProduksiController extends Controller
             $tenagaKerja = [];
             $overhead = [];
 
-            // Jika "Sudah Input", kita harus mengambil nilai BTKL dan BOP historisnya dari Database
             if ($statusHpp === 'Sudah Input') {
-                // Tarik histori BTKL
                 $tkData = DB::table('t_btkl as bk')
                     ->join('t_detail_btkl as dbk', 'bk.id_btkl', '=', 'dbk.id_btkl')
                     ->join('t_divisi as div', 'dbk.id_divisi', '=', 'div.id_divisi')
@@ -107,7 +95,6 @@ class HargaPokokProduksiController extends Controller
                     ];
                 }
 
-                // Tarik histori Overhead
                 $bopData = DB::table('t_bop as bp')
                     ->join('t_detail_bop as dbp', 'bp.id_bop', '=', 'dbp.id_bop')
                     ->join('t_overhead as ov', 'dbp.id_overhead', '=', 'ov.id_overhead')
@@ -126,10 +113,10 @@ class HargaPokokProduksiController extends Controller
                 'id'               => (string) $idProduksi,
                 'no_produksi'      => $first->kode_produksi ?? 'PRD-'.$idProduksi,
                 'tanggal_produksi' => Carbon::parse($first->tanggal_produksi)->format('Y-m-d'),
-                'kode_produk'      => '-', // Opsional, bisa diisi jika ada kolom kode_produk
+                'kode_produk'      => '-', 
                 'nama_produk'      => $first->nama_produk,
                 'qty_rencana'      => (float) ($first->qty_rencana ?? 1),
-                'satuan'           => 'Pack', // Asumsi satuan produksi
+                'satuan'           => 'Pack', 
                 'catatan'          => $first->komentar_admin ?? '',
                 'status_hpp'       => $statusHpp,
                 'bahan_baku'       => $bahanBaku,
@@ -138,7 +125,6 @@ class HargaPokokProduksiController extends Controller
             ];
         })->values()->toArray();
 
-        // 5. Lempar semua data ke Inertia (React Front-End)
         return Inertia::render('Produksi/HargaPokokProduksi', [
             'hppData'        => $hppData,
             'masterDivisi'   => $masterDivisi,
@@ -147,7 +133,7 @@ class HargaPokokProduksiController extends Controller
     }
 
     /**
-     * Memproses Penyimpanan COGM ke 7 Tabel Database
+     * Memproses Penyimpanan COGM ke Tabel Database + Jurnal + Mutasi Persediaan
      */
     public function store(Request $request)
     {
@@ -159,7 +145,11 @@ class HargaPokokProduksiController extends Controller
         ]);
 
         $idProduksi = $validated['id'];
-        $tanggalHitung = Carbon::now()->toDateString();
+
+        // === MENGAMBIL TANGGAL PRODUKSI SEBAGAI TANGGAL HITUNG ===
+        // Agar Jurnal dan Laporan akuntansi sinkron dengan waktu produksi aslinya
+        $hasilProduksi = DB::table('t_hasil_produksi')->where('id_produksi', $idProduksi)->first();
+        $tanggalHitung = $hasilProduksi ? $hasilProduksi->tanggal_produksi : Carbon::now()->toDateString();
 
         try {
             DB::transaction(function () use ($validated, $idProduksi, $tanggalHitung) {
@@ -190,7 +180,7 @@ class HargaPokokProduksiController extends Controller
                 $idBBB = DB::table('t_bbb')->insertGetId([
                     'id_produksi'    => $idProduksi,
                     'total_bbb'      => $totalBBB,
-                    'tanggal_hitung' => $tanggalHitung,
+                    'tanggal_hitung' => $tanggalHitung, // Masuk menggunakan tanggal produksi
                     'created_at'     => now(),
                     'updated_at'     => now(),
                 ]);
@@ -226,7 +216,7 @@ class HargaPokokProduksiController extends Controller
                 $idBTKL = DB::table('t_btkl')->insertGetId([
                     'id_produksi'    => $idProduksi,
                     'total_btkl'     => $totalBTKL,
-                    'tanggal_hitung' => $tanggalHitung,
+                    'tanggal_hitung' => $tanggalHitung, // Masuk menggunakan tanggal produksi
                     'created_at'     => now(),
                     'updated_at'     => now(),
                 ]);
@@ -257,7 +247,7 @@ class HargaPokokProduksiController extends Controller
                 $idBOP = DB::table('t_bop')->insertGetId([
                     'id_produksi'    => $idProduksi,
                     'total_bop'      => $totalBOP,
-                    'tanggal_hitung' => $tanggalHitung,
+                    'tanggal_hitung' => $tanggalHitung, // Masuk menggunakan tanggal produksi
                     'created_at'     => now(),
                     'updated_at'     => now(),
                 ]);
@@ -265,10 +255,10 @@ class HargaPokokProduksiController extends Controller
                 foreach ($detailBOP as &$detail) { $detail['id_bop'] = $idBOP; }
                 DB::table('t_detail_bop')->insert($detailBOP);
 
-                // === 4. FINALISASI COGM ===
+                // === 4. FINALISASI COGM (Insert Get ID) ===
                 $totalCOGM = $totalBBB + $totalBTKL + $totalBOP;
 
-                DB::table('t_cogm')->insert([
+                $idCogm = DB::table('t_cogm')->insertGetId([
                     'id_produksi' => $idProduksi,
                     'total_bbb'   => $totalBBB,
                     'total_btkl'  => $totalBTKL,
@@ -277,45 +267,144 @@ class HargaPokokProduksiController extends Controller
                     'created_at'  => now(),
                     'updated_at'  => now(),
                 ]);
-            // =========================================================================
-                // ===== BARANG JADI BARU MASUK GUDANG SETELAH HPP DIHITUNG =====
+
                 // =========================================================================
-                // Ambil data produk dan Qty Aktual dari tabel hasil produksi
+                // ===== PENCATATAN UTANG PRODUKSI KE TABEL t_utang_produksi =====
+                // =========================================================================
+                if ($totalBTKL > 0) {
+                    DB::table('t_utang_produksi')->insert([
+                        'id_cogm'          => $idCogm,
+                        'jenis'            => 'BTKL',
+                        'nominal_terbayar' => 0,
+                        'status'           => 'blm lunas',
+                        'created_at'       => now(),
+                        'updated_at'       => now(),
+                    ]);
+                }
+
+                if ($totalBOP > 0) {
+                    DB::table('t_utang_produksi')->insert([
+                        'id_cogm'          => $idCogm,
+                        'jenis'            => 'BOP',
+                        'nominal_terbayar' => 0,
+                        'status'           => 'blm lunas',
+                        'created_at'       => now(),
+                        'updated_at'       => now(),
+                    ]);
+                }
+
+                // =========================================================================
+                // ===== BARANG JADI MASUK GUDANG (KARTU PERSEDIAAN) =====
+                // =========================================================================
                 $infoProduksi = DB::table('t_hasil_produksi as hp')
                     ->join('t_detail_jadwal_produksi as djp', 'hp.id_produksi', '=', 'djp.id_produksi')
                     ->where('hp.id_produksi', $idProduksi)
-                    // TAMBAHKAN hp.output_aktual untuk mengambil jumlah barangnya!
                     ->select('djp.id_produk', 'djp.kode_produksi', 'hp.output_aktual')
                     ->first();
 
                 if ($infoProduksi && $infoProduksi->output_aktual > 0) {
-
-                    // Hitung Harga Per Unit = Total COGM / Jumlah Barang
                     $hargaPerUnit = $totalCOGM / $infoProduksi->output_aktual;
+                    $kodeRef = $infoProduksi->kode_produksi ?? 'PRD-'.$idProduksi;
 
-                    // Masukkan barang ke kartu persediaan dengan Qty dan Harga yang sudah valid!
                     \App\Services\InventoryService::catatMutasi(
                         $infoProduksi->id_produk,
                         'produk',
                         'MASUK',
-                        'produksi_masuk', // Ganti sumbernya jadi penerimaan normal produksi
-                        $infoProduksi->kode_produksi ?? 'PRD-'.$idProduksi,
-                        $infoProduksi->output_aktual, // Qty Aktual
-                        $hargaPerUnit,                // Harga per satuan
-                        $tanggalHitung,
+                        'produksi_masuk', 
+                        $kodeRef,
+                        $infoProduksi->output_aktual, 
+                        $hargaPerUnit,                
+                        $tanggalHitung, // Kartu stok tercatat pada tanggal produksi
                         "Penerimaan produk jadi setelah perhitungan HPP/COGM selesai"
                     );
 
-            }
+                    // =========================================================================
+                    // ===== PENCATATAN JURNAL AKUNTANSI OTOMATIS (JURNAL 1 & JURNAL 2) =====
+                    // =========================================================================
+                    
+                    $akunBDP       = DB::table('t_akun')->where('kode_akun', '1001008')->value('id_akun');
+                    $akunBJ        = DB::table('t_akun')->where('kode_akun', '1001006')->value('id_akun');
+                    $akunUtangGaji = DB::table('t_akun')->where('kode_akun', '2001002')->value('id_akun');
+                    $akunUtangBOP  = DB::table('t_akun')->where('kode_akun', '2001003')->value('id_akun');
+
+                    // Ambil No Jurnal Terakhir berdasarkan bulan dan tahun tanggal produksi
+                    $prefixJU = 'JU-' . date('Ym', strtotime($tanggalHitung)) . '-';
+                    $lastJurnal = DB::table('t_jurnal')
+                        ->where('kode_jurnal', 'like', $prefixJU . '%')
+                        ->orderBy('kode_jurnal', 'desc')
+                        ->first();
+                    
+                    $nextNum = 1;
+                    if ($lastJurnal) {
+                        $parts = explode('-', $lastJurnal->kode_jurnal);
+                        $nextNum = (int) end($parts) + 1;
+                    }
+
+                    // --- JURNAL 1: MENAMBAHKAN BIAYA KONVERSI KE BDP ---
+                    if (($totalBTKL + $totalBOP) > 0) {
+                        $kodeJurnal1 = $prefixJU . str_pad($nextNum, 3, '0', STR_PAD_LEFT);
+                        $nextNum++; 
+                        
+                        $idJurnal1 = DB::table('t_jurnal')->insertGetId([
+                            'kode_jurnal'    => $kodeJurnal1,
+                            'tanggal'        => $tanggalHitung, // Jurnal terekam pada tanggal produksi
+                            'keterangan'     => "Alokasi Biaya Tenaga Kerja & Overhead (Konversi) ke Produksi " . $kodeRef,
+                            'jenis_jurnal'   => 'umum',
+                            'kode_referensi' => $kodeRef,
+                            'created_at'     => now(),
+                            'updated_at'     => now(),
+                        ]);
+
+                        // Debit: BDP
+                        DB::table('t_jurnal_detail')->insert([
+                            'id_jurnal' => $idJurnal1, 'id_akun' => $akunBDP, 'debit' => ($totalBTKL + $totalBOP), 'kredit' => 0, 'created_at' => now(), 'updated_at' => now()
+                        ]);
+                        // Kredit: Hutang Gaji Produksi
+                        if ($totalBTKL > 0) {
+                            DB::table('t_jurnal_detail')->insert([
+                                'id_jurnal' => $idJurnal1, 'id_akun' => $akunUtangGaji, 'debit' => 0, 'kredit' => $totalBTKL, 'created_at' => now(), 'updated_at' => now()
+                            ]);
+                        }
+                        // Kredit: Hutang Overhead Produksi
+                        if ($totalBOP > 0) {
+                            DB::table('t_jurnal_detail')->insert([
+                                'id_jurnal' => $idJurnal1, 'id_akun' => $akunUtangBOP, 'debit' => 0, 'kredit' => $totalBOP, 'created_at' => now(), 'updated_at' => now()
+                            ]);
+                        }
+                    }
+
+                    // --- JURNAL 2: PENYELESAIAN PRODUKSI (TRANSFER BDP KE BARANG JADI) ---
+                    if ($totalCOGM > 0) {
+                        $kodeJurnal2 = $prefixJU . str_pad($nextNum, 3, '0', STR_PAD_LEFT);
+                        
+                        $idJurnal2 = DB::table('t_jurnal')->insertGetId([
+                            'kode_jurnal'    => $kodeJurnal2,
+                            'tanggal'        => $tanggalHitung, // Jurnal terekam pada tanggal produksi
+                            'keterangan'     => "Penyelesaian Barang Jadi dari Produksi " . $kodeRef,
+                            'jenis_jurnal'   => 'umum',
+                            'kode_referensi' => $kodeRef,
+                            'created_at'     => now(),
+                            'updated_at'     => now(),
+                        ]);
+
+                        // Debit: Persediaan Barang Jadi
+                        DB::table('t_jurnal_detail')->insert([
+                            'id_jurnal' => $idJurnal2, 'id_akun' => $akunBJ, 'debit' => $totalCOGM, 'kredit' => 0, 'created_at' => now(), 'updated_at' => now()
+                        ]);
+                        // Kredit: Persediaan Barang Dalam Proses (BDP)
+                        DB::table('t_jurnal_detail')->insert([
+                            'id_jurnal' => $idJurnal2, 'id_akun' => $akunBDP, 'debit' => 0, 'kredit' => $totalCOGM, 'created_at' => now(), 'updated_at' => now()
+                        ]);
+                    }
+                }
             });
 
-
-            return redirect()->back()->with('success', 'Harga Pokok Produksi (COGM) berhasil dikalkulasi dan disimpan secara permanen.');
+            return redirect()->back()->with('success', 'Harga Pokok Produksi, Mutasi Persediaan, Jurnal Akuntansi, dan Hutang berhasil dicatat secara permanen.');
 
         } catch (Exception $e) {
             Log::error('Kegagalan kalkulasi COGM: ' . $e->getMessage());
             return redirect()->back()->withErrors([
-                'error' => 'Gagal memproses Harga Pokok Produksi. Pastikan master data divisi dan overhead sudah lengkap.'
+                'error' => 'Gagal memproses Harga Pokok Produksi. Pastikan master data divisi, overhead, dan akun jurnal sudah lengkap.'
             ]);
         }
     }

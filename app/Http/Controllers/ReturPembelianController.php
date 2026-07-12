@@ -23,7 +23,7 @@ class ReturPembelianController extends Controller
         // 2. Ambil data Penerimaan yang memiliki qty_retur > 0 di detailnya
         $pesananPenerimaan = PenerimaanBahan::with([
                 'purchaseOrder.supplier',
-                'detailPenerimaan.bahan' // Hapus purchaseOrder.details karena memicu harga PO lama
+                'detailPenerimaan.bahan' 
             ])
             ->whereHas('detailPenerimaan', function ($q) {
                 $q->where('qty_retur', '>', 0);
@@ -31,7 +31,7 @@ class ReturPembelianController extends Controller
             ->whereNotIn('id_penerimaan', $returTerpakai)
             ->get()
             ->map(function ($penerimaan) {
-                // KUNCI PERBAIKAN 1: Hitung Harga Bersih (Landed Cost) untuk dilempar ke React
+                // Hitung Harga Bersih (Landed Cost) untuk dilempar ke React
                 $penerimaan->detailPenerimaan->map(function ($detail) {
                     $transaksiData = DB::table('t_detail_transaksi_pembelian as dt')
                         ->join('t_transaksi_pembelian as t', 'dt.id_transaksi', '=', 't.id_transaksi')
@@ -42,7 +42,6 @@ class ReturPembelianController extends Controller
                     $hargaBersih = 0;
 
                     if ($transaksiData && $transaksiData->subtotal_barang > 0) {
-                        // Rumus Proporsi: Total Tagihan dibagi Subtotal Barang
                         $faktor = $transaksiData->total_tagihan / $transaksiData->subtotal_barang;
                         $hargaBersih = $transaksiData->harga_aktual * $faktor;
                     } else {
@@ -53,7 +52,6 @@ class ReturPembelianController extends Controller
                             ->value('harga_satuan');
                     }
 
-                    // Tampilkan ke frontend sebagai harga_aktual, bulatkan menjadi integer agar rapi
                     $detail->harga_aktual = round($hargaBersih ?? 0);
                     return $detail;
                 });
@@ -70,13 +68,12 @@ class ReturPembelianController extends Controller
 
         return Inertia::render('Pembelian/ReturPembelian', [
             'pesananPenerimaan' => $pesananPenerimaan,
-            'riwayatRetur' => $riwayatRetur
+            'riwayatRetur'      => $riwayatRetur
         ]);
     }
 
     public function store(Request $request)
     {
-        // Validasi data dari React
         $request->validate([
             'id_penerimaan' => 'required',
             'no_retur'      => 'required|unique:t_retur_pembelian,no_retur',
@@ -87,6 +84,10 @@ class ReturPembelianController extends Controller
         DB::beginTransaction();
         try {
             $totalNilai = 0;
+            
+            // Variabel penampung untuk kebutuhan Jurnal
+            $totalReturBahanBaku = 0;
+            $totalReturBahanPenolong = 0;
 
             // 1. Simpan Header Retur
             $retur = ReturPembelian::create([
@@ -100,7 +101,7 @@ class ReturPembelianController extends Controller
             foreach ($request->items as $item) {
                 if (isset($item['qtyRetur']) && $item['qtyRetur'] > 0) {
 
-                    // KUNCI PERBAIKAN 2: Hitung Ulang Harga Bersih secara proporsional dari Transaksi Pembelian
+                    // Hitung Ulang Harga Bersih
                     $transaksiData = DB::table('t_detail_penerimaan_bahan as dp')
                         ->join('t_detail_transaksi_pembelian as dt', 'dp.id_detail_penerimaan', '=', 'dt.id_detail_penerimaan')
                         ->join('t_transaksi_pembelian as t', 'dt.id_transaksi', '=', 't.id_transaksi')
@@ -109,7 +110,7 @@ class ReturPembelianController extends Controller
                         ->select('dt.harga_aktual', 't.subtotal_barang', 't.total_tagihan')
                         ->first();
 
-                    $hargaPake = $item['harga'] ?? 0; // Fallback lemparan dari React
+                    $hargaPake = $item['harga'] ?? 0;
 
                     if ($transaksiData && $transaksiData->subtotal_barang > 0) {
                         $faktor = $transaksiData->total_tagihan / $transaksiData->subtotal_barang;
@@ -121,7 +122,7 @@ class ReturPembelianController extends Controller
                     $subtotal = $item['qtyRetur'] * $hargaPake;
                     $totalNilai += $subtotal;
 
-                    // Simpan jejak barang yang diretur dengan HARGA BERSIH
+                    // A. Simpan jejak barang yang diretur
                     DetailReturPembelian::create([
                         'id_retur'     => $retur->id_retur,
                         'id_bahan'     => $item['idBahan'],
@@ -130,9 +131,7 @@ class ReturPembelianController extends Controller
                         'alasan'       => $item['alasan'] ?? '-',
                     ]);
 
-                    // ========================================================
-                    // 3. POTONG KARTU PERSEDIAAN MENGGUNAKAN HARGA BERSIH
-                    // ========================================================
+                    // B. POTONG KARTU PERSEDIAAN MENGGUNAKAN HARGA BERSIH
                     InventoryService::catatMutasi(
                         $item['idBahan'],
                         'bahan',
@@ -140,17 +139,27 @@ class ReturPembelianController extends Controller
                         'retur_pembelian',
                         $request->no_retur,
                         $item['qtyRetur'],
-                        $hargaPake, // <--- Sudah menggunakan harga aktual proporsional
+                        $hargaPake, 
                         $request->tanggal_retur,
                         "Retur pembelian ke supplier. Alasan: " . ($item['alasan'] ?? '-')
                     );
+
+                    // C. PENGELOMPOKAN NILAI UNTUK JURNAL
+                    $bahan = DB::table('t_bahan')->where('id_bahan', $item['idBahan'])->first();
+                    $jenisBahan = strtolower($bahan->jenis_bahan ?? 'baku');
+
+                    if (str_contains($jenisBahan, 'penolong')) {
+                        $totalReturBahanPenolong += $subtotal;
+                    } else {
+                        $totalReturBahanBaku += $subtotal;
+                    }
                 }
             }
 
-            // Update total nilai asli di header retur setelah loop selesai
+            // Update total nilai asli di header retur
             $retur->update(['total_nilai' => $totalNilai]);
 
-            // 5. Integrasi Keuangan: Potong Saldo Hutang Usaha
+            // 3. Integrasi Keuangan: Potong Saldo Hutang Usaha
             $transaksi = TransaksiPembelian::where('id_penerimaan', $retur->id_penerimaan)->first();
 
             if ($transaksi) {
@@ -178,8 +187,77 @@ class ReturPembelianController extends Controller
                     ]);
                 }
             }
+
+            // =================================================================
+            // 4. OTOMATISASI JURNAL RETUR PEMBELIAN
+            // =================================================================
+            
+            // Kode Akun Berdasarkan Seeder
+            $kodeAkunBahanBaku     = '1001004'; // PERSEDIAAN BAHAN BAKU
+            $kodeAkunBahanPenolong = '1001005'; // PERSEDIAAN BAHAN PENOLONG
+            $kodeAkunKas           = '1001001'; // KAS
+            $kodeAkunHutang        = '2001001'; // HUTANG USAHA
+
+            $idAkunBaku     = DB::table('t_akun')->where('kode_akun', $kodeAkunBahanBaku)->value('id_akun');
+            $idAkunPenolong = DB::table('t_akun')->where('kode_akun', $kodeAkunBahanPenolong)->value('id_akun');
+            $idAkunKas      = DB::table('t_akun')->where('kode_akun', $kodeAkunKas)->value('id_akun');
+            $idAkunHutang   = DB::table('t_akun')->where('kode_akun', $kodeAkunHutang)->value('id_akun');
+
+            // Tentukan Akun Debit (Kas atau Hutang Usaha)
+            $metodeBayar = $transaksi ? $transaksi->metode_pembayaran : 'Kredit';
+            $idAkunDebit = ($metodeBayar === 'Tunai') ? $idAkunKas : $idAkunHutang;
+
+            if ($totalNilai > 0) {
+                // A. Buat Header Jurnal
+                $idJurnal = DB::table('t_jurnal')->insertGetId([
+                    'kode_jurnal'    => 'JU-RB' . date('ymd') . rand(100, 999),
+                    'tanggal'        => $request->tanggal_retur,
+                    'keterangan'     => 'Retur Pembelian (No Retur: ' . $request->no_retur . ')',
+                    'jenis_jurnal'   => 'umum',
+                    'kode_referensi' => $request->no_retur,
+                    'created_at'     => now(),
+                    'updated_at'     => now(),
+                ]);
+
+                // B. SISI DEBIT (Kas Bertambah / Hutang Berkurang)
+                if ($idAkunDebit) {
+                    DB::table('t_jurnal_detail')->insert([
+                        'id_jurnal'  => $idJurnal,
+                        'id_akun'    => $idAkunDebit,
+                        'debit'      => $totalNilai,
+                        'kredit'     => 0,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+
+                // C. SISI KREDIT (Persediaan Bahan Baku Berkurang)
+                if ($totalReturBahanBaku > 0 && $idAkunBaku) {
+                    DB::table('t_jurnal_detail')->insert([
+                        'id_jurnal'  => $idJurnal,
+                        'id_akun'    => $idAkunBaku,
+                        'debit'      => 0,
+                        'kredit'     => $totalReturBahanBaku,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+
+                // D. SISI KREDIT (Persediaan Bahan Penolong Berkurang)
+                if ($totalReturBahanPenolong > 0 && $idAkunPenolong) {
+                    DB::table('t_jurnal_detail')->insert([
+                        'id_jurnal'  => $idJurnal,
+                        'id_akun'    => $idAkunPenolong,
+                        'debit'      => 0,
+                        'kredit'     => $totalReturBahanPenolong,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+
             DB::commit();
-            return redirect()->back()->with('success', 'Nota Retur berhasil disimpan dan stok telah dikurangi dengan harga aktual!');
+            return redirect()->back()->with('success', 'Nota Retur dan Jurnal berhasil disimpan, serta stok telah dikurangi!');
 
         } catch (\Exception $e) {
             DB::rollBack();

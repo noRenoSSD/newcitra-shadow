@@ -71,7 +71,6 @@ class KonsinyasiKeluarController extends Controller
         foreach ($dataKonsinyasi as $k) {
             $k->items = DB::table('t_konsinyasi_keluar_detail')
                 ->join('t_produk', 't_konsinyasi_keluar_detail.id_produk', '=', 't_produk.id_produk')
-                // PERBAIKAN: Menggunakan nama kolom baru id_konsinyasi_keluar
                 ->where('t_konsinyasi_keluar_detail.id_konsinyasi_keluar', $k->id_konsinyasi_keluar)
                 ->select(
                     't_konsinyasi_keluar_detail.id_produk',
@@ -108,7 +107,6 @@ class KonsinyasiKeluarController extends Controller
                 $totalEstimasi += $item['harga_titip'] * $item['qty'];
             }
 
-            // Ganti Eloquent ke DB Table Insert biasa untuk menghindari bug ketidaksinkronan nama PK di Model
             $id_konsinyasi_keluar = DB::table('t_konsinyasi_keluar')->insertGetId([
                 'no_konsinyasi'  => $request->no_order,
                 'tgl_konsinyasi' => $request->tgl_keluar,
@@ -122,11 +120,11 @@ class KonsinyasiKeluarController extends Controller
 
             foreach ($request->items as $item) {
                 DB::table('t_konsinyasi_keluar_detail')->insert([
-                    'id_konsinyasi_keluar' => $id_konsinyasi_keluar, // Menggunakan nama kolom baru hasil migrasi
+                    'id_konsinyasi_keluar' => $id_konsinyasi_keluar,
                     'id_produk'            => $item['id_produk'],
                     'qty'                  => $item['qty'],
-                    'id_harga'             => $item['id_harga'], // PERBAIKAN: ID harga resmi dimasukkan
-                    'harga_titip'          => $item['harga_titip'], // Snapshot harga dikunci
+                    'id_harga'             => $item['id_harga'], 
+                    'harga_titip'          => $item['harga_titip'], 
                     'subtotal'             => $item['harga_titip'] * $item['qty'],
                     'created_at'           => now(),
                     'updated_at'           => now(),
@@ -151,7 +149,6 @@ class KonsinyasiKeluarController extends Controller
                 $totalEstimasiBaru += $item['harga_titip'] * $item['qty'];
             }
 
-            // Update menggunakan DB Query Builder agar dijamin aman
             DB::table('t_konsinyasi_keluar')
                 ->where('id_konsinyasi_keluar', $id)
                 ->update([
@@ -162,7 +159,6 @@ class KonsinyasiKeluarController extends Controller
                     'updated_at'     => now(),
                 ]);
 
-            // Hapus detail lama dan pasang yang baru secara bersih
             DB::table('t_konsinyasi_keluar_detail')->where('id_konsinyasi_keluar', $id)->delete();
 
             foreach ($request->items as $item) {
@@ -170,7 +166,7 @@ class KonsinyasiKeluarController extends Controller
                     'id_konsinyasi_keluar' => $id,
                     'id_produk'            => $item['id_produk'],
                     'qty'                  => $item['qty'],
-                    'id_harga'             => $item['id_harga'], // PERBAIKAN: ID harga saat diupdate
+                    'id_harga'             => $item['id_harga'],
                     'harga_titip'          => $item['harga_titip'],
                     'subtotal'             => $item['harga_titip'] * $item['qty'],
                     'created_at'           => now(),
@@ -198,7 +194,8 @@ class KonsinyasiKeluarController extends Controller
 
             $konsinyasi = DB::table('t_konsinyasi_keluar')
                 ->join('t_mitra', 't_konsinyasi_keluar.id_mitra', '=', 't_mitra.id_mitra')
-                ->select('t_konsinyasi_keluar.*', 't_mitra.alamat', 't_mitra.nama_mitra as nama_toko')                ->where('t_konsinyasi_keluar.id_konsinyasi_keluar', $id) // PERBAIKAN: id_konsinyasi_keluar
+                ->select('t_konsinyasi_keluar.*', 't_mitra.alamat', 't_mitra.nama_mitra as nama_toko')                
+                ->where('t_konsinyasi_keluar.id_konsinyasi_keluar', $id)
                 ->first();
 
             if (!$konsinyasi) {
@@ -206,7 +203,7 @@ class KonsinyasiKeluarController extends Controller
             }
 
             $sudahAdaSj = DB::table('t_surat_jalan')->where('id_konsinyasi', $id)->exists();
-            if ($sudahAdaSj || $konsinyasi->status === 'SJ') {
+            if ($sudahAdaSj || $konsinyasi->status === 'SJ' || $konsinyasi->status === 'Surat Jalan') {
                 DB::rollBack();
                 return redirect()->back()->withErrors([
                     'error' => '⚠️ Gagal: Surat jalan untuk dokumen konsinyasi ini sudah pernah digenerate!'
@@ -236,6 +233,7 @@ class KonsinyasiKeluarController extends Controller
                 $noPlat = trim($matches[2]);
             }
 
+            // 1. Simpan Surat Jalan
             DB::table('t_surat_jalan')->insert([
                 'no_surat_jalan'   => $noSuratJalan,
                 'tgl_surat_jalan'  => date('Y-m-d'),
@@ -254,32 +252,92 @@ class KonsinyasiKeluarController extends Controller
             DB::table('t_konsinyasi_keluar')
                 ->where('id_konsinyasi_keluar', $id)
                 ->update([
-                    'status' => 'Surat Jalan', // <-- REVISI: Ubah dari 'SJ' menjadi 'Surat Jalan' agar sesuai DB-mu
-                    'keterangan' => $request->catatan_pengiriman, // <-- REVISI: Samakan dengan nama di SuratJalanForm.tsx
+                    'status' => 'Surat Jalan', 
+                    'keterangan' => $request->catatan_pengiriman, 
                     'updated_at' => now()
                 ]);
+
             // =====================================================================
-            // 3. POTONG STOK KARTU PERSEDIAAN GUDANG (BARANG KELUAR)
+            // 3. POTONG STOK KARTU PERSEDIAAN & REKAP HPP UNTUK JURNAL
             // =====================================================================
             $detailItems = DB::table('t_konsinyasi_keluar_detail')
                 ->where('id_konsinyasi_keluar', $id)
                 ->get();
 
+            $totalHppKonsinyasi = 0;
+
             foreach ($detailItems as $item) {
+                // Ambil HPP terbaru dari kartu persediaan
+                $lastSaldo = DB::table('t_kartu_persediaan')
+                    ->where('id_produk', $item->id_produk)
+                    ->orderBy('tanggal_transaksi', 'desc')
+                    ->orderBy('id_kartu', 'desc')
+                    ->first();
+
+                $hppSatuan = $lastSaldo ? (float) $lastSaldo->saldo_harga : 0;
+                $subtotalHpp = $hppSatuan * $item->qty;
+                $totalHppKonsinyasi += $subtotalHpp;
+
+                // Catat Mutasi
                 InventoryService::catatMutasi(
-                    $item->id_produk,           // ID Produk
-                    'produk',                   // Kategori Barang
-                    'KELUAR',                   // Tipe Mutasi
-                    'konsinyasi_keluar',        // Sumber Transaksi
-                    $noSuratJalan,              // No Referensi (Pakai SJ agar valid fisiknya)
-                    $item->qty,                 // Jumlah Barang
-                    0,                          // Harga (Saat barang keluar, InventoryService yang akan menarik HPP terbaru)
-                    date('Y-m-d'),              // Tanggal keluar
+                    $item->id_produk,           
+                    'produk',                   
+                    'KELUAR',                   
+                    'konsinyasi_keluar',        
+                    $noSuratJalan,              
+                    $item->qty,                 
+                    0,                          
+                    date('Y-m-d'),              
                     "Pengiriman Konsinyasi ke Mitra: " . $konsinyasi->nama_toko . " (SJ: $noSuratJalan)"
                 );
             }
+
+            // =====================================================================
+            // 4. OTOMATISASI JURNAL KONSINYASI KELUAR
+            // =====================================================================
+            
+            // Kode Akun dari Seeder
+            $kodeKonsinyasi = '1001007'; // PERSEDIAAN BARANG KONSINYASI
+            $kodeBarangJadi = '1001006'; // PERSEDIAAN BARANG JADI
+
+            $idAkunKonsinyasi = DB::table('t_akun')->where('kode_akun', $kodeKonsinyasi)->value('id_akun');
+            $idAkunBarangJadi = DB::table('t_akun')->where('kode_akun', $kodeBarangJadi)->value('id_akun');
+
+            if ($totalHppKonsinyasi > 0 && $idAkunKonsinyasi && $idAkunBarangJadi) {
+                // Buat Header Jurnal
+                $idJurnal = DB::table('t_jurnal')->insertGetId([
+                    'kode_jurnal'    => 'JU-CSGOUT' . date('ymd') . rand(100, 999),
+                    'tanggal'        => date('Y-m-d'),
+                    'keterangan'     => 'Pengiriman Barang Konsinyasi (Ref: ' . $noSuratJalan . ')',
+                    'jenis_jurnal'   => 'umum',
+                    'kode_referensi' => $noSuratJalan,
+                    'created_at'     => now(),
+                    'updated_at'     => now(),
+                ]);
+
+                // DEBIT: Persediaan Barang Konsinyasi Bertambah
+                DB::table('t_jurnal_detail')->insert([
+                    'id_jurnal'  => $idJurnal,
+                    'id_akun'    => $idAkunKonsinyasi,
+                    'debit'      => $totalHppKonsinyasi,
+                    'kredit'     => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                // KREDIT: Persediaan Barang Jadi Berkurang
+                DB::table('t_jurnal_detail')->insert([
+                    'id_jurnal'  => $idJurnal,
+                    'id_akun'    => $idAkunBarangJadi,
+                    'debit'      => 0,
+                    'kredit'     => $totalHppKonsinyasi,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
             DB::commit();
-            return redirect()->back();
+            return redirect()->back()->with('success', 'Surat Jalan dan Jurnal Konsinyasi berhasil dibuat!');
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->withErrors(['error' => $e->getMessage()]);
@@ -291,7 +349,6 @@ class KonsinyasiKeluarController extends Controller
         try {
             DB::beginTransaction();
 
-            // Menggunakan query builder murni agar cascade penghapusan berjalan mulus
             DB::table('t_konsinyasi_keluar_detail')->where('id_konsinyasi_keluar', $id)->delete();
             DB::table('t_konsinyasi_keluar')->where('id_konsinyasi_keluar', $id)->delete();
 

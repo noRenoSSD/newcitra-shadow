@@ -51,7 +51,6 @@ const menuItems: MenuItem[] = [
             { label: "Data Produk Jadi", path: "/produk" },
             { label: "Data Kebutuhan Material", path: "/kebutuhan-material" },
             { label: "Data Overhead", path: "/overhead" },
-            { label: "Data Jenis Pengeluaran", path: "/jenis-pengeluaran" },
             { label: "Data Aset Tetap", path: "/aset" },
             { label: "Data Akun", path: "/akun" },
             { label: "Data User", path: "/master/user" },
@@ -203,13 +202,10 @@ const menuItems: MenuItem[] = [
                 label: "Laporan Pengeluaran Lain-lain",
                 path: "/laporan/pengeluaran-lain",
             },
-            { label: "Laporan Produksi", path: "/laporan/produksi" },
-            { label: "Laporan Harga Pokok Produksi", path: "/laporan/hpp" },
+            { label: "Laporan Produksi", path: "/laporan-produksi" },
+            { label: "Laporan Harga Pokok Produksi", path: "/laporan-hpp" },
             { label: "Laporan Aset Tetap", path: "/laporan/aset-tetap" },
-            {
-                label: "Laporan Posisi Keuangan",
-                path: "/laporan/posisi-keuangan",
-            },
+            { label: "Laporan Posisi Keuangan", path: "/laporan/posisi-keuangan", },
             { label: "Laporan Laba Rugi", path: "/laporan/laba-rugi" },
             { label: "Catatan atas Laporan Keuangan", path: "/laporan/calk" },
         ],
@@ -239,7 +235,7 @@ export default function Sidebar() {
             {/* Tombol Menu Mobile */}
             <button
                 onClick={() => setIsMobileOpen(!isMobileOpen)}
-                className="lg:hidden fixed top-4 left-4 z-50 p-3 bg-gradient-to-r from-red-700 to-red-600 text-white rounded-xl shadow-xl hover:shadow-2xl transition-all duration-200"
+                className="lg:hidden fixed top-4 left-4 z-50 p-3 bg-linear-to-r from-red-700 to-red-600 text-white rounded-xl shadow-xl hover:shadow-2xl transition-all duration-200"
             >
                 {isMobileOpen ? (
                     <X className="w-6 h-6" />
@@ -326,7 +322,7 @@ export default function Sidebar() {
                                                                         isActive(
                                                                             subItem.path,
                                                                         )
-                                                                            ? "bg-gradient-to-r from-yellow-400 to-yellow-500 text-red-900 font-semibold shadow-lg"
+                                                                            ? "bg-linear-to-r from-yellow-400 to-yellow-500 text-red-900 font-semibold shadow-lg"
                                                                             : "text-red-50 hover:bg-red-700/50 hover:text-white hover:pl-5"
                                                                     }`}
                                                                 >
@@ -345,7 +341,7 @@ export default function Sidebar() {
                                             href={item.path!}
                                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                                                 isActive(item.path!)
-                                                    ? "bg-gradient-to-r from-yellow-400 to-yellow-500 text-red-900 shadow-lg font-semibold"
+                                                    ? "bg-linear-to-r from-yellow-400 to-yellow-500 text-red-900 shadow-lg font-semibold"
                                                     : "text-white hover:bg-red-700/50"
                                             }`}
                                         >

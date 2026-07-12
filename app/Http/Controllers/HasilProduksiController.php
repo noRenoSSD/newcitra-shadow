@@ -5,8 +5,9 @@ namespace App\Http\Controllers;
 use App\Services\InventoryService;
 use App\Models\HasilProduksi;
 use App\Models\PemakaianBahan;
-use App\Models\ApprovalPemakaianBahan; // <-- Import model approval
+use App\Models\ApprovalPemakaianBahan;
 use App\Models\DetailJadwalProduksi;
+use App\Models\Bahan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -21,7 +22,6 @@ class HasilProduksiController extends Controller
             ->get();
 
         // 2. Ambil jadwal produksi yang sudah 'Approved' sebagai sumber form "Tambah Produksi"
-        // Kita load kebutuhan_bahan agar data snapshot (standar) tersedia untuk dihitung selisihnya
         $jadwalProduksi = DetailJadwalProduksi::with(['produk', 'kebutuhanBahan.detailBom.bahan'])
             ->whereHas('jadwalProduksi', function($q) {
                 $q->where('status_jadwal', 'Approved');
@@ -44,6 +44,7 @@ class HasilProduksiController extends Controller
             'items'              => 'required|array',
         ]);
 
+        // Gunakan Database Transaction agar jika Jurnal gagal, Stok juga batal terpotong (Konsistensi Data)
         DB::beginTransaction();
         try {
             // 1. Simpan Header Hasil Produksi
@@ -55,10 +56,11 @@ class HasilProduksiController extends Controller
                 'status'             => 'Selesai',
             ]);
 
-            $detailJadwal = DetailJadwalProduksi::findOrFail($request->id_produksi);
-            $idProduk = $detailJadwal->id_produk;
+            // Variabel penampung total nominal untuk Jurnal Akuntansi
+            $totalBahanBaku = 0;
+            $totalBahanPenolong = 0;
 
-            // 2. Simpan Detail Pemakaian Bahan & Kurangi Stok Bahan Baku
+            // 2. Proses per Item Bahan (Looping)
             foreach ($request->items as $item) {
                 $selisih = $item['qty_aktual'] - $item['kalkulasi_standar'];
 
@@ -69,45 +71,129 @@ class HasilProduksiController extends Controller
                     'selisih'           => $selisih,
                 ]);
 
-                // ======== 3. INSERT OTOMATIS KE TABEL APPROVAL ========
-                // Data ini akan muncul dengan status 'pending' di menu Approval
+                // ======== MENCARI HARGA MOVING AVERAGE TERAKHIR ========
+                // Tarik data harga perolehan rata-rata dari mutasi kartu persediaan terakhir
+                $kartuTerakhir = DB::table('t_kartu_persediaan')
+                    ->where('id_bahan', $item['id_bahan'])
+                    ->orderBy('tanggal_transaksi', 'desc')
+                    ->orderBy('id_kartu', 'desc')
+                    ->first();
+                
+                $hargaMovingAverage = $kartuTerakhir ? (float) $kartuTerakhir->saldo_harga : 0;
+                $totalNilaiPemakaian = $item['qty_aktual'] * $hargaMovingAverage;
+
+                // ======== MENGELOMPOKKAN NOMINAL UNTUK JURNAL ========
+                $dataBahan = Bahan::find($item['id_bahan']);
+                if ($dataBahan) {
+                    if (strtolower($dataBahan->jenis_bahan) === 'baku') {
+                        $totalBahanBaku += $totalNilaiPemakaian;
+                    } elseif (strtolower($dataBahan->jenis_bahan) === 'penolong') {
+                        $totalBahanPenolong += $totalNilaiPemakaian;
+                    }
+                }
+
+                // ======== INSERT OTOMATIS KE TABEL APPROVAL ========
                 ApprovalPemakaianBahan::create([
-                    'id_pemakaian'          => $pemakaianBahan->id_pemakaian, // ID yg barusan dibuat
-
-                    // Untuk saat ini di set 1 karena tidak ada field id_kartupers_bahan
-                    // di frontend kamu. Sesuaikan jika relasinya berubah.
-                    'id_kartupers_bahan'    => 1,
-
-                    // Kita simpan standar dari tabel kebutuhan bahan / input react
+                    'id_pemakaian'          => $pemakaianBahan->id_pemakaian,
+                    'id_kartupers_bahan'    => $kartuTerakhir ? $kartuTerakhir->id_kartu : 1, // Fallback ID jika histori kosong
                     'qty_standar'           => $item['kalkulasi_standar'],
-
-                    // Harga dibiarkan 0 jika belum ada logika harga saat produksi
-                    'harga_standar'         => 0,
-
+                    'harga_standar'         => $hargaMovingAverage, 
                     'qty_aktual'            => $item['qty_aktual'],
-                    'harga_ratarata_aktual' => 0,
-                    'total_aktual'          => 0,
+                    'harga_ratarata_aktual' => $hargaMovingAverage, 
+                    'total_aktual'          => $totalNilaiPemakaian,
                     'status_approval'       => 'pending',
                 ]);
 
-                // ======== KODE KARTU PERSEDIAAN (BARANG KELUAR) ========
+                // ======== CATAT KE KARTU PERSEDIAAN (BARANG KELUAR) ========
                 InventoryService::catatMutasi(
-                    $item['id_bahan'],              // Ubah $bahan jadi $item
-                    'bahan',                        // Tipe: bahan
-                    'KELUAR',                       // Transaksi KELUAR
-                    'produksi_keluar',              // Sumbernya dari produksi
-                    'PROD-' . $request->id_produksi,// Referensi dari ID produksi
-                    $item['qty_aktual'],            // Ubah $bahan jadi $item
-                    0,                              // HARGA ISI 0 SAJA!
-                    $request->tanggal_produksi,     // Tanggal produksi
+                    $item['id_bahan'],              
+                    'bahan',                        
+                    'KELUAR',                       
+                    'produksi_keluar',              
+                    'PROD-' . $request->id_produksi,
+                    $item['qty_aktual'],            
+                    $hargaMovingAverage,            // Nominal Moving Average dimasukkan ke mutasi keluar
+                    $request->tanggal_produksi,     
                     "Dipakai untuk produksi pabrik"
                 );
             }
 
+            // ======== 3. PEMBUATAN JURNAL AKUNTANSI OTOMATIS ========
+            $totalBDP = $totalBahanBaku + $totalBahanPenolong;
+            
+            // Hanya *generate* jurnal jika ada nilai nominal pemakaian
+            if ($totalBDP > 0) {
+                // Generate Nomor Jurnal Otomatis (Contoh: JU-202607-001)
+                $prefixJU = 'JU-' . date('Ym', strtotime($request->tanggal_produksi)) . '-';
+                $lastJurnal = DB::table('t_jurnal')
+                    ->where('kode_jurnal', 'like', $prefixJU . '%')
+                    ->orderBy('kode_jurnal', 'desc')
+                    ->first();
+                
+                $nextNum = 1;
+                if ($lastJurnal) {
+                    $parts = explode('-', $lastJurnal->kode_jurnal);
+                    $nextNum = (int) end($parts) + 1;
+                }
+                $kodeJurnal = $prefixJU . str_pad($nextNum, 3, '0', STR_PAD_LEFT);
+
+                // Insert Header Jurnal
+                $idJurnal = DB::table('t_jurnal')->insertGetId([
+                    'kode_jurnal'    => $kodeJurnal,
+                    'tanggal'        => $request->tanggal_produksi,
+                    'keterangan'     => "Pemakaian Bahan untuk Produksi PROD-{$request->id_produksi}",
+                    'jenis_jurnal'   => 'umum',
+                    'kode_referensi' => 'PROD-' . $request->id_produksi,
+                    'created_at'     => now(),
+                    'updated_at'     => now(),
+                ]);
+
+                // Tarik relasi ID Akun dari Master Akun secara dinamis
+                $idAkunBDP = DB::table('t_akun')->where('kode_akun', '1001008')->value('id_akun'); 
+                $idAkunBB  = DB::table('t_akun')->where('kode_akun', '1001004')->value('id_akun'); 
+                $idAkunBP  = DB::table('t_akun')->where('kode_akun', '1001005')->value('id_akun'); 
+
+                // (A) DEBIT: Persediaan Barang Dalam Proses (BDP)
+                DB::table('t_jurnal_detail')->insert([
+                    'id_jurnal'  => $idJurnal,
+                    'id_akun'    => $idAkunBDP,
+                    'debit'      => $totalBDP,
+                    'kredit'     => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                // (B) KREDIT: Persediaan Bahan Baku (Hanya masuk jika total > 0)
+                if ($totalBahanBaku > 0) {
+                    DB::table('t_jurnal_detail')->insert([
+                        'id_jurnal'  => $idJurnal,
+                        'id_akun'    => $idAkunBB,
+                        'debit'      => 0,
+                        'kredit'     => $totalBahanBaku,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+
+                // (C) KREDIT: Persediaan Bahan Penolong (Hanya masuk jika total > 0)
+                if ($totalBahanPenolong > 0) {
+                    DB::table('t_jurnal_detail')->insert([
+                        'id_jurnal'  => $idJurnal,
+                        'id_akun'    => $idAkunBP,
+                        'debit'      => 0,
+                        'kredit'     => $totalBahanPenolong,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+
+            // Jika semua langkah (Header, Approval, Mutasi, Jurnal) sukses, eksekusi penyimpanan ke MySQL
             DB::commit();
-            return redirect()->back()->with('success', 'Data hasil produksi, approval & stok berhasil disimpan!');
+            return redirect()->back()->with('success', 'Data hasil produksi, persediaan, & jurnal berhasil dicatat!');
 
         } catch (\Exception $e) {
+            // Batalkan semua eksekusi transaksi jika ada satu saja tabel yang gagal di-insert
             DB::rollBack();
             return back()->withErrors(['error' => 'Gagal menyimpan: ' . $e->getMessage()]);
         }

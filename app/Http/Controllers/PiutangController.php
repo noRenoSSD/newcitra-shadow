@@ -143,7 +143,7 @@ class PiutangController extends Controller
     }
 
     /**
-     * 3. PROSES SIMPAN CICILAN
+     * 3. PROSES SIMPAN CICILAN & JURNAL AKUNTANSI
      */
     public function bayarCicilan(Request $request)
     {
@@ -167,26 +167,81 @@ class PiutangController extends Controller
             $hitung_hari_ini = PelunasanPiutang::whereDate('created_at', date('Y-m-d'))->count() + 1;
             $no_pelunasan = 'BYR-' . $tgl_sekarang . '-' . str_pad($hitung_hari_ini, 4, '0', STR_PAD_LEFT);
 
+            // 1. Simpan Riwayat Pelunasan
             PelunasanPiutang::create([
-                'no_pelunasan' => $no_pelunasan,
+                'no_pelunasan'  => $no_pelunasan,
                 'tgl_pelunasan' => date('Y-m-d'),
-                'id_piutang' => $piutang->id_piutang,
+                'id_piutang'    => $piutang->id_piutang,
                 'nominal_bayar' => $request->nominal_bayar,
-                'metode_bayar' => $request->metode_bayar,
-                'keterangan' => $request->keterangan,
+                'metode_bayar'  => $request->metode_bayar,
+                'keterangan'    => $request->keterangan,
             ]);
 
+            // 2. Update Saldo Master Piutang
             $piutang->terbayar += $request->nominal_bayar;
             $piutang->sisa_piutang -= $request->nominal_bayar;
 
             if ($piutang->sisa_piutang <= 0) {
                 $piutang->status_piutang = 'Lunas';
             }
-
             $piutang->save();
 
+            // =================================================================
+            // 3. PENCATATAN JURNAL AKUNTANSI OTOMATIS
+            // =================================================================
+            
+            // Generate Kode Jurnal
+            $prefixJU = 'JU-' . date('Ym') . '-';
+            $lastJurnal = DB::table('t_jurnal')
+                ->where('kode_jurnal', 'like', $prefixJU . '%')
+                ->orderBy('kode_jurnal', 'desc')
+                ->first();
+            
+            $nextNum = $lastJurnal ? (int) explode('-', $lastJurnal->kode_jurnal)[2] + 1 : 1;
+            $kodeJurnal = $prefixJU . str_pad($nextNum, 3, '0', STR_PAD_LEFT);
+
+            // Insert Header Jurnal
+            $idJurnal = DB::table('t_jurnal')->insertGetId([
+                'kode_jurnal'    => $kodeJurnal,
+                'tanggal'        => date('Y-m-d'),
+                'keterangan'     => "Pembayaran Piutang: " . $piutang->no_piutang . " (" . $request->keterangan . ")",
+                'jenis_jurnal'   => 'umum',
+                'kode_referensi' => $no_pelunasan,
+                'created_at'     => now(),
+                'updated_at'     => now(),
+            ]);
+
+            // Identifikasi ID Akun sesuai Master Akun Seeder
+            // Tunai -> Kas (1001001), Transfer/Giro -> Bank (1001002)
+            $kodeAkunDebit = ($request->metode_bayar === 'Tunai') ? '1001001' : '1001002';
+            
+            $idAkunKasBank = DB::table('t_akun')->where('kode_akun', $kodeAkunDebit)->value('id_akun');
+            $idAkunPiutang = DB::table('t_akun')->where('kode_akun', '1001003')->value('id_akun');
+
+            if ($idAkunKasBank && $idAkunPiutang) {
+                // [DEBIT] KAS / BANK (Uang Masuk)
+                DB::table('t_jurnal_detail')->insert([
+                    'id_jurnal'  => $idJurnal,
+                    'id_akun'    => $idAkunKasBank,
+                    'debit'      => $request->nominal_bayar,
+                    'kredit'     => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                // [KREDIT] PIUTANG USAHA (Sisa Tagihan Berkurang)
+                DB::table('t_jurnal_detail')->insert([
+                    'id_jurnal'  => $idJurnal,
+                    'id_akun'    => $idAkunPiutang,
+                    'debit'      => 0,
+                    'kredit'     => $request->nominal_bayar,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
             DB::commit();
-            return redirect()->back()->with('success', 'Pembayaran cicilan berhasil disimpan!');
+            return redirect()->back()->with('success', 'Pembayaran cicilan dan Jurnal berhasil disimpan!');
 
         } catch (\Exception $e) {
             DB::rollback();

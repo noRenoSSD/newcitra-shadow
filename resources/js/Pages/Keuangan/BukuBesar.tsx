@@ -7,12 +7,12 @@ const idr = (n: number) =>
 
 const formatDate = (iso: string) => {
   if (!iso) return '';
-  const [y, m, d] = iso.split('-');
+  const datePart = iso.split('T')[0].split(' ')[0]; 
+  const [y, m, d] = datePart.split('-');
   const bl = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
   return `${d} ${bl[Number(m)]} ${y}`;
 };
 
-// Fungsi untuk memastikan kode akun punya format yang benar (misal: 1001001 menjadi 1-001001)
 const formatKodeAkun = (kode: string) => {
   if (!kode) return '';
   if (kode.includes('-')) return kode;
@@ -22,6 +22,7 @@ const formatKodeAkun = (kode: string) => {
 interface AkunRecord {
   kode: string;
   nama: string;
+  kategori: string; // <-- Menampung kategori dari backend
   normalDebit: boolean;
   saldoAwal: number;
 }
@@ -43,7 +44,6 @@ interface LedgerData {
 }
 
 export default function BukuBesar() {
-  // Mengambil data dari backend
   const { masterAkun = [], ledgerData = [] } = usePage().props as unknown as { 
     masterAkun: AkunRecord[];
     ledgerData: LedgerData[];
@@ -61,18 +61,38 @@ export default function BukuBesar() {
   // Sorting Transaksi
   const allTx = (ledgerEntry?.transactions ?? []).slice().sort((a, b) => a.tanggalISO.localeCompare(b.tanggalISO));
 
-  // Kalkulasi Saldo Awal berdasarkan filter tanggal
-  const baseSaldoAwal = akun?.saldoAwal ?? 0;
-  const txBefore      = tanggalMulai ? allTx.filter(tx => tx.tanggalISO < tanggalMulai) : [];
+  // =======================================================================
+  // LOGIKA AKUNTANSI: PEMISAHAN AKUN RIIL (Neraca) & AKUN NOMINAL (Laba Rugi)
+  // =======================================================================
+  const nominalCategories = [
+    'Pendapatan',
+    'Beban Pokok Penjualan',
+    'Beban Operasional',
+    'Penghasilan Lain-lain',
+    'Beban Lain-lain'
+  ];
+
+  const isNominal = akun ? nominalCategories.includes(akun.kategori) : false;
+
+  // Jika Nominal, Saldo Awal selalu 0. Jika Riil, ambil saldo_awal dari DB.
+  const baseSaldoAwal = (!isNominal && akun) ? akun.saldoAwal : 0;
+  
+  // Transaksi sebelum periode (untuk menghitung saldo awal berjalan pada akun Riil)
+  const txBefore = tanggalMulai ? allTx.filter(tx => tx.tanggalISO < tanggalMulai) : [];
   
   let saldoAwal = baseSaldoAwal;
-  txBefore.forEach(tx => {
-    saldoAwal = akun?.normalDebit
-      ? saldoAwal + tx.debit - tx.kredit
-      : saldoAwal - tx.debit + tx.kredit;
-  });
 
-  // Filter transaksi dalam rentang tanggal
+  // Hanya Akun Riil yang mengakumulasikan transaksi masa lalu ke Saldo Awal
+  if (!isNominal) {
+    txBefore.forEach(tx => {
+      saldoAwal = akun?.normalDebit
+        ? saldoAwal + tx.debit - tx.kredit
+        : saldoAwal - tx.debit + tx.kredit;
+    });
+  }
+  // =======================================================================
+
+  // Filter transaksi HANYA dalam rentang tanggal
   const txInRange = allTx.filter(tx =>
     (!tanggalMulai   || tx.tanggalISO >= tanggalMulai) &&
     (!tanggalSelesai || tx.tanggalISO <= tanggalSelesai)
@@ -120,7 +140,9 @@ export default function BukuBesar() {
     const BOM = '\uFEFF';
     const header = ['Tanggal', 'No. Jurnal', 'Keterangan', 'Debit (Rp)', 'Kredit (Rp)', 'Saldo (Rp)'];
     const saData = [['', '', 'Saldo Awal', '', '', baseSaldoAwal]];
-    const body = rows.map(r => [r.tanggal, r.noJurnal, r.keterangan, r.debit || 0, r.kredit || 0, Math.abs(r.saldo)]);
+    
+    const body = rows.map(r => [formatDate(r.tanggalISO), r.noJurnal, r.keterangan, r.debit || 0, r.kredit || 0, Math.abs(r.saldo)]);
+    
     const footer = [['', '', 'Saldo Akhir', totalD, totalK, Math.abs(saldoAkhir)]];
     const csv = BOM + [header, ...saData, ...body, ...footer]
       .map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
@@ -158,7 +180,7 @@ export default function BukuBesar() {
         <div className="p-6 border-b border-gray-200">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-            {/* Account Selector (Vertical Scroll) */}
+            {/* Account Selector */}
             <div className="lg:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <BookOpen className="w-4 h-4 inline mr-1 text-red-600" />Akun <span className="text-red-500">*</span>
@@ -173,11 +195,10 @@ export default function BukuBesar() {
                 />
               </div>
 
-              {/* FIX: Pisahkan scroll container dari grid layout */}
               <div
                 className="mt-4 pr-1 custom-scrollbar"
                 style={{ maxHeight: '160px', overflowY: 'auto' }}
-             >
+              >
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {filteredAkun.map(a => (
                     <button
@@ -217,14 +238,18 @@ export default function BukuBesar() {
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:border-red-400" />
               </div>
 
-              {/* Info Akun Terpilih (Style Lama) */}
               {akun && (
                 <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg">
                   <p className="text-xs text-red-600 font-medium">Akun Dipilih</p>
                   <p className="text-xs font-mono text-red-800 font-semibold mt-0.5">
                     {formatKodeAkun(akun.kode)} &mdash; {akun.nama}
                   </p>
-                  <p className="text-xs text-red-500 mt-1">Saldo Normal: <span className="font-bold">{akun.normalDebit ? 'Debit' : 'Kredit'}</span></p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <p className="text-xs text-red-500">Saldo Normal: <span className="font-bold">{akun.normalDebit ? 'Debit' : 'Kredit'}</span></p>
+                    <span className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded border border-red-200">
+                      {isNominal ? 'Akun Nominal' : 'Akun Riil'}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
@@ -281,7 +306,6 @@ export default function BukuBesar() {
                 </tr>
               </thead>
               <tbody>
-                {/* Baris Saldo Awal selalu tampil pertama */}
                 <tr className="bg-amber-50/50 border-b border-gray-100">
                   <td className="px-6 py-3 text-sm text-gray-400">—</td>
                   <td className="px-6 py-3 text-sm text-gray-400">—</td>
@@ -291,7 +315,6 @@ export default function BukuBesar() {
                   <td className="px-6 py-3 text-right font-bold text-amber-800 tabular-nums">{idr(saldoAwal)}</td>
                 </tr>
 
-                {/* Looping Transaksi Jurnal */}
                 {rows.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center py-10 text-gray-400 text-sm">
@@ -302,7 +325,7 @@ export default function BukuBesar() {
                   const rowBg = idx % 2 === 1 ? 'bg-gray-50' : 'bg-white';
                   return (
                     <tr key={r.id} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${rowBg}`}>
-                      <td className="px-6 py-3 text-sm text-gray-700 whitespace-nowrap">{r.tanggal}</td>
+                      <td className="px-6 py-3 text-sm text-gray-700 whitespace-nowrap">{formatDate(r.tanggalISO)}</td>
                       <td className="px-6 py-3 font-mono text-sm font-semibold text-gray-700 whitespace-nowrap">{r.noJurnal}</td>
                       <td className="px-6 py-3 text-sm text-gray-700">{r.keterangan}</td>
                       <td className="px-6 py-3 text-right text-sm tabular-nums">

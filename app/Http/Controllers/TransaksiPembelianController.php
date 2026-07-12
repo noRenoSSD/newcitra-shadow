@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use App\Services\InventoryService;
 use App\Models\TransaksiPembelian;
 use App\Models\DetailTransaksiPembelian;
@@ -13,14 +14,13 @@ use Inertia\Inertia;
 
 class TransaksiPembelianController extends Controller
 {
-
-/**
+    /**
      * Menampilkan daftar penerimaan yang siap ditagihkan
      * dan riwayat transaksi yang sudah dibuat.
      */
     public function index()
     {
-        // 1. Ambil data PO & Penerimaan yang belum ditagihkan (Tidak diubah)
+        // 1. Ambil data PO & Penerimaan yang belum ditagihkan
         $penerimaanPending = PenerimaanBahan::with([
             'purchaseOrder.supplier',
             'purchaseOrder.details',
@@ -29,10 +29,10 @@ class TransaksiPembelianController extends Controller
         ->whereDoesntHave('transaksiPembelian')
         ->get();
 
-        // 2. Ambil Riwayat Transaksi (Sekarang kita LOAD semua relasi termasuk detail item barangnya)
+        // 2. Ambil Riwayat Transaksi (LOAD semua relasi termasuk detail item barangnya)
         $riwayatTransaksiRaw = TransaksiPembelian::with([
             'penerimaanBahan.purchaseOrder.supplier',
-            'details.detailPenerimaan.bahan' // <-- Wajib dipanggil agar tabel item tidak kosong!
+            'details.detailPenerimaan.bahan'
         ])
         ->orderBy('created_at', 'desc')
         ->get();
@@ -60,7 +60,6 @@ class TransaksiPembelianController extends Controller
                 ];
             });
 
-            // Mengembalikan struktur yang ditangkap oleh React (t.penerimaan.purchase_order...)
             return [
                 'id_transaksi'      => $t->id_transaksi,
                 'no_faktur'         => $t->no_faktur,
@@ -81,7 +80,7 @@ class TransaksiPembelianController extends Controller
                         ] : null
                     ] : null
                 ] : null,
-                'details' => $mappedDetails // Menyuplai data item untuk modal dan print
+                'details' => $mappedDetails
             ];
         });
 
@@ -92,7 +91,7 @@ class TransaksiPembelianController extends Controller
     }
 
     /**
-     * Menyimpan transaksi pembelian dan detailnya ke database.
+     * Menyimpan transaksi pembelian, mutasi persediaan, dan otomatisasi JURNAL
      */
     public function store(Request $request)
     {
@@ -105,12 +104,14 @@ class TransaksiPembelianController extends Controller
             'jatuh_tempo'       => 'required_if:metode_pembayaran,Kredit|nullable|date',
             'subtotal_barang'   => 'required|numeric',
             'total_tagihan'     => 'required|numeric',
-            'items'             => 'required|array', // Data detail per item
+            'items'             => 'required|array',
         ]);
 
         DB::beginTransaction();
         try {
-            // 1. Simpan Header (Faktur)
+            // =================================================================
+            // 1. SIMPAN HEADER TRANSAKSI (FAKTUR)
+            // =================================================================
             $transaksi = TransaksiPembelian::create([
                 'id_penerimaan'     => $request->id_penerimaan,
                 'no_faktur'         => $request->no_faktur,
@@ -125,69 +126,143 @@ class TransaksiPembelianController extends Controller
                 'total_tagihan'     => $request->total_tagihan,
             ]);
 
-           // =================================================================
-// =================================================================
-// 2. SIMPAN DETAIL TRANSAKSI & CATAT MUTASI MASUK PERSEDIAAN
-// =================================================================
-// Hitung faktor penyesuaian di luar perulangan agar tidak membebani server
-$subtotalBarang = $request->subtotal_barang;
-$totalTagihan = $request->total_tagihan;
-$faktorPenyesuaian = $subtotalBarang > 0 ? ($totalTagihan / $subtotalBarang) : 1;
+            // =================================================================
+            // 2. SIMPAN DETAIL, CATAT MUTASI, DAN REKAP NILAI JURNAL
+            // =================================================================
+            $subtotalBarang = $request->subtotal_barang;
+            $totalTagihan = $request->total_tagihan;
+            $faktorPenyesuaian = $subtotalBarang > 0 ? ($totalTagihan / $subtotalBarang) : 1;
 
-foreach ($request->items as $item) {
-    // Pastikan relasi bahan dipanggil agar bisa mengambil nama/jenisnya untuk keterangan
-    $detailPenerimaan = DetailPenerimaanBahan::with('bahan')->find($item['id_detail_penerimaan']);
+            // Variabel rekap nilai persediaan untuk Jurnal (Dipisah berdasarkan jenis bahan)
+            $totalBahanBaku = 0;
+            $totalBahanPenolong = 0;
 
-    if ($detailPenerimaan) {
-        // 1. Simpan detail transaksi (Tetap simpan harga asli faktur)
-        DetailTransaksiPembelian::create([
-            'id_transaksi'         => $transaksi->id_transaksi,
-            'id_detail_penerimaan' => $item['id_detail_penerimaan'],
-            'harga_aktual'         => $item['harga_aktual'],
-            'subtotal'             => $item['subtotal'],
-        ]);
+            foreach ($request->items as $item) {
+                // Load relasi bahan untuk mengecek jenis_bahan ('baku' atau 'penolong')
+                $detailPenerimaan = DetailPenerimaanBahan::with('bahan')->find($item['id_detail_penerimaan']);
 
-       // 2. HITUNG TOTAL BERSIH ITEM (Fokus pada Total Uang, bukan Unit)
-        $totalBersihItem = round($item['subtotal'] * $faktorPenyesuaian);
-        $hargaBersih = $detailPenerimaan->qty_diterima > 0 ? ($totalBersihItem / $detailPenerimaan->qty_diterima) : 0;
+                if ($detailPenerimaan && $detailPenerimaan->bahan) {
+                    // A. Simpan Detail Transaksi
+                    DetailTransaksiPembelian::create([
+                        'id_transaksi'         => $transaksi->id_transaksi,
+                        'id_detail_penerimaan' => $item['id_detail_penerimaan'],
+                        'harga_aktual'         => $item['harga_aktual'],
+                        'subtotal'             => $item['subtotal'],
+                    ]);
 
-        // 3. Catat Mutasi ke Kartu Persediaan
-        $namaBahan = $detailPenerimaan->bahan->nama_bahan ?? 'Bahan';
+                    // B. Hitung Total Bersih
+                    $totalBersihItem = round($item['subtotal'] * $faktorPenyesuaian);
+                    $hargaBersih = $detailPenerimaan->qty_diterima > 0 ? ($totalBersihItem / $detailPenerimaan->qty_diterima) : 0;
+                    $namaBahan = $detailPenerimaan->bahan->nama_bahan;
 
-        InventoryService::catatMutasi(
-            $item['id_bahan'],
-            'bahan',
-            'MASUK',
-            'pembelian',
-            $request->no_faktur,
-            $detailPenerimaan->qty_diterima,
-            $hargaBersih,
-            $request->tanggal_transaksi,
-            "Pembelian " . $namaBahan . " berdasarkan faktur: " . $request->no_faktur,
-            $totalBersihItem // <--- KUNCI UTAMA: Lempar totalnya ke parameter ke-10 yang baru kita buat!
-        );
-    }
-}
-// =================================================================
-        // 3. OTOMATIS CATAT HUTANG JIKA METODE PEMBAYARAN "KREDIT"
-        // =================================================================
-        if ($request->metode_pembayaran === 'Kredit') {
-            HutangUsaha::create([
-                'id_transaksi' => $transaksi->id_transaksi,
-                'no_hutang'    => 'HU-' . date('Ymd') . '-' . str_pad($transaksi->id_transaksi, 3, '0', STR_PAD_LEFT),
-                'total_hutang' => $transaksi->total_tagihan,
-                'terbayar'     => 0,
-                'kurang_bayar' => $transaksi->total_tagihan,
-                'status'       => 'Belum Lunas'
+                    // C. Catat Mutasi Persediaan
+                    InventoryService::catatMutasi(
+                        $item['id_bahan'],
+                        'bahan',
+                        'MASUK',
+                        'pembelian',
+                        $request->no_faktur,
+                        $detailPenerimaan->qty_diterima,
+                        $hargaBersih,
+                        $request->tanggal_transaksi,
+                        "Pembelian " . $namaBahan . " berdasarkan faktur: " . $request->no_faktur,
+                        $totalBersihItem
+                    );
+
+                    // D. Pengelompokan untuk Jurnal berdasarkan Enum jenis_bahan dari t_bahan
+                    if ($detailPenerimaan->bahan->jenis_bahan === 'baku') {
+                        $totalBahanBaku += $totalBersihItem;
+                    } else if ($detailPenerimaan->bahan->jenis_bahan === 'penolong') {
+                        $totalBahanPenolong += $totalBersihItem;
+                    }
+                }
+            }
+
+            // =================================================================
+            // 3. CATAT HUTANG JIKA KREDIT
+            // =================================================================
+            if ($request->metode_pembayaran === 'Kredit') {
+                HutangUsaha::create([
+                    'id_transaksi' => $transaksi->id_transaksi,
+                    'no_hutang'    => 'HU-' . date('Ymd') . '-' . str_pad($transaksi->id_transaksi, 3, '0', STR_PAD_LEFT),
+                    'total_hutang' => $transaksi->total_tagihan,
+                    'terbayar'     => 0,
+                    'kurang_bayar' => $transaksi->total_tagihan,
+                    'status'       => 'Belum Lunas'
+                ]);
+            }
+
+            // =================================================================
+            // 4. OTOMATISASI JURNAL PEMBELIAN (DEBIT & KREDIT)
+            // =================================================================
+
+            // --> KODE AKUN BERDASARKAN SEEDER <--
+            $kodeAkunBahanBaku     = '1001004'; // PERSEDIAAN BAHAN BAKU
+            $kodeAkunBahanPenolong = '1001005'; // PERSEDIAAN BAHAN PENOLONG
+            $kodeAkunKas           = '1001001'; // KAS
+            $kodeAkunHutang        = '2001001'; // HUTANG USAHA
+
+            // Query untuk mendapatkan ID Akun berdasarkan Kode Akun
+            $idAkunBaku     = DB::table('t_akun')->where('kode_akun', $kodeAkunBahanBaku)->value('id_akun');
+            $idAkunPenolong = DB::table('t_akun')->where('kode_akun', $kodeAkunBahanPenolong)->value('id_akun');
+            $idAkunKas      = DB::table('t_akun')->where('kode_akun', $kodeAkunKas)->value('id_akun');
+            $idAkunHutang   = DB::table('t_akun')->where('kode_akun', $kodeAkunHutang)->value('id_akun');
+
+            // A. Buat Header Jurnal (Jurnal Umum)
+            $idJurnal = DB::table('t_jurnal')->insertGetId([
+                'kode_jurnal'    => 'JU-PB' . date('ymd') . rand(100, 999),
+                'tanggal'        => $request->tanggal_transaksi,
+                'keterangan'     => 'Pembelian Persediaan (Faktur: ' . $request->no_faktur . ')',
+                'jenis_jurnal'   => 'umum',
+                'kode_referensi' => $request->no_faktur,
+                'created_at'     => now(),
+                'updated_at'     => now(),
             ]);
+
+            // B. SISI DEBIT (Persediaan Bertambah)
+            if ($totalBahanBaku > 0 && $idAkunBaku) {
+                DB::table('t_jurnal_detail')->insert([
+                    'id_jurnal'  => $idJurnal,
+                    'id_akun'    => $idAkunBaku,
+                    'debit'      => $totalBahanBaku,
+                    'kredit'     => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            if ($totalBahanPenolong > 0 && $idAkunPenolong) {
+                DB::table('t_jurnal_detail')->insert([
+                    'id_jurnal'  => $idJurnal,
+                    'id_akun'    => $idAkunPenolong,
+                    'debit'      => $totalBahanPenolong,
+                    'kredit'     => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            // C. SISI KREDIT (Kas Berkurang / Hutang Bertambah)
+            // Cek metode pembayaran untuk menentukan akun kredit
+            $idAkunKredit = ($request->metode_pembayaran === 'Tunai') ? $idAkunKas : $idAkunHutang;
+
+            if ($idAkunKredit) {
+                DB::table('t_jurnal_detail')->insert([
+                    'id_jurnal'  => $idJurnal,
+                    'id_akun'    => $idAkunKredit,
+                    'debit'      => 0,
+                    'kredit'     => $totalTagihan, // Total tagihan penuh di sisi kredit
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            DB::commit();
+            return redirect()->back()->with('success', 'Transaksi Pembelian dan Jurnal Otomatis berhasil disimpan!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Gagal menyimpan transaksi: ' . $e->getMessage()]);
         }
-
-        DB::commit();
-        return redirect()->back()->with('success', 'Transaksi Pembelian berhasil disimpan!');
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return back()->withErrors(['error' => 'Gagal menyimpan transaksi: ' . $e->getMessage()]);
     }
-}
 }
