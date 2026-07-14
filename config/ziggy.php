@@ -9,5 +9,5 @@ return [
     | This ensures HTTPS URLs are generated when APP_URL starts with https://,
     | regardless of the current request scheme (e.g. behind Railway proxy).
     */
-    'url' => env('APP_URL', url('/')),
+    'url' => env('APP_URL'),
 ];
