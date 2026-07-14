@@ -3,11 +3,10 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use App\Models\Aset;
-use App\Models\Overhead; // <--- 1. Pastikan model Overhead di-import
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Schema;
 
 class DatabaseSeeder extends Seeder
 {
@@ -15,6 +14,9 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
+        // 0. Disable Foreign Key Checks (Opsional tapi direkomendasikan untuk Seeding Massal)
+        Schema::disableForeignKeyConstraints();
+
         // 1. Seed Admin User
         User::updateOrCreate(
             ['email' => 'admin@gmail.com'],
@@ -24,65 +26,30 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // 2. Panggil Seed Data Aset
+        // 2. Eksekusi Seeder dalam 1 Array Berdasarkan Hierarki Dependensi
         $this->call([
-        AsetSeeder::class,
+            // --- TIER 1: CORE MASTER DATA (Tidak punya Foreign Key ke tabel lain) ---
+            DivisiSeeder::class,      // Biasanya parent dari User/Aset
+            AkunSeeder::class,        // Master Coa (Chart of Accounts)
+            SupplierSeeder::class,    // Master Pemasok
+            MitraSeeder::class,       // Master Pelanggan/Mitra
+
+            // --- TIER 2: SECONDARY MASTER DATA (Bergantung pada Tier 1) ---
+            BahanSeeder::class,       // Butuh Supplier
+            ProdukSeeder::class,      // Barang jadi
+            AsetSeeder::class,        // Butuh Akun/Divisi
+            OverheadSeeder::class,    // Butuh Akun
+
+            // --- TIER 3: RELATIONAL DATA (Menghubungkan Master Data) ---
+            BomSeeder::class,         // Bill of Materials (Butuh Produk & Bahan)
+            HargaProdukSeeder::class, // Butuh Produk
+
+            // --- TIER 4: TRANSACTIONAL DATA (Operasional) ---
+            PesananSeeder::class,         // Butuh Mitra & Produk
+            JadwalProduksiSeeder::class,  // Butuh Pesanan/BOM/Produk
         ]);
 
-        // 3. Panggil OverheadSeeder
-        $this->call([
-            OverheadSeeder::class,
-        ]);
-
-        // 4. Panggil AkunSeeder
-        $this->call([
-            AkunSeeder::class,
-        ]);
-
-        // 5. Panggil ProdukSeeder
-        $this->call([
-            ProdukSeeder::class,
-        ]);
-
-        // 6. Panggil BahanSeeder
-        $this->call([
-            BahanSeeder::class,
-        ]);
-
-        // 7. Panggil BomSeeder
-        $this->call([
-            BomSeeder::class,
-        ]);
-
-        // 8. Panggil JadwalProduksiSeeder
-        $this->call([
-            JadwalProduksiSeeder::class,
-        ]);
-
-        // 9. Panggil HargaProdukSeeder
-        $this->call([
-            HargaProdukSeeder::class,
-        ]);
-
-        // 10. Panggil MitraSeeder
-        $this->call([
-            MitraSeeder::class,
-        ]);
-
-        // 11. Panggil PesananSeeder
-        $this->call([
-            PesananSeeder::class,
-        ]);
-        // 12. Panggil supplierseeder
-        $this->call([
-            SupplierSeeder::class,
-        ]);
-
-        // 13. Panggil DivisiSeeder
-        $this->call([
-            DivisiSeeder::class,
-        ]);
-
+        // 3. Enable kembali Foreign Key Checks
+        Schema::enableForeignKeyConstraints();
     }
-
 }
