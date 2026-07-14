@@ -15,6 +15,7 @@ import {
     ChevronRight,
     Menu,
     X,
+    LogOut,
 } from "lucide-react";
 
 // Logo - sesuaikan path nya ya!
@@ -330,6 +331,19 @@ export default function Sidebar() {
                             ))}
                         </ul>
                     </nav>
+
+                    {/* Logout Button */}
+                    <div className="p-4 border-t border-red-600/50">
+                        <Link
+                            href="/logout"
+                            method="post"
+                            as="button"
+                            className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-white bg-red-700 hover:bg-red-900 shadow-md font-semibold"
+                        >
+                            <LogOut className="w-5 h-5" />
+                            <span>Logout</span>
+                        </Link>
+                    </div>
                 </div>
             </div>
 
