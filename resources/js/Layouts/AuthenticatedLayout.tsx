@@ -8,7 +8,7 @@ export default function AuthenticatedLayout({
     children: React.ReactNode;
 }) {
     return (
-        <div className="min-h-screen bg-gray-50 flex">
+        <div className="h-screen bg-gray-50 flex">
             <Sidebar />
             <div className="flex-1 flex flex-col overflow-hidden">
                 {header && (

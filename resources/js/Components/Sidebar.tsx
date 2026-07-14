@@ -239,7 +239,7 @@ export default function Sidebar() {
                     </div>
 
                     {/* Menu */}
-                    <nav className="flex-1 overflow-y-auto p-4">
+                    <nav className="flex-1 overflow-y-auto p-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                         <ul className="space-y-1">
                             {menuItems
                                 .filter((item) => !item.roles || item.roles.includes(userRole))
