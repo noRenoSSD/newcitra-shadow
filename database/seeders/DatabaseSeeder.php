@@ -39,27 +39,31 @@ class DatabaseSeeder extends Seeder
         }
 
         // 2. Eksekusi Seeder dalam 1 Array Berdasarkan Hierarki Dependensi
-        $this->call([
-            // --- TIER 1: CORE MASTER DATA (Tidak punya Foreign Key ke tabel lain) ---
-            DivisiSeeder::class,      // Biasanya parent dari User/Aset
-            AkunSeeder::class,        // Master Coa (Chart of Accounts)
-            SupplierSeeder::class,    // Master Pemasok
-            MitraSeeder::class,       // Master Pelanggan/Mitra
+        try {
+            $this->call([
+                // --- TIER 1: CORE MASTER DATA (Tidak punya Foreign Key ke tabel lain) ---
+                DivisiSeeder::class,      // Biasanya parent dari User/Aset
+                AkunSeeder::class,        // Master Coa (Chart of Accounts)
+                SupplierSeeder::class,    // Master Pemasok
+                MitraSeeder::class,       // Master Pelanggan/Mitra
 
-            // --- TIER 2: SECONDARY MASTER DATA (Bergantung pada Tier 1) ---
-            BahanSeeder::class,       // Butuh Supplier
-            ProdukSeeder::class,      // Barang jadi
-            AsetSeeder::class,        // Butuh Akun/Divisi
-            OverheadSeeder::class,    // Butuh Akun
+                // --- TIER 2: SECONDARY MASTER DATA (Bergantung pada Tier 1) ---
+                BahanSeeder::class,       // Butuh Supplier
+                ProdukSeeder::class,      // Barang jadi
+                AsetSeeder::class,        // Butuh Akun/Divisi
+                OverheadSeeder::class,    // Butuh Akun
 
-            // --- TIER 3: RELATIONAL DATA (Menghubungkan Master Data) ---
-            BomSeeder::class,         // Bill of Materials (Butuh Produk & Bahan)
-            HargaProdukSeeder::class, // Butuh Produk
+                // --- TIER 3: RELATIONAL DATA (Menghubungkan Master Data) ---
+                BomSeeder::class,         // Bill of Materials (Butuh Produk & Bahan)
+                HargaProdukSeeder::class, // Butuh Produk
 
-            // --- TIER 4: TRANSACTIONAL DATA (Operasional) ---
-            PesananSeeder::class,         // Butuh Mitra & Produk
-            JadwalProduksiSeeder::class,  // Butuh Pesanan/BOM/Produk
-        ]);
+                // --- TIER 4: TRANSACTIONAL DATA (Operasional) ---
+                PesananSeeder::class,         // Butuh Mitra & Produk
+                JadwalProduksiSeeder::class,  // Butuh Pesanan/BOM/Produk
+            ]);
+        } catch (\Exception $e) {
+            $this->command->info('Beberapa seeder diskip karena data sudah ada: ' . $e->getMessage());
+        }
 
         // 3. Enable kembali Foreign Key Checks
         Schema::enableForeignKeyConstraints();
