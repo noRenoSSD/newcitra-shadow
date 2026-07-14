@@ -15,7 +15,8 @@ class PenjualanController extends Controller
      */
     public function index()
     {
-        $penjualan = DB::table('t_jual')
+        // Ambil semua data master penjualan terlebih dahulu
+        $masterPenjualan = DB::table('t_jual')
             ->join('t_pesanan', 't_jual.id_pesanan', '=', 't_pesanan.id_pesanan')
             ->join('t_mitra', 't_pesanan.id_mitra', '=', 't_mitra.id_mitra')
             ->select(
@@ -26,8 +27,14 @@ class PenjualanController extends Controller
             ->orderBy('t_jual.id_jual', 'desc')
             ->get();
 
+        // Loop dan pastikan dikonversi menjadi ARRAY murni agar React tidak crash
+        $penjualanLengkap = $masterPenjualan->map(function ($item) {
+            $dataLengkap = $this->getInvoiceData($item->id_jual);
+            return $dataLengkap ? (array) $dataLengkap : null;
+        })->filter()->values()->toArray();
+
         return Inertia::render('Penjualan/Penjualan', [
-            'penjualan' => $penjualan
+            'penjualan' => $penjualanLengkap
         ]);
     }
 
@@ -193,38 +200,33 @@ class PenjualanController extends Controller
                     'no_piutang'     => $noPiutangOtomatis,
                     'id_jual'        => $idJual,
                     'tgl_piutang'    => $tglInvoice,
-                    'total_piutang'  => $calculatedGrandTotal, // Piutang dicatat sebesar Grand Total Bersih
+                    'total_piutang'  => $calculatedGrandTotal, 
                     'terbayar'       => 0,
                     'sisa_piutang'   => $calculatedGrandTotal,
                     'jt_piutang'     => $calculatedJatuhTempo,
                     'status_piutang' => 'Belum Lunas',
-                    'keterangan'     => 'Piutang otomatis dari invoice ' . $noInvoice,
+                    'catatan'        => 'Piutang otomatis dari invoice ' . $noInvoice,
                 ]);
             }
 
             // =================================================================
             // 5. OTOMATISASI JURNAL PENJUALAN & HPP
             // =================================================================
-            
-            // Kode Akun dari Seeder
             $kodeKas            = '1001001'; // KAS
             $kodePiutang        = '1001003'; // PIUTANG USAHA
             $kodeDiskonJual     = '4001006'; // DISKON PENJUALAN
             $kodeHPP            = '5001001'; // HARGA POKOK PENJUALAN (HPP)
             $kodePersediaanJadi = '1001006'; // PERSEDIAAN BARANG JADI
 
-            // Ambil ID Akun Utama
             $idAkunKas      = DB::table('t_akun')->where('kode_akun', $kodeKas)->value('id_akun');
             $idAkunPiutang  = DB::table('t_akun')->where('kode_akun', $kodePiutang)->value('id_akun');
             $idAkunDiskon   = DB::table('t_akun')->where('kode_akun', $kodeDiskonJual)->value('id_akun');
             $idAkunHPP      = DB::table('t_akun')->where('kode_akun', $kodeHPP)->value('id_akun');
             $idAkunBdgJadi  = DB::table('t_akun')->where('kode_akun', $kodePersediaanJadi)->value('id_akun');
 
-            // Tentukan apakah masuk ke KAS atau PIUTANG (berdasarkan metode)
             $isTunai = (strtolower($metodePembayaran) === 'tunai' || strtolower($metodePembayaran) === 'cash');
             $idAkunDebitUtama = $isTunai ? $idAkunKas : $idAkunPiutang;
 
-            // A. BUAT HEADER JURNAL UMUM
             $idJurnal = DB::table('t_jurnal')->insertGetId([
                 'kode_jurnal'    => 'JU-PJ' . date('ymd') . rand(100, 999),
                 'tanggal'        => $tglInvoice,
@@ -235,9 +237,6 @@ class PenjualanController extends Controller
                 'updated_at'     => now(),
             ]);
 
-            // --- BAGIAN 1: JURNAL PENJUALAN ---
-            
-            // B. DEBIT: Kas / Piutang Usaha (Sebesar Uang Bersih yg diterima/ditagih)
             if ($calculatedGrandTotal > 0 && $idAkunDebitUtama) {
                 DB::table('t_jurnal_detail')->insert([
                     'id_jurnal' => $idJurnal,
@@ -249,7 +248,6 @@ class PenjualanController extends Controller
                 ]);
             }
 
-            // C. DEBIT: Diskon Penjualan (Jika Ada Diskon)
             if ($akumulasiTotalDiskonRupiah > 0 && $idAkunDiskon) {
                 DB::table('t_jurnal_detail')->insert([
                     'id_jurnal' => $idJurnal,
@@ -261,7 +259,6 @@ class PenjualanController extends Controller
                 ]);
             }
 
-            // D. KREDIT: Pendapatan Penjualan (Di-loop sesuai akumulasi Kategori Produk tadi)
             foreach ($akunPendapatan as $kodeAkunPenjualan => $totalKreditPenjualan) {
                 if ($totalKreditPenjualan > 0) {
                     $idAkunPdpt = DB::table('t_akun')->where('kode_akun', $kodeAkunPenjualan)->value('id_akun');
@@ -278,9 +275,7 @@ class PenjualanController extends Controller
                 }
             }
 
-            // --- BAGIAN 2: JURNAL HPP ---
             if ($totalHppInvoice > 0) {
-                // E. DEBIT: Harga Pokok Penjualan (HPP)
                 if ($idAkunHPP) {
                     DB::table('t_jurnal_detail')->insert([
                         'id_jurnal' => $idJurnal,
@@ -292,7 +287,6 @@ class PenjualanController extends Controller
                     ]);
                 }
 
-                // F. KREDIT: Persediaan Barang Jadi Berkurang
                 if ($idAkunBdgJadi) {
                     DB::table('t_jurnal_detail')->insert([
                         'id_jurnal' => $idJurnal,
@@ -319,36 +313,85 @@ class PenjualanController extends Controller
      */
     public function show($id)
     {
-        $invoice = DB::table('t_jual')
-            ->join('t_pesanan', 't_jual.id_pesanan', '=', 't_pesanan.id_pesanan')
-            ->join('t_mitra', 't_pesanan.id_mitra', '=', 't_mitra.id_mitra')
-            ->select('t_jual.*', 't_pesanan.no_pesanan', 't_mitra.nama_mitra', 't_mitra.alamat as alamat_mitra')
-            ->where('t_jual.id_jual', $id)
-            ->first();
+        $invoice = $this->getInvoiceData($id);
 
         if (!$invoice) {
             abort(404, 'Invoice tidak ditemukan.');
         }
 
-        $items = DB::table('t_jual_detail')
-            ->join('t_produk', 't_jual_detail.id_produk', '=', 't_produk.id_produk')
-            ->select(
-                't_produk.nama_produk',
-                't_jual_detail.id_produk',
-                't_jual_detail.qty_jual',
-                't_jual_detail.harga',
-                't_jual_detail.harga as harga_jual_satuan',
-                't_jual_detail.hpp_satuan',
-                't_jual_detail.diskon',
-                't_jual_detail.subtotal'
-            )
-            ->where('t_jual_detail.id_jual', $id)
-            ->get();
-
-        $invoice->items = $items;
-
         return Inertia::render('Penjualan/PenjualanDetail', [
-            'invoice' => $invoice
+            'invoice' => (array) $invoice
         ]);
+    }
+
+    /**
+     * 4. Fungsi Cetak Invoice
+     */
+    public function printInvoice($id)
+    {
+        $invoice = $this->getInvoiceData($id);
+
+        if (!$invoice) {
+            abort(404, 'Invoice tidak ditemukan.');
+        }
+
+        return Inertia::render('Penjualan/PenjualanPrint', [
+            'invoice' => (array) $invoice
+        ]);
+    }
+
+    /**
+     * Helper privat untuk fetch data invoice
+     */
+    private function getInvoiceData($id)
+    {
+        $invoice = DB::table('t_jual')
+            ->join('t_pesanan', 't_jual.id_pesanan', '=', 't_pesanan.id_pesanan')
+            ->join('t_mitra', 't_pesanan.id_mitra', '=', 't_mitra.id_mitra')
+            ->leftJoin('t_piutang', 't_jual.id_jual', '=', 't_piutang.id_jual')
+            ->select(
+                't_jual.*', 
+                't_pesanan.id_pesanan',
+                't_pesanan.no_pesanan', 
+                't_pesanan.catatan as keterangan_so', 
+                't_mitra.nama_mitra', 
+                't_mitra.alamat as alamat_mitra',
+                't_piutang.jt_piutang as jatuh_tempo_tanggal' 
+            )
+            ->where('t_jual.id_jual', $id)
+            ->first();
+
+        if ($invoice) {
+            $noSuratJalan = DB::table('t_surat_jalan') 
+                ->where('id_pesanan', $invoice->id_pesanan) 
+                ->value('no_surat_jalan'); 
+
+            $invoice->no_surat_jalan = $noSuratJalan ?? '-';
+
+            $items = DB::table('t_jual_detail')
+                ->join('t_produk', 't_jual_detail.id_produk', '=', 't_produk.id_produk')
+                ->select(
+                    't_produk.kode_produk',
+                    't_produk.nama_produk',
+                    't_produk.satuan_produk as satuan',
+                    't_jual_detail.id_produk',
+                    't_jual_detail.qty_jual',
+                    't_jual_detail.harga',
+                    't_jual_detail.harga as harga_jual_satuan',
+                    't_jual_detail.hpp_satuan',
+                    't_jual_detail.diskon',
+                    't_jual_detail.subtotal'
+                )
+                ->where('t_jual_detail.id_jual', $id)
+                ->get();
+
+            if (empty($invoice->keterangan)) {
+                $invoice->keterangan = $invoice->keterangan_so;
+            }
+
+            $invoice->items = $items->toArray();
+        }
+
+        return $invoice;
     }
 }

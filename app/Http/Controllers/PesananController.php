@@ -25,7 +25,13 @@ class PesananController extends Controller
             $mitraList = Mitra::select('id_mitra', 'kode_mitra', 'nama_mitra', 'alamat')->get();
         }
 
-        // 2. Data produk beserta daftar harganya + Mengambil saldo_qty terakhir dari kartu persediaan
+        // 2. OPTIMASI: Ambil semua harga sekaligus untuk menghindari Query N+1
+        $allHarga = DB::table('t_harga_produk')
+            ->select('id_harga_produk as id_harga', 'id_produk', 'jenis_transaksi', 'harga')
+            ->get()
+            ->groupBy('id_produk');
+
+        // Data produk beserta daftar harganya + Mengambil saldo_qty terakhir dari kartu persediaan
         $produkList = DB::table('t_produk as p')
             ->leftJoin('t_kartu_persediaan as kp', function($join) {
                 $join->on('p.id_produk', '=', 'kp.id_produk')
@@ -37,20 +43,14 @@ class PesananController extends Controller
             })
             ->select('p.id_produk', 'p.nama_produk', 'p.kode_produk', 'p.satuan_produk', DB::raw('COALESCE(kp.saldo_qty, 0) as saldo_qty'))
             ->get()
-            ->map(function ($prod) {
-                // Mengambil relasi harga_produk menggunakan Eloquent Model agar struktur 'harga_produk' tetap sama untuk frontend
-                $hargaProduk = DB::table('t_harga_produk')
-                    ->where('id_produk', $prod->id_produk)
-                    ->select('id_harga_produk as id_harga', 'id_produk', 'jenis_transaksi', 'harga')
-                    ->get();
-
+            ->map(function ($prod) use ($allHarga) {
                 return [
                     'id_produk' => $prod->id_produk,
                     'nama_produk' => $prod->nama_produk,
                     'kode_produk' => $prod->kode_produk,
                     'satuan_produk' => $prod->satuan_produk,
-                    'saldo_qty' => (float) $prod->saldo_qty, // 👈 Nilai ini sekarang diambil dari kartu persediaan terbaru
-                    'harga_produk' => $hargaProduk
+                    'saldo_qty' => (float) $prod->saldo_qty,
+                    'harga_produk' => $allHarga->get($prod->id_produk) ?? [] // Diambil dari memori, bukan query lagi
                 ];
             });
 
@@ -263,14 +263,17 @@ class PesananController extends Controller
                 'no_pesanan' => $pesanan->no_pesanan,
                 'nama_mitra' => $pesanan->mitra ? $pesanan->mitra->nama_mitra : 'Tidak Diketahui',
                 'alamat' => $pesanan->alamat,
+                'jenis_penjualan' => $pesanan->jenis_transaksi,
                 'total_diskon' => (float) ($pesanan->total_diskon ?? 0), 
                 'total_harga' => $pesanan->total_harga,
                 'catatan' => $pesanan->catatan, 
                 'items' => $pesanan->items->map(function ($detail) {
                     return [
                         'nama_produk' => $detail->produk ? $detail->produk->nama_produk : 'Produk Terhapus',
+                        'kode_produk' => $detail->produk ? $detail->produk->kode_produk : '',
                         'qty' => $detail->qty,
                         'harga' => $detail->harga,
+                        'satuan_produk' => $detail->produk ? $detail->produk->satuan_produk : '-',
                         'diskon_persen' => $detail->diskon, 
                         'subtotal' => $detail->subtotal,
                     ];

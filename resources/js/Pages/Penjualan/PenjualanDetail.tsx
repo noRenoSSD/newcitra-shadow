@@ -9,18 +9,21 @@ interface InvoiceDetailProps {
     no_pesanan: string;
     nama_mitra: string;
     alamat_mitra?: string;
-    jenis_penjualan: 'Grosir' | 'Eceran';
+    jenis_penjualan: string; // Menampung 'Penjualan Langsung', 'Maklon', 'Konsinyasi', dll
     metode_pembayaran: 'Tunai' | 'Kredit';
-    subtotal: number; // Nilai dari DB (bisa diabaikan jika hitung manual lebih akurat)
+    jatuh_tempo_tanggal?: string; // Menampung tanggal jatuh tempo jika kredit
+    subtotal: number; 
     total_hpp: number; 
     grand_total: number;
     keterangan?: string; 
     items: {
+      kode_produk?: string; // Kode unik milik produk
       nama_produk: string;
+      satuan?: string;      // Satuan kustom produk (Pcs, Box, Kg, dll)
       qty_jual: number;
       hpp_satuan: number;
-      diskon: number; // Persen diskon (ex: 5)
-      subtotal: number; // Biasanya ini subtotal setelah diskon per item dari DB
+      diskon: number; 
+      subtotal: number; 
       harga_jual_satuan: number;
     }[];
   };
@@ -30,7 +33,6 @@ interface InvoiceDetailProps {
 export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
   
   // ─── RUMUS 1: HITUNG TOTAL SUBOTAL SEBELUM DISKON ───
-  // Menjumlahkan (Qty x Harga Jual Satuan) dari seluruh item produk
   const hitungSubtotalSebelumDiskon = invoice.items.reduce((totalAkumulasi, item) => {
     const hargaKotorBaris = item.qty_jual * item.harga_jual_satuan;
     return totalAkumulasi + hargaKotorBaris;
@@ -69,39 +71,48 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase">No. Invoice / No. Jual</p>
+            <p className="text-sm font-semibold text-gray-400">No. Invoice / No. Jual</p>
             <p className="text-base font-bold text-gray-900 mt-0.5">{invoice.no_jual}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase">Ref. No. Sales Order (SO)</p>
+            <p className="text-sm font-semibold text-gray-400">Ref. No. Sales Order (SO)</p>
             <p className="text-base font-medium text-gray-700 mt-0.5">{invoice.no_pesanan}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase">Tanggal Penjualan</p>
+            <p className="text-sm font-semibold text-gray-400">Tanggal Penjualan</p>
             <p className="text-base font-medium text-gray-900 mt-0.5">
               {new Date(invoice.tgl_jual).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
           <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase">Pelanggan / Mitra</p>
+            <p className="text-sm font-semibold text-gray-400 ">Pelanggan / Mitra</p>
             <p className="text-base font-bold text-gray-900 mt-0.5">{invoice.nama_mitra}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase">Jenis & Metode Pembayaran</p>
-            <p className="text-base font-medium text-gray-900 mt-0.5">
-              <span className="font-semibold text-red-900">{invoice.jenis_penjualan}</span> — ({invoice.metode_pembayaran})
+            <p className="text-sm font-semibold text-gray-400 ">Jenis & Metode Pembayaran</p>
+            <p className="text-base font-medium text-gray-900 mt-0.5 flex flex-wrap items-center gap-1.5">
+              <span className="font-semibold text-red-900">{invoice.jenis_penjualan}</span>
+              <span className="text-gray-400">—</span>
+              <span className="font-medium text-gray-800">({invoice.metode_pembayaran})</span>
+              
+              {/* Jika metode Kredit, tampilkan tanggal jatuh tempo di sampingnya */}
+              {invoice.metode_pembayaran === 'Kredit' && invoice.jatuh_tempo_tanggal && (
+                <span className="text-xs bg-red-50 text-red-800 font-semibold px-2 py-0.5 rounded border border-red-200 ml-1">
+                  Jatuh Tempo: {new Date(invoice.jatuh_tempo_tanggal).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' })}
+                </span>
+              )}
             </p>
           </div>
           <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase">Alamat Pengiriman</p>
+            <p className="text-sm font-semibold text-gray-400 ">Alamat Pengiriman</p>
             <p className="text-base font-medium text-gray-900 mt-0.5">{invoice.alamat_mitra || '-'}</p>
           </div>
           
-          {/* Catatan Bawaan SO */}
+          {/* Catatan Komparabel Dari Data Pesanan */}
           <div className="md:col-span-2 border-t border-gray-100 pt-4">
-            <p className="text-xs font-semibold text-gray-400 uppercase">Catatan / Keterangan Penjualan</p>
-            <p className="text-sm font-medium text-gray-700 italic mt-1 bg-gray-50 p-3 rounded-lg border border-gray-100">
-              {invoice.keterangan ? `"${invoice.keterangan}"` : 'Tidak ada catatan tambahan.'}
+            <p className="text-sm font-semibold text-gray-400 ">Catatan / Keterangan Penjualan</p>
+            <p className="text-sm font-medium text-gray-700 mt-1 bg-gray-50 p-3 rounded-lg border border-gray-100">
+              {invoice.keterangan ? `${invoice.keterangan}` : 'Tidak ada catatan tambahan.'}
             </p>
           </div>
         </div>
@@ -116,6 +127,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
           <table className="w-full text-left border-collapse">
             <thead className="bg-gray-100 border-b border-gray-200 text-xs font-bold text-gray-600 uppercase">
               <tr>
+                <th className="px-6 py-3">Kode Produk</th>
                 <th className="px-6 py-3">Produk</th>
                 <th className="px-6 py-3 text-center">Qty</th>
                 <th className="px-6 py-3 text-right">Harga Jual</th>
@@ -126,11 +138,19 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
             <tbody className="divide-y divide-gray-200 text-sm text-gray-700 bg-white">
               {invoice.items.map((item, idx) => {
                 const nilaiPersen = Number(item.diskon) || 0;
+                const namaSatuan = item.satuan || 'Unit'; // Fallback ke 'Unit' jika database null
 
                 return (
                   <tr key={idx} className="hover:bg-gray-50/50">
+                    {/* Kolom Kode Produk Baru */}
+                    <td className="px-6 py-4 font-medium text-gray-500 whitespace-nowrap">
+                      {item.kode_produk || '-'}
+                    </td>
                     <td className="px-6 py-4 font-medium text-gray-900">{item.nama_produk}</td>
-                    <td className="px-6 py-4 text-center whitespace-nowrap">{item.qty_jual} Unit</td>
+                    {/* Menampilkan Satuan Dinamis */}
+                    <td className="px-6 py-4 text-center whitespace-nowrap font-medium">
+                      {item.qty_jual} {namaSatuan}
+                    </td>
                     <td className="px-6 py-4 text-right">Rp {Number(item.harga_jual_satuan).toLocaleString('id-ID')}</td>
                     
                     {/* Diskon Persen Per Produk */}
@@ -153,7 +173,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
       <div className="flex justify-end">
         <div className="w-full md:w-1/2 bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-3">
           
-          {/* ─── PEMANGGILAN SUBOTAL SEBELUM DISKON (MANUAL) ─── */}
+          {/* Subtotal Sebelum Diskon */}
           <div className="flex justify-between text-sm text-gray-600">
             <span>Subtotal Transaksi:</span>
             <span className="font-semibold text-gray-900">

@@ -156,7 +156,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/transaksi-penjualan', [PenjualanController::class, 'index'])->name('transaksi-penjualan.index');
     Route::post('/transaksi-penjualan-store', [PenjualanController::class, 'storeInvoice'])->name('transaksi-penjualan.store');
-    Route::get('/transaksi-penjualan/{id}', [PenjualanController::class, 'show'])->name('transaksi-penjualan.show');
+Route::get('/transaksi-penjualan/{id}', [PenjualanController::class, 'show'])->name('transaksi-penjualan.show');
+    Route::get('/transaksi-penjualan/{id}/cetak', [PenjualanController::class, 'printInvoice'])->name('penjualan.cetak');
 
     Route::post('/surat-jalan-store', [SuratJalanController::class, 'store'])->name('surat-jalan.store');
     Route::get('/surat-jalan', [SuratJalanController::class, 'index'])->name('surat-jalan.index');
@@ -164,9 +165,11 @@ Route::middleware('auth')->group(function () {
     Route::delete('/surat-jalan/{id}', [SuratJalanController::class, 'destroy']);
 
     Route::get('/retur-penjualan', [ReturJualController::class, 'index'])->name('retur-penjualan.index');
-Route::post('/retur-penjualan', [ReturJualController::class, 'store'])->name('retur-penjualan.store');
-Route::get('/retur-penjualan/invoice-items/{id_jual}', [ReturJualController::class, 'getInvoiceItems']);
+    Route::post('/retur-penjualan', [ReturJualController::class, 'store'])->name('retur-penjualan.store');
+    Route::get('/retur-penjualan/invoice-items/{id_jual}', [ReturJualController::class, 'getInvoiceItems']);
     Route::get('/retur-penjualan/detail-items/{id_retur_jual}', [ReturJualController::class, 'getReturDetails']);
+    Route::delete('/retur-penjualan/{id}', [ReturJualController::class, 'destroy'])->name('retur-penjualan.destroy');
+    Route::get('/retur-penjualan/{id}/print', [ReturJualController::class, 'print'])->name('retur-penjualan.print');
 
     // Konsinyasi
     Route::get('/konsinyasi-keluar', [KonsinyasiKeluarController::class, 'index'])->name('konsinyasi.keluar.index');
