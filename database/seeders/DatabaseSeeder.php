@@ -17,14 +17,26 @@ class DatabaseSeeder extends Seeder
         // 0. Disable Foreign Key Checks (Opsional tapi direkomendasikan untuk Seeding Massal)
         Schema::disableForeignKeyConstraints();
 
-        // 1. Seed Admin User
-        User::updateOrCreate(
-            ['email' => 'admin@gmail.com'],
-            [
-                'name' => 'Admin',
-                'password' => Hash::make('12345678'),
-            ]
-        );
+        // 1. Seed Users with Roles
+        $users = [
+            ['email' => 'admin@gmail.com', 'name' => 'Super Admin', 'role' => 'super_admin'],
+            ['email' => 'akuntansi@newcitra.com', 'name' => 'Admin Akuntansi', 'role' => 'admin_akuntansi'],
+            ['email' => 'produksi@newcitra.com', 'name' => 'Admin Produksi', 'role' => 'admin_produksi'],
+            ['email' => 'pembelian@newcitra.com', 'name' => 'Admin Pembelian', 'role' => 'admin_pembelian'],
+            ['email' => 'penjualan@newcitra.com', 'name' => 'Admin Penjualan', 'role' => 'admin_penjualan'],
+            ['email' => 'manajer@newcitra.com', 'name' => 'Manajer', 'role' => 'manajer'],
+        ];
+
+        foreach ($users as $u) {
+            User::updateOrCreate(
+                ['email' => $u['email']],
+                [
+                    'name' => $u['name'],
+                    'password' => Hash::make('12345678'),
+                    'role' => $u['role'],
+                ]
+            );
+        }
 
         // 2. Eksekusi Seeder dalam 1 Array Berdasarkan Hierarki Dependensi
         $this->call([

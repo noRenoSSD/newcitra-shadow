@@ -24,6 +24,7 @@ const logoImage = "/images/logo-citra.jpg";
 interface SubMenuItem {
     label: string;
     path: string;
+    roles?: string[];
 }
 
 interface MenuItem {
@@ -31,192 +32,151 @@ interface MenuItem {
     icon: React.ReactNode;
     path?: string;
     subMenus?: SubMenuItem[];
+    roles?: string[];
 }
+
+const SA = "super_admin";
+const AK = "admin_akuntansi";
+const APR = "admin_produksi";
+const APB = "admin_pembelian";
+const APJ = "admin_penjualan";
+const MNG = "manajer";
 
 const menuItems: MenuItem[] = [
     {
         label: "Dashboard",
         icon: <LayoutDashboard className="w-5 h-5" />,
         path: "/dashboard",
+        // Dashboard bisa diakses semua role
     },
     {
         label: "Data Master",
         icon: <Database className="w-5 h-5" />,
+        roles: [SA, AK, APR, APB, APJ], // minimal ada 1 submenu yg bisa diakses
         subMenus: [
-            { label: "Data Supplier", path: "/supplier" },
-            { label: "Data Mitra", path: "/mitra" },
-            { label: "Data Divisi", path: "/divisi" },
-            { label: "Data Bahan Baku", path: "/bahan-baku" },
-            { label: "Data Bahan Penolong", path: "/bahan-penolong" },
-            { label: "Data Produk Jadi", path: "/produk" },
-            { label: "Data Kebutuhan Material", path: "/kebutuhan-material" },
-            { label: "Data Overhead", path: "/overhead" },
-            { label: "Data Aset Tetap", path: "/aset" },
-            { label: "Data Akun", path: "/akun" },
-            { label: "Data User", path: "/master/user" },
+            { label: "Data Supplier", path: "/supplier", roles: [SA, APB] },
+            { label: "Data Mitra", path: "/mitra", roles: [SA, APJ] },
+            { label: "Data Divisi", path: "/divisi", roles: [SA, APR] },
+            { label: "Data Bahan Baku", path: "/bahan-baku", roles: [SA, APR, APB] },
+            { label: "Data Bahan Penolong", path: "/bahan-penolong", roles: [SA, APR, APB] },
+            { label: "Data Produk Jadi", path: "/produk", roles: [SA, APR, APJ] },
+            { label: "Data Kebutuhan Material", path: "/kebutuhan-material", roles: [SA, APR] },
+            { label: "Data Overhead", path: "/overhead", roles: [SA, APR] },
+            { label: "Data Aset Tetap", path: "/aset", roles: [SA, AK] },
+            { label: "Data Akun", path: "/akun", roles: [SA, AK] },
+            { label: "Data User", path: "/master/user", roles: [SA] },
         ],
     },
     {
         label: "Produksi",
         icon: <Factory className="w-5 h-5" />,
+        roles: [SA, APR, AK],
         subMenus: [
-            // UBAH BARIS INI
-            { label: "Jadwal Produksi", path: "/jadwal-produksi" },
-            {
-                label: "Persetujuan Jadwal Produksi",
-                path: "/persetujuan-jadwal",
-            },
-            { label: "Hasil Produksi", path: "/produksi/hasil-produksi" },
-            { label: "Harga Pokok Produksi", path: "/produksi/hpp" },
+            { label: "Jadwal Produksi", path: "/jadwal-produksi", roles: [SA, APR] },
+            { label: "Persetujuan Jadwal Produksi", path: "/persetujuan-jadwal", roles: [SA, APR] },
+            { label: "Hasil Produksi", path: "/produksi/hasil-produksi", roles: [SA, APR] },
+            { label: "Harga Pokok Produksi", path: "/produksi/hpp", roles: [SA, APR, AK] },
         ],
     },
     {
         label: "Pembelian",
         icon: <ShoppingCart className="w-5 h-5" />,
+        roles: [SA, APB, AK],
         subMenus: [
-            { label: "Permintaan Pembelian", path: "/pembelian/permintaan" },
-            { label: "Pesanan Pembelian", path: "/pembelian/pesanan" },
-            { label: "Penerimaan Bahan", path: "/pembelian/penerimaan-bahan" },
-            {
-                label: "Transaksi Pembelian",
-                path: "/pembelian/transaksi-pembelian",
-            },
-            { label: "Retur Pembelian", path: "/pembelian/retur-pembelian" },
+            { label: "Permintaan Pembelian", path: "/pembelian/permintaan", roles: [SA, APB] },
+            { label: "Pesanan Pembelian", path: "/pembelian/pesanan", roles: [SA, APB] },
+            { label: "Penerimaan Bahan", path: "/pembelian/penerimaan-bahan", roles: [SA, APB] },
+            { label: "Transaksi Pembelian", path: "/pembelian/transaksi-pembelian", roles: [SA, AK] },
+            { label: "Retur Pembelian", path: "/pembelian/retur-pembelian", roles: [SA, APB] },
         ],
     },
     {
         label: "Persediaan",
         icon: <Package className="w-5 h-5" />,
+        roles: [SA, APR, APB, APJ],
         subMenus: [
-            { label: "Persediaan Bahan Baku", path: "/persediaan/bahan-baku" },
-            {
-                label: "Persediaan Bahan Penolong",
-                path: "/persediaan/bahan-penolong",
-            },
-            // { label: "Hasil Produksi", path: "/persediaan/hasil-produksi" },
-            {
-                label: "Persediaan Produk Jadi",
-                path: "/persediaan/produk-jadi",
-            },
-            { label: "Stock Opname", path: "/persediaan/stock-opname" },
-            {
-                label: "Persetujuan Pemakaian Bahan",
-                path: "/approval-pemakaian-bahan",
-            },
-            {
-                label: "Persediaan Konsinyasi",
-                path: "/persediaan/konsinyasi",
-            },
+            { label: "Persediaan Bahan Baku", path: "/persediaan/bahan-baku", roles: [SA, APR, APB, APJ] },
+            { label: "Persediaan Bahan Penolong", path: "/persediaan/bahan-penolong", roles: [SA, APR, APB, APJ] },
+            { label: "Persediaan Produk Jadi", path: "/persediaan/produk-jadi", roles: [SA, APR, APB, APJ] },
+            { label: "Stock Opname", path: "/persediaan/stock-opname", roles: [SA, APR, APB, APJ] },
+            { label: "Persetujuan Pemakaian Bahan", path: "/approval-pemakaian-bahan", roles: [SA, APR, AK] },
+            { label: "Persediaan Konsinyasi", path: "/persediaan/konsinyasi", roles: [SA, APR, APB, APJ] },
         ],
     },
     {
         label: "Penjualan",
         icon: <DollarSign className="w-5 h-5" />,
+        roles: [SA, APJ, AK],
         subMenus: [
-            { label: "Pesanan Penjualan", path: "/pesanan" },
-            { label: "Penjualan", path: "/transaksi-penjualan" },
-            { label: "Surat Jalan", path: "/surat-jalan" },
-            { label: "Retur Penjualan", path: "/retur-penjualan" },
-            // { label: "Piutang", path: "/penjualan/piutang" },
-            {
-                label: "Perpanjangan Jatuh Tempo Piutang",
-                path: "/penjualan/perpanjangan",
-            },
+            { label: "Pesanan Penjualan", path: "/pesanan", roles: [SA, APJ] },
+            { label: "Penjualan", path: "/transaksi-penjualan", roles: [SA, APJ] },
+            { label: "Surat Jalan", path: "/surat-jalan", roles: [SA, APJ] },
+            { label: "Retur Penjualan", path: "/retur-penjualan", roles: [SA, APJ] },
+            { label: "Perpanjangan Jatuh Tempo Piutang", path: "/penjualan/perpanjangan", roles: [SA, AK, APJ] },
         ],
     },
     {
         label: "Konsinyasi",
         icon: <Handshake className="w-5 h-5" />,
+        roles: [SA, APJ],
         subMenus: [
-            { label: "Produk Konsinyasi Keluar", path: "/konsinyasi-keluar" },
-            { label: "Penjualan Konsinyasi", path: "/konsinyasi-penjualan" },
-            { label: "Retur Konsinyasi", path: "/konsinyasi-retur" },
+            { label: "Produk Konsinyasi Keluar", path: "/konsinyasi-keluar", roles: [SA, APJ] },
+            { label: "Penjualan Konsinyasi", path: "/konsinyasi-penjualan", roles: [SA, APJ] },
+            { label: "Retur Konsinyasi", path: "/konsinyasi-retur", roles: [SA, APJ] },
         ],
     },
     {
         label: "Pengeluaran lain-lain",
         icon: <Wallet className="w-5 h-5" />,
         path: "/transaksi-pengeluaran",
+        roles: [SA, AK],
     },
     {
         label: "Keuangan",
         icon: <BookOpen className="w-5 h-5" />,
+        roles: [SA, AK, APJ],
         subMenus: [
-            {
-                label: "Approval Pesanan Pembelian",
-                path: "/keuangan/approval-po",
-            },
-            { label: "Piutang Usaha", path: "/piutang" },
-            { label: "Hutang Usaha", path: "/keuangan/hutang-usaha" },
-            { label: "Penyusutan Aset Tetap", path: "/penyusutan/aset" },
-            { label: "Jurnal Umum", path: "/keuangan/jurnal-umum" },
-            {
-                label: "Jurnal Penyesuaian",
-                path: "/keuangan/jurnal-penyesuaian",
-            },
-            { label: "Buku Besar", path: "/keuangan/buku-besar" },
+            { label: "Approval Pesanan Pembelian", path: "/keuangan/approval-po", roles: [SA, AK] },
+            { label: "Piutang Usaha", path: "/piutang", roles: [SA, AK, APJ] },
+            { label: "Hutang Usaha", path: "/keuangan/hutang-usaha", roles: [SA, AK] },
+            { label: "Penyusutan Aset Tetap", path: "/penyusutan/aset", roles: [SA, AK] },
+            { label: "Jurnal Umum", path: "/keuangan/jurnal-umum", roles: [SA, AK] },
+            { label: "Jurnal Penyesuaian", path: "/keuangan/jurnal-penyesuaian", roles: [SA, AK] },
+            { label: "Buku Besar", path: "/keuangan/buku-besar", roles: [SA, AK] },
         ],
     },
     {
         label: "Laporan",
         icon: <FileText className="w-5 h-5" />,
+        roles: [SA, AK, APR, MNG],
         subMenus: [
-            { label: "Laporan Penjualan", path: "/laporan/penjualan" },
-            { label: "Laporan Konsinyasi", path: "/laporan/konsinyasi" },
-            {
-                label: "Laporan Retur Penjualan",
-                path: "/laporan/retur-penjualan",
-            },
-            {
-                label: "Laporan Retur Konsinyasi",
-                path: "/laporan/retur-konsinyasi",
-            },
-            { label: "Laporan Pembelian", path: "/laporan/pembelian" },
-            {
-                label: "Laporan Retur Pembelian",
-                path: "/laporan/retur-pembelian",
-            },
-            { label: "Laporan Piutang", path: "/laporan/piutang" },
-            { label: "Laporan Hutang", path: "/laporan/hutang-usaha" },
-            {
-                label: "Laporan Persediaan Bahan Baku",
-                path: "/laporan/persediaan-bahan-baku",
-            },
-            {
-                label: "Laporan Persediaan Bahan Penolong",
-                path: "/laporan/persediaan-bahan-penolong",
-            },
-            {
-                label: "Laporan Pemakaian Bahan",
-                path: "/laporan/pemakaian-bahan",
-            },
-            {
-                label: "Laporan Persediaan Produk Jadi",
-                path: "/laporan/persediaan-produk-jadi",
-            },
-            {
-                label: "Laporan Persediaan Konsinyasi",
-                path: "/laporan/persediaan-konsinyasi",
-            },
-            {
-                label: "Laporan Pengeluaran Lain-lain",
-                path: "/laporan/pengeluaran-lain",
-            },
-            { label: "Laporan Produksi", path: "/laporan-produksi" },
-            { label: "Laporan Harga Pokok Produksi", path: "/laporan-hpp" },
-            { label: "Laporan Aset Tetap", path: "/laporan/aset-tetap" },
-            {
-                label: "Laporan Posisi Keuangan",
-                path: "/laporan/posisi-keuangan",
-            },
-            { label: "Laporan Laba Rugi", path: "/laporan/laba-rugi" },
-            { label: "Catatan atas Laporan Keuangan", path: "/laporan/calk" },
+            { label: "Laporan Penjualan", path: "/laporan/penjualan", roles: [SA, AK, MNG] },
+            { label: "Laporan Konsinyasi", path: "/laporan/konsinyasi", roles: [SA, AK, MNG] },
+            { label: "Laporan Retur Penjualan", path: "/laporan/retur-penjualan", roles: [SA, AK, MNG] },
+            { label: "Laporan Retur Konsinyasi", path: "/laporan/retur-konsinyasi", roles: [SA, AK, MNG] },
+            { label: "Laporan Pembelian", path: "/laporan/pembelian", roles: [SA, AK, MNG] },
+            { label: "Laporan Retur Pembelian", path: "/laporan/retur-pembelian", roles: [SA, AK, MNG] },
+            { label: "Laporan Piutang", path: "/laporan/piutang", roles: [SA, AK, MNG] },
+            { label: "Laporan Hutang", path: "/laporan/hutang-usaha", roles: [SA, AK, MNG] },
+            { label: "Laporan Persediaan Bahan Baku", path: "/laporan/persediaan-bahan-baku", roles: [SA, AK, MNG] },
+            { label: "Laporan Persediaan Bahan Penolong", path: "/laporan/persediaan-bahan-penolong", roles: [SA, AK, MNG] },
+            { label: "Laporan Pemakaian Bahan", path: "/laporan/pemakaian-bahan", roles: [SA, AK, MNG] },
+            { label: "Laporan Persediaan Produk Jadi", path: "/laporan/persediaan-produk-jadi", roles: [SA, AK, MNG] },
+            { label: "Laporan Persediaan Konsinyasi", path: "/laporan/persediaan-konsinyasi", roles: [SA, AK, MNG] },
+            { label: "Laporan Pengeluaran Lain-lain", path: "/laporan/pengeluaran-lain", roles: [SA, AK, MNG] },
+            { label: "Laporan Produksi", path: "/laporan-produksi", roles: [SA, AK, APR, MNG] },
+            { label: "Laporan Harga Pokok Produksi", path: "/laporan-hpp", roles: [SA, AK, APR, MNG] },
+            { label: "Laporan Aset Tetap", path: "/laporan/aset-tetap", roles: [SA, AK, MNG] },
+            { label: "Laporan Posisi Keuangan", path: "/laporan/posisi-keuangan", roles: [SA, AK, MNG] },
+            { label: "Laporan Laba Rugi", path: "/laporan/laba-rugi", roles: [SA, AK, MNG] },
+            { label: "Catatan atas Laporan Keuangan", path: "/laporan/calk", roles: [SA, AK, MNG] },
         ],
     },
 ];
 
 export default function Sidebar() {
-    const { url } = usePage();
+    const { url, props } = usePage<any>();
+    const userRole = props.auth?.user?.role || "super_admin";
     const [expandedMenus, setExpandedMenus] = useState<string[]>(["Dashboard"]);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
 
@@ -280,7 +240,9 @@ export default function Sidebar() {
                     {/* Menu */}
                     <nav className="flex-1 overflow-y-auto p-4">
                         <ul className="space-y-1">
-                            {menuItems.map((item) => (
+                            {menuItems
+                                .filter((item) => !item.roles || item.roles.includes(userRole))
+                                .map((item) => (
                                 <li key={item.label}>
                                     {item.subMenus ? (
                                         <div>
@@ -310,7 +272,9 @@ export default function Sidebar() {
                                                 item.label,
                                             ) && (
                                                 <ul className="mt-1 ml-4 space-y-1">
-                                                    {item.subMenus.map(
+                                                    {item.subMenus
+                                                        .filter((subItem) => !subItem.roles || subItem.roles.includes(userRole))
+                                                        .map(
                                                         (subItem) => (
                                                             <li
                                                                 key={
