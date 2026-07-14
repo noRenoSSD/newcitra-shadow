@@ -177,7 +177,7 @@ const menuItems: MenuItem[] = [
                 path: "/laporan/retur-pembelian",
             },
             { label: "Laporan Piutang", path: "/laporan/piutang" },
-            { label: "Laporan Hutang", path: "/laporan/hutang" },
+            { label: "Laporan Hutang", path: "/laporan/hutang-usaha" },
             {
                 label: "Laporan Persediaan Bahan Baku",
                 path: "/laporan/persediaan-bahan-baku",
@@ -205,7 +205,10 @@ const menuItems: MenuItem[] = [
             { label: "Laporan Produksi", path: "/laporan-produksi" },
             { label: "Laporan Harga Pokok Produksi", path: "/laporan-hpp" },
             { label: "Laporan Aset Tetap", path: "/laporan/aset-tetap" },
-            { label: "Laporan Posisi Keuangan", path: "/laporan/posisi-keuangan", },
+            {
+                label: "Laporan Posisi Keuangan",
+                path: "/laporan/posisi-keuangan",
+            },
             { label: "Laporan Laba Rugi", path: "/laporan/laba-rugi" },
             { label: "Catatan atas Laporan Keuangan", path: "/laporan/calk" },
         ],

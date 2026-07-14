@@ -89,7 +89,37 @@ class HutangUsahaController extends Controller
             'dbHutang' => $listHutang
         ]);
     }
+    public function laporan()
+{
+    // Mengambil data yang sama dengan index agar konsisten
+    $hutangRaw = \App\Models\HutangUsaha::with([
+        'transaksiPembelian.details.detailPenerimaan.bahan',
+        'transaksiPembelian.penerimaanBahan.purchaseOrder.supplier',
+        'riwayatPembayaran'
+    ])->get();
 
+    // Data mapping (bisa disesuaikan dengan kebutuhan laporan)
+    $listHutang = $hutangRaw->map(function ($h) {
+        $pembelian = $h->transaksiPembelian;
+        $po = $pembelian?->penerimaanBahan?->purchaseOrder;
+
+        return [
+            'id' => (string) $h->id_hutang,
+            'noHutang' => $h->no_hutang,
+            'noTransaksi' => $pembelian->no_faktur ?? '-',
+            'supplier' => $po?->supplier->nama_supplier ?? 'Supplier Tidak Diketahui',
+            'totalHutang' => (float) $h->total_hutang,
+            'terbayar' => (float) $h->terbayar,
+            'kurangBayar' => (float) $h->kurang_bayar,
+            'tanggalJatuhTempo' => $pembelian?->jatuh_tempo ?? '-',
+            'status' => $h->status,
+        ];
+    });
+
+    return Inertia::render('Laporan/LaporanHutangUsaha', [
+        'dbHutang' => $listHutang
+    ]);
+}
     public function bayar(Request $request, $id_hutang)
     {
         $request->validate([
@@ -142,8 +172,8 @@ class HutangUsahaController extends Controller
             // B. Tentukan Akun Kredit berdasarkan metode pembayaran
             // Jika kata kunci Cash/Tunai/Kas ada di input metode_pembayaran, pakai Kas. Selain itu pakai Bank.
             $metode = strtolower($request->metode_pembayaran);
-            $idAkunKredit = (str_contains($metode, 'kas') || str_contains($metode, 'tunai') || str_contains($metode, 'cash')) 
-                            ? $idAkunKas 
+            $idAkunKredit = (str_contains($metode, 'kas') || str_contains($metode, 'tunai') || str_contains($metode, 'cash'))
+                            ? $idAkunKas
                             : $idAkunBank;
 
             // Pastikan ID akunnya valid ditemukan di database

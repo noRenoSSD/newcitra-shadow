@@ -89,7 +89,66 @@ class TransaksiPembelianController extends Controller
             'riwayatTransaksi'  => $riwayatTransaksi
         ]);
     }
+/**
+     * Menampilkan halaman Laporan Pembelian
+     */
+    public function laporan()
+    {
+        // 1. Ambil Riwayat Transaksi saja (tidak perlu penerimaan pending untuk laporan)
+        $riwayatTransaksiRaw = TransaksiPembelian::with([
+            'penerimaanBahan.purchaseOrder.supplier',
+            'details.detailPenerimaan.bahan'
+        ])
+        ->orderBy('created_at', 'desc')
+        ->get();
 
+        // 2. Mapping data agar strukturnya cocok dengan React
+        $riwayatTransaksi = $riwayatTransaksiRaw->map(function($t) {
+            $penerimaan = $t->penerimaanBahan;
+            $po = $penerimaan ? $penerimaan->purchaseOrder : null;
+            $supplier = $po ? $po->supplier : null;
+
+            $mappedDetails = $t->details->map(function($d) {
+                $detPenerimaan = $d->detailPenerimaan;
+                $bahan = $detPenerimaan ? $detPenerimaan->bahan : null;
+
+                return [
+                    'qty'          => $detPenerimaan ? (int) $detPenerimaan->qty_diterima : 0,
+                    'harga_aktual' => (float) $d->harga_aktual,
+                    'subtotal'     => (float) $d->subtotal,
+                    'bahan'        => $bahan ? [
+                        'kode_bahan'   => $bahan->kode_bahan,
+                        'nama_bahan'   => $bahan->nama_bahan,
+                        'satuan_bahan' => $bahan->satuan_bahan ?? $bahan->satuan ?? '-',
+                        'jenis_bahan'  => $bahan->jenis_bahan ?? 'Bahan Baku'
+                    ] : null
+                ];
+            });
+
+            return [
+                'id_transaksi'      => $t->id_transaksi,
+                'no_faktur'         => $t->no_faktur,
+                'tanggal_transaksi' => $t->tanggal_transaksi,
+                'metode_pembayaran' => $t->metode_pembayaran,
+                'total_tagihan'     => $t->total_tagihan,
+                'penerimaan'        => $penerimaan ? [
+                    'no_penerimaan'  => $penerimaan->no_penerimaan,
+                    'purchase_order' => $po ? [
+                        'no_po'    => $po->no_po,
+                        'supplier' => $supplier ? [
+                            'nama_supplier' => $supplier->nama_supplier
+                        ] : null
+                    ] : null
+                ] : null,
+                'details' => $mappedDetails
+            ];
+        });
+
+        // 3. Panggil halaman React dengan folder "Laporan" (Huruf L Besar)
+        return Inertia::render('Laporan/LaporanPembelian', [
+            'riwayatTransaksi' => $riwayatTransaksi
+        ]);
+    }
     /**
      * Menyimpan transaksi pembelian, mutasi persediaan, dan otomatisasi JURNAL
      */

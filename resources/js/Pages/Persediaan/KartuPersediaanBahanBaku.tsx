@@ -82,10 +82,16 @@ export default function PersediaanBahanBaku({
         return new Intl.NumberFormat("id-ID", {
             style: "currency",
             currency: "IDR",
-            minimumFractionDigits: 0,
+            minimumFractionDigits: 2, // Mengunci minimal 2 desimal
+            maximumFractionDigits: 2, // Mengunci maksimal 2 desimal
         }).format(value);
     };
-
+    const formatUnit = (value: number) => {
+        return new Intl.NumberFormat("id-ID", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(value);
+    };
     return (
         <div className="p-6 bg-gray-50 min-h-screen print:bg-white print:p-0">
             {/* Page Header */}
@@ -294,8 +300,8 @@ export default function PersediaanBahanBaku({
                                             </td>
                                             <td className="px-4 py-3 text-right text-gray-700 border-r border-gray-100">
                                                 {mutasi.masukUnit > 0
-                                                    ? mutasi.masukUnit.toLocaleString(
-                                                          "id-ID",
+                                                    ? formatUnit(
+                                                          mutasi.masukUnit,
                                                       )
                                                     : "-"}
                                             </td>

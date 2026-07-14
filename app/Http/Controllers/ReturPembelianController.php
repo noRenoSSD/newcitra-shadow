@@ -23,7 +23,7 @@ class ReturPembelianController extends Controller
         // 2. Ambil data Penerimaan yang memiliki qty_retur > 0 di detailnya
         $pesananPenerimaan = PenerimaanBahan::with([
                 'purchaseOrder.supplier',
-                'detailPenerimaan.bahan' 
+                'detailPenerimaan.bahan'
             ])
             ->whereHas('detailPenerimaan', function ($q) {
                 $q->where('qty_retur', '>', 0);
@@ -71,7 +71,24 @@ class ReturPembelianController extends Controller
             'riwayatRetur'      => $riwayatRetur
         ]);
     }
+    /**
+     * Menampilkan halaman Laporan Retur Pembelian
+     */
+    public function laporan()
+    {
+        // Mengambil semua riwayat retur beserta relasi bahan dan penerimaannya
+        $riwayatRetur = ReturPembelian::with([
+                'penerimaan.purchaseOrder.supplier',
+                'details.bahan'
+            ])
+            ->orderBy('tanggal_retur', 'desc')
+            ->get();
 
+        // Mengirim data ke folder Laporan (huruf L besar)
+        return Inertia::render('Laporan/LaporanReturPembelian', [
+            'riwayatRetur' => $riwayatRetur
+        ]);
+    }
     public function store(Request $request)
     {
         $request->validate([
@@ -84,7 +101,7 @@ class ReturPembelianController extends Controller
         DB::beginTransaction();
         try {
             $totalNilai = 0;
-            
+
             // Variabel penampung untuk kebutuhan Jurnal
             $totalReturBahanBaku = 0;
             $totalReturBahanPenolong = 0;
@@ -139,7 +156,7 @@ class ReturPembelianController extends Controller
                         'retur_pembelian',
                         $request->no_retur,
                         $item['qtyRetur'],
-                        $hargaPake, 
+                        $hargaPake,
                         $request->tanggal_retur,
                         "Retur pembelian ke supplier. Alasan: " . ($item['alasan'] ?? '-')
                     );
@@ -191,7 +208,7 @@ class ReturPembelianController extends Controller
             // =================================================================
             // 4. OTOMATISASI JURNAL RETUR PEMBELIAN
             // =================================================================
-            
+
             // Kode Akun Berdasarkan Seeder
             $kodeAkunBahanBaku     = '1001004'; // PERSEDIAAN BAHAN BAKU
             $kodeAkunBahanPenolong = '1001005'; // PERSEDIAAN BAHAN PENOLONG

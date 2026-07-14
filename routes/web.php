@@ -222,7 +222,11 @@ Route::get('/transaksi-penjualan/{id}', [PenjualanController::class, 'show'])->n
     Route::get('/laporan/posisi-keuangan', [LaporanPosisiKeuanganController::class, 'index'])->name('laporan.posisi-keuangan.index');
     Route::get('/laporan/laba-rugi', [LaporanLabaRugiController::class, 'index'])->name('laporan.laba-rugi.index');
     Route::get('/laporan/calk', [LaporanCalkController::class, 'index'])->name('laporan.calk.index');
-
+    // 👇 1. TAMBAHKAN ROUTE INI DI SINI (Sesuai dengan path sidebar kamu)
+    Route::get('/laporan/pembelian', [TransaksiPembelianController::class, 'laporan'])->name('laporan.pembelian.index');
+    // Tambahkan di bawah route Laporan Pembelian yang tadi kita buat
+Route::get('/laporan/retur-pembelian', [ReturPembelianController::class, 'laporan'])->name('laporan.retur.index');
+Route::get('/laporan/hutang-usaha', [App\Http\Controllers\HutangUsahaController::class, 'laporan'])->name('laporan.hutang.index');
     // --- Pembelian (Purchasing) ---
     Route::prefix('pembelian/permintaan')->name('pp.')->group(function () {
         Route::get('/', [PermintaanPembelianController::class, 'index'])->name('index');
