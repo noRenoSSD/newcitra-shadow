@@ -2,6 +2,7 @@ import Sidebar from "@/Components/Sidebar";
 import Dropdown from "@/Components/Dropdown";
 import { usePage } from "@inertiajs/react";
 import { User, ChevronDown } from "lucide-react";
+import { useState, useEffect } from "react";
 
 export default function AuthenticatedLayout({
     header,
@@ -12,15 +13,50 @@ export default function AuthenticatedLayout({
 }) {
     const { auth } = usePage().props as any;
     const user = auth?.user;
+    const [pageTitle, setPageTitle] = useState("");
+
+    useEffect(() => {
+        const updateTitle = () => {
+            // Find the first h1 or h2 inside main to use as Topbar title
+            const mainEl = document.querySelector("main");
+            if (!mainEl) return;
+            const h1 = mainEl.querySelector("h1");
+            const h2 = mainEl.querySelector("h2");
+            const newTitle = (h1?.textContent || h2?.textContent || "").trim();
+            if (newTitle) {
+                setPageTitle(newTitle);
+            }
+        };
+
+        // Delay slightly to ensure React has flushed DOM
+        const timeout = setTimeout(updateTitle, 50);
+
+        // Observer to detect navigation changes inside main
+        const mainEl = document.querySelector("main");
+        const observer = new MutationObserver(() => {
+            updateTitle();
+        });
+        
+        if (mainEl) {
+            observer.observe(mainEl, { childList: true, subtree: true });
+        }
+
+        return () => {
+            clearTimeout(timeout);
+            observer.disconnect();
+        };
+    }, []);
 
     return (
         <div className="h-screen bg-gray-50 flex">
             <Sidebar />
             <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Top Navbar */}
-                <header className="bg-white shadow-sm px-6 py-3 border-b border-gray-200 flex justify-between items-center z-10 relative">
-                    <div className="flex-1">
-                        {header}
+                <header className="bg-white shadow-sm px-6 py-4 border-b border-gray-200 flex justify-between items-center z-20 relative">
+                    <div className="flex-1 flex items-center">
+                        {header ? header : (
+                            <h2 className="text-xl font-bold text-red-800">{pageTitle}</h2>
+                        )}
                     </div>
                     
                     <div className="flex items-center">
@@ -54,7 +90,7 @@ export default function AuthenticatedLayout({
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-y-auto p-6">{children}</main>
+                <main className="flex-1 overflow-y-auto px-6 py-8 relative z-10">{children}</main>
             </div>
         </div>
     );

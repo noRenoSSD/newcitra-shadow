@@ -241,24 +241,25 @@
   }
 }
 
-/* ─── 5. GLOBAL STICKY PAGE TITLES ───────────────────────────────────────── */
+/* ─── 5. GLOBAL PAGE TITLES ────────────────────────────────────────────────── */
 /* 
-   Ini membuat judul halaman (h1 atau h2 yang berada di bagian paling atas page) 
-   otomatis menjadi warna merah, bergaris bawah, dan sticky saat discroll
+   Sembunyikan judul asli di dalam halaman karena sudah dipindahkan 
+   secara otomatis ke Top Navbar (oleh AuthenticatedLayout)
 */
-main > div > div:first-child:has(h1),
-main > div > div:first-child:has(h2) {
-    position: sticky;
-    top: -1.5rem; /* Mengimbangi padding-top dari main (p-6 = 1.5rem) */
-    padding-top: 1.5rem;
-    padding-bottom: 1rem;
-    margin-bottom: 1rem;
-    background-color: #f9fafb; /* Sesuai dengan warna bg-gray-50 dari body */
-    z-index: 40;
-    border-bottom: 2px solid var(--brand-red-800);
-}
-
 main > div > div:first-child h1,
 main > div > div:first-child h2 {
-    color: var(--brand-red-800) !important;
+    display: none !important;
+}
+
+main > div > div:first-child h1 + p,
+main > div > div:first-child h2 + p {
+    display: none !important;
+}
+
+/* Jika container judul (div yang membungkus h1/h2) jadi kosong, hilangkan marginnya */
+main > div > div:first-child > div:has(> h1:only-child),
+main > div > div:first-child > div:has(> h2:only-child),
+main > div > div:first-child > div:has(> h1:first-child:nth-last-child(2) ~ p),
+main > div > div:first-child > div:has(> h2:first-child:nth-last-child(2) ~ p) {
+    display: none !important;
 }
