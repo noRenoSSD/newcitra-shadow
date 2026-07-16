@@ -3,7 +3,14 @@ import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
 import TextInput from "@/Components/TextInput";
 import { Head, Link, useForm } from "@inertiajs/react";
-import { FormEventHandler } from "react";
+import { FormEventHandler, useState, useEffect } from "react";
+
+const BG_IMAGES = [
+    '/images/bg/1.png',
+    '/images/bg/2.png',
+    '/images/bg/3.png',
+    '/images/bg/4.png',
+];
 
 export default function Login({
     status,
@@ -12,6 +19,21 @@ export default function Login({
     status?: string;
     canResetPassword: boolean;
 }) {
+    const [currentBg, setCurrentBg] = useState(0);
+
+    useEffect(() => {
+        // Preload images to prevent flickering
+        BG_IMAGES.forEach((src) => {
+            const img = new Image();
+            img.src = src;
+        });
+
+        const interval = setInterval(() => {
+            setCurrentBg((prev) => (prev + 1) % BG_IMAGES.length);
+        }, 5000); // Ganti foto tiap 5 detik
+        return () => clearInterval(interval);
+    }, []);
+
     const { data, setData, post, processing, errors, reset } = useForm({
         email: "",
         password: "",
@@ -26,13 +48,26 @@ export default function Login({
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-100 relative overflow-hidden p-6 sm:p-12">
+        <div className="min-h-screen flex items-center justify-center relative overflow-hidden p-6 sm:p-12">
             <Head title="Log in" />
 
-            {/* Background Decorative Blur */}
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
-                <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-red-200/50 mix-blend-multiply filter blur-[100px] animate-pulse"></div>
-                <div className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] rounded-full bg-yellow-200/40 mix-blend-multiply filter blur-[100px] animate-pulse" style={{ animationDelay: '2s' }}></div>
+            {/* Background Image Slider */}
+            <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 bg-gray-900">
+                {BG_IMAGES.map((img, index) => (
+                    <div
+                        key={img}
+                        className={`absolute top-0 left-0 w-full h-full bg-cover bg-center transition-opacity duration-1000 ease-in-out ${
+                            index === currentBg ? 'opacity-100' : 'opacity-0'
+                        }`}
+                        style={{ 
+                            backgroundImage: `url(${img})`, 
+                            filter: 'blur(8px)', 
+                            transform: 'scale(1.05)' // Menutupi tepian putih dari efek blur
+                        }}
+                    ></div>
+                ))}
+                {/* Overlay gelap agar form tetap terbaca */}
+                <div className="absolute top-0 left-0 w-full h-full bg-black/10"></div>
             </div>
 
             {/* Floating Card Container */}
