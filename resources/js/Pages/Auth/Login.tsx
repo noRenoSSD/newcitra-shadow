@@ -6,10 +6,10 @@ import { Head, Link, useForm } from "@inertiajs/react";
 import { FormEventHandler, useState, useEffect } from "react";
 
 const BG_IMAGES = [
-    '/images/bg/1.png',
-    '/images/bg/2.png',
-    '/images/bg/3.png',
-    '/images/bg/4.png',
+    '/images/bg/1.webp',
+    '/images/bg/2.webp',
+    '/images/bg/3.webp',
+    '/images/bg/4.webp',
 ];
 
 export default function Login({
