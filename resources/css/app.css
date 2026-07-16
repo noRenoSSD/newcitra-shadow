@@ -243,9 +243,10 @@
 
 /* ─── 5. GLOBAL STICKY PAGE TITLES ───────────────────────────────────────── */
 /* 
-   Ini membuat judul halaman (h2 yang berada di bagian paling atas page) 
+   Ini membuat judul halaman (h1 atau h2 yang berada di bagian paling atas page) 
    otomatis menjadi warna merah, bergaris bawah, dan sticky saat discroll
 */
+main > div > div:first-child:has(h1),
 main > div > div:first-child:has(h2) {
     position: sticky;
     top: -1.5rem; /* Mengimbangi padding-top dari main (p-6 = 1.5rem) */
@@ -257,6 +258,7 @@ main > div > div:first-child:has(h2) {
     border-bottom: 2px solid var(--brand-red-800);
 }
 
+main > div > div:first-child h1,
 main > div > div:first-child h2 {
     color: var(--brand-red-800) !important;
 }
